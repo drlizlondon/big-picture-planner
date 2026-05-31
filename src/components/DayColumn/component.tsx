@@ -20,7 +20,6 @@ interface Props {
 export const DayColumn: React.FC<Props> = ({ date, onEditBlock, hourHeight, visibleHours, visibleStartHour, visibleEndHour, isExpanded = false }) => {
   const blocks = useWeekBlocks(date, date) || [];
   const isToday = date === formatDate(new Date());
-  const isSunday = new Date(`${date}T00:00:00`).getDay() === 0;
   const now = new Date();
   const currentMinute = now.getHours() * 60 + now.getMinutes();
   const minuteHeight = hourHeight / 60;
@@ -35,7 +34,7 @@ export const DayColumn: React.FC<Props> = ({ date, onEditBlock, hourHeight, visi
   });
 
   return (
-    <div className={`day-column ${isExpanded ? 'expanded-day' : ''} flex-1 min-w-[120px] border-r border-border-default/30 last:border-r-0 relative flex flex-col z-grid ${isToday ? 'bg-accent-primary/[0.035]' : isSunday ? 'bg-accent-primary/[0.025]' : 'bg-surface-primary'}`}>
+    <div className={`day-column ${isExpanded ? 'expanded-day' : ''} flex-1 min-w-[120px] border-r border-border-default/30 last:border-r-0 relative flex flex-col z-grid ${isToday ? 'bg-accent-primary/[0.035]' : 'bg-surface-primary'}`}>
       
       {/* Render 15-min snap drop slots */}
       {visibleHours.map(hour => (
