@@ -1,0 +1,286 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* Ensure the React root takes up the full screen height for the AppShell */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+.mobile-life-inbox-tray,
+.mobile-add-fab,
+.planner-week-range-mobile {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .planner-header {
+    height: 82px;
+    padding: 8px 12px;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .planner-header-main {
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .planner-brand {
+    min-width: 0;
+  }
+
+  .planner-brand .text-\[22px\] {
+    font-size: 20px;
+    line-height: 1.05;
+  }
+
+  .planner-brand .text-\[11px\] {
+    display: none;
+  }
+
+  .planner-nav {
+    padding-left: 0;
+    gap: 8px;
+  }
+
+  .planner-today-button {
+    height: 36px;
+    padding-inline: 14px;
+  }
+
+  .planner-week-nav {
+    min-width: 0;
+    flex: 1;
+    gap: 8px;
+  }
+
+  .planner-week-button {
+    height: 36px;
+    width: 38px;
+    flex-shrink: 0;
+  }
+
+  .planner-week-range {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px;
+  }
+
+  .planner-week-range-desktop {
+    display: none;
+  }
+
+  .planner-week-range-mobile {
+    display: inline;
+  }
+
+  .planner-header-actions {
+    gap: 0;
+    flex-shrink: 0;
+  }
+
+  .planner-setup-button {
+    height: 36px;
+    width: 42px;
+    padding: 0;
+    justify-content: center;
+    font-size: 0;
+  }
+
+  .planner-setup-button span {
+    font-size: 13px;
+  }
+
+  .planner-workspace {
+    padding: 8px;
+    padding-bottom: var(--mobile-tray-offset, 172px);
+    gap: 6px;
+  }
+
+  .planner-workspace.mobile-inbox-expanded {
+    --mobile-tray-offset: 342px;
+  }
+
+  .planner-workspace.mobile-inbox-collapsed {
+    --mobile-tray-offset: 168px;
+  }
+
+  .planner-workspace.is-dragging-block {
+    --mobile-tray-offset: 128px;
+  }
+
+  .planner-sidebar,
+  .week-edge-drop-zone {
+    display: none;
+  }
+
+  .planner-workspace main {
+    border-radius: 14px;
+  }
+
+  .mobile-life-inbox-tray {
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    pointer-events: auto;
+    background: #fff;
+    border-top: 1px solid #e7eaf0;
+    box-shadow: 0 -10px 28px rgba(26, 29, 41, 0.12);
+    transition: height 180ms ease, transform 180ms ease;
+  }
+
+  .mobile-life-inbox-tray.collapsed {
+    height: 152px;
+  }
+
+  .mobile-life-inbox-tray.expanded {
+    height: min(336px, 46dvh);
+  }
+
+  .mobile-life-inbox-tray.dragging {
+    height: 112px;
+  }
+
+  .mobile-tray-panel {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 12px 12px;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    overflow: hidden;
+  }
+
+  .mobile-tray-header {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    user-select: none;
+    touch-action: pan-x;
+  }
+
+  .mobile-tray-handle {
+    width: 42px;
+    height: 30px;
+    border-radius: 10px;
+    border: 1px solid #e7eaf0;
+    background: #f7f8fb;
+    color: #667085;
+    font-size: 12px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-tray-handle span {
+    display: inline-block;
+    transition: transform 160ms ease;
+  }
+
+  .mobile-inbox-rail {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(172px, 43vw);
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 2px 2px 8px;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-inbox-card {
+    min-height: 62px;
+    padding: 8px 10px;
+    scroll-snap-align: start;
+  }
+
+  .mobile-add-fab {
+    display: block;
+    position: absolute;
+    z-index: 1001;
+    bottom: calc(var(--mobile-tray-offset, 168px) + 14px);
+  }
+
+  .week-grid-shell {
+    min-width: 100%;
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+
+  .week-grid-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .week-grid-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .week-days-header {
+    top: 83px;
+    min-width: max-content;
+  }
+
+  .week-day-heading,
+  .day-column {
+    min-width: 86px;
+    transition: min-width 180ms ease, flex 180ms ease, box-shadow 180ms ease;
+  }
+
+  .week-grid-shell.has-expanded-day .week-day-heading,
+  .week-grid-shell.has-expanded-day .day-column {
+    min-width: 68px;
+    flex: 0.7 0 68px;
+  }
+
+  .week-grid-shell.has-expanded-day .week-day-heading.expanded-day,
+  .week-grid-shell.has-expanded-day .day-column.expanded-day {
+    min-width: min(330px, 78vw);
+    flex: 2.8 0 min(330px, 78vw);
+    box-shadow: inset 0 0 0 2px rgba(124, 92, 252, 0.2);
+  }
+
+  .week-grid-shell .text-\[13px\] {
+    font-size: 12px;
+  }
+
+  .week-grid-shell .text-\[11px\] {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 420px) {
+  .mobile-inbox-rail {
+    grid-auto-columns: minmax(154px, 58vw);
+  }
+
+  .week-day-heading,
+  .day-column {
+    min-width: 78px;
+  }
+}
