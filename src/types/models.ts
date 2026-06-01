@@ -88,3 +88,27 @@ export interface PlannerTemplate {
   updatedAt: number;
   isArchived: boolean; // Soft delete
 }
+
+export type SyncEntityType = 'blocks' | 'templates';
+export type SyncAction = 'upsert' | 'delete';
+export type SyncStatusText = 'Saved on this device' | 'Sync pending' | 'Syncing' | 'Synced' | 'Sync failed, retrying';
+export type ImportDecision = 'imported' | 'device-only' | 'later';
+
+export interface SyncQueueItem {
+  id: string;
+  entityType: SyncEntityType;
+  entityId: string;
+  action: SyncAction;
+  payload?: PlannerBlock | PlannerTemplate;
+  createdAt: number;
+  updatedAt: number;
+  attempts: number;
+  nextAttemptAt?: number;
+  lastError?: string;
+}
+
+export interface SyncMeta {
+  key: string;
+  value: string;
+  updatedAt: number;
+}

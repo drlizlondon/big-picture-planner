@@ -8,11 +8,15 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:import": "node scripts/plannerImport.test.mjs"
+    "test": "npm run test:import && npm run test:sync && npm run test:account",
+    "test:import": "node scripts/plannerImport.test.mjs",
+    "test:sync": "node --test scripts/syncCore.test.mjs",
+    "test:account": "node --test scripts/accountAccess.test.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/utilities": "^3.2.2",
+    "@supabase/supabase-js": "^2.106.2",
     "dexie": "^4.4.3",
     "dexie-react-hooks": "^4.4.0",
     "react": "^19.2.6",

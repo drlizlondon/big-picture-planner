@@ -1,6 +1,7 @@
 import { db, createId } from '../db/db';
 import type { PlannerBlock, PlannerTemplate } from '../types/models';
 import { calculateEndTime } from '../utils/planningEngine';
+import { enqueueSyncChange } from './syncService';
 
 export const createBlock = async (
   blockData: Omit<PlannerBlock, 'id' | 'createdAt' | 'updatedAt'>
@@ -19,6 +20,7 @@ export const createBlock = async (
   };
 
   await db.blocks.add(newBlock);
+  await enqueueSyncChange('blocks', id, 'upsert', newBlock);
   return id;
 };
 
@@ -28,14 +30,19 @@ export const updateBlock = async (id: string, updates: Partial<PlannerBlock>): P
     ...updates,
     updatedAt: now
   });
+  const block = await db.blocks.get(id);
+  if (block) await enqueueSyncChange('blocks', id, block.deletedAt ? 'delete' : 'upsert', block);
 };
 
 export const deleteBlock = async (id: string): Promise<void> => {
+  const now = Date.now();
   // Soft delete as required by specification
   await db.blocks.update(id, {
-    deletedAt: Date.now(),
-    updatedAt: Date.now()
+    deletedAt: now,
+    updatedAt: now
   });
+  const block = await db.blocks.get(id);
+  if (block) await enqueueSyncChange('blocks', id, 'delete', block);
 };
 
 export const createTemplate = async (
@@ -53,7 +60,18 @@ export const createTemplate = async (
   };
 
   await db.templates.add(newTemplate);
+  await enqueueSyncChange('templates', id, 'upsert', newTemplate);
   return id;
+};
+
+export const archiveTemplate = async (id: string): Promise<void> => {
+  const now = Date.now();
+  await db.templates.update(id, {
+    isArchived: true,
+    updatedAt: now,
+  });
+  const template = await db.templates.get(id);
+  if (template) await enqueueSyncChange('templates', id, 'delete', template);
 };
 
 export const duplicateBlock = async (id: string, inPlace: boolean = false): Promise<string | null> => {
@@ -63,10 +81,8 @@ export const duplicateBlock = async (id: string, inPlace: boolean = false): Prom
   const newId = createId();
   const now = Date.now();
   
-  const { id: _oldId, ...blockData } = block;
-
   const duplicatedBlock: PlannerBlock = {
-    ...blockData,
+    ...block,
     id: newId,
     createdAt: now,
     updatedAt: now,
@@ -80,6 +96,7 @@ export const duplicateBlock = async (id: string, inPlace: boolean = false): Prom
   };
 
   await db.blocks.add(duplicatedBlock);
+  await enqueueSyncChange('blocks', newId, 'upsert', duplicatedBlock);
   return newId;
 };
 
@@ -89,13 +106,17 @@ export const moveBlockToWeek = async (id: string, date: string, startTime: strin
 
   const endTime = calculateEndTime(startTime, block.durationMinutes);
 
-  await db.blocks.update(id, {
+  const updates: Partial<PlannerBlock> = {
     isScheduled: true,
     date,
     startTime,
     endTime,
     updatedAt: Date.now()
-  });
+  };
+
+  await db.blocks.update(id, updates);
+  const updatedBlock = await db.blocks.get(id);
+  if (updatedBlock) await enqueueSyncChange('blocks', id, 'upsert', updatedBlock);
 };
 
 export const moveBlockByDays = async (id: string, days: number): Promise<void> => {
@@ -117,4 +138,6 @@ export const moveBlockToSchedule = async (id: string): Promise<void> => {
     endTime: undefined,
     updatedAt: Date.now()
   });
+  const updatedBlock = await db.blocks.get(id);
+  if (updatedBlock) await enqueueSyncChange('blocks', id, 'upsert', updatedBlock);
 };

@@ -13,7 +13,11 @@ interface Props {
 
 export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBlock }) => {
   const createBtnRef = useRef<HTMLButtonElement>(null);
+  const quickTitleRef = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<'menu' | 'paste' | 'review' | 'importReview'>('menu');
+  const [quickTitle, setQuickTitle] = useState('');
+  const [quickDuration, setQuickDuration] = useState(30);
+  const [isQuickSaving, setIsQuickSaving] = useState(false);
   const [pasteText, setPasteText] = useState('');
   const [defaultDuration, setDefaultDuration] = useState(30);
   const [drafts, setDrafts] = useState<Array<{ id: string; title: string; durationMinutes: number; selected: boolean }>>([]);
@@ -21,6 +25,8 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
 
   const reset = () => {
     setView('menu');
+    setQuickTitle('');
+    setQuickDuration(30);
     setPasteText('');
     setDefaultDuration(30);
     setDrafts([]);
@@ -38,7 +44,7 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
     };
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
-      createBtnRef.current?.focus();
+      setTimeout(() => quickTitleRef.current?.focus() || createBtnRef.current?.focus(), 50);
     }
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
@@ -65,6 +71,34 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
 
     setDrafts(nextDrafts);
     setView('review');
+  };
+
+  const handleQuickSave = async () => {
+    const title = quickTitle.trim();
+    if (!title || isQuickSaving) return;
+
+    setIsQuickSaving(true);
+    await createBlock({
+      title,
+      durationMinutes: quickDuration,
+      description: undefined,
+      categoryId: undefined,
+      date: undefined,
+      startTime: undefined,
+      endTime: undefined,
+      isScheduled: false,
+      isBaseEvent: false,
+      isHidden: false,
+      sourceType: 'manual',
+      travelEnabled: false,
+      travelBeforeMinutes: 60,
+      travelAfterMinutes: 60,
+      additionalTimezone: undefined,
+      features: {},
+    });
+    setQuickTitle('');
+    setIsQuickSaving(false);
+    requestAnimationFrame(() => quickTitleRef.current?.focus());
   };
 
   const handleConfirmImport = async () => {
@@ -145,7 +179,37 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
         </div>
 
         {view === 'menu' && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
+            <form
+              className="rounded-medium border border-border-default bg-background p-3 flex flex-col gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleQuickSave();
+              }}
+            >
+              <label className="text-[12px] font-bold uppercase text-text-primary tracking-[0.04em]" htmlFor="quick-add-title">Quick add</label>
+              <input
+                ref={quickTitleRef}
+                id="quick-add-title"
+                value={quickTitle}
+                onChange={(event) => setQuickTitle(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') return;
+                  event.preventDefault();
+                  void handleQuickSave();
+                }}
+                className="h-[44px] rounded-small border border-border-default bg-white px-3 text-[16px] outline-none focus:border-accent-primary"
+                placeholder="What do you need to plan?"
+              />
+              <DurationSelector value={quickDuration} onChange={setQuickDuration} label="Duration" compact />
+              <button
+                type="submit"
+                disabled={!quickTitle.trim() || isQuickSaving}
+                className="w-full h-[44px] bg-accent-primary hover:bg-accent-hover disabled:opacity-50 text-white rounded-medium font-bold text-[14px] transition-colors shadow-sm"
+              >
+                {isQuickSaving ? 'Adding...' : 'Add to Life Inbox'}
+              </button>
+            </form>
             <button 
               ref={createBtnRef}
               onClick={onCreateBlock}

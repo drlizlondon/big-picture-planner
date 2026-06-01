@@ -1,6 +1,7 @@
 // Planner Header Component
 import React from 'react';
 import { getStartOfWeek, addDays } from '../../utils/dateUtils';
+import { SyncStatusPanel } from '../SyncStatusPanel/component';
 
 interface Props {
   currentDate: Date;
@@ -51,6 +52,7 @@ export const PlannerHeader: React.FC<Props> = ({ currentDate, onPrevWeek, onNext
       
       <div className="planner-header-actions flex items-center gap-6">
         <PlanningLegend />
+        <SyncStatusPanel />
         <button onClick={onOpenSetup} className="planner-setup-button h-10 text-[13px] font-semibold px-4 hover:bg-background rounded-medium border border-border-default shadow-sm transition-colors flex items-center gap-2">
           <span aria-hidden="true">⚙</span>
           Planner Setup

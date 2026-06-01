@@ -3,7 +3,7 @@ import { PlannerHeader } from '../PlannerHeader/component';
 import { Sidebar } from '../Sidebar/component';
 import { WeekGrid } from '../WeekGrid/component';
 import { addDays } from '../../utils/dateUtils';
-import { DndContext, MouseSensor, TouchSensor, useDroppable, useSensor, useSensors, type DragEndEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
+import { DndContext, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useDroppable, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
 import { moveBlockToSchedule, moveBlockToWeek } from '../../services/plannerActions';
 import { AddToPlannerModal } from '../AddToPlannerModal/component';
 import { BlockEditor } from '../BlockEditor/component';
@@ -13,6 +13,10 @@ import { useBlock } from '../../hooks/usePlannerData';
 import { calculateEndTime } from '../../utils/planningEngine';
 
 const MOBILE_INBOX_PREF_KEY = 'planner.mobileInboxExpanded';
+const collisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  return pointerCollisions.length > 0 ? pointerCollisions : rectIntersection(args);
+};
 
 // The main application shell layout
 export const AppShell: React.FC = () => {
@@ -161,7 +165,7 @@ export const AppShell: React.FC = () => {
   const isBlockingPanelOpen = isAddModalOpen || isBlockEditorOpen || isPlannerSetupOpen;
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
+    <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
     <div className="relative flex flex-col h-screen overflow-hidden bg-white text-text-primary font-sans">
       <PlannerHeader currentDate={currentDate} onPrevWeek={handlePrevWeek} onNextWeek={handleNextWeek} onToday={handleToday} onOpenSetup={() => setIsPlannerSetupOpen(true)} />
       
