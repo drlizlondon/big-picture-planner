@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { PlannerBlock } from '../../types/models';
@@ -29,6 +29,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
   const categories = useCategories() || [];
   const category = block.categoryId ? categories.find(cat => cat.id === block.categoryId) : undefined;
   const childcare = block.features?.[BUILT_IN_CHILDCARE_FEATURE_ID];
+  const [isActionsOpen, setIsActionsOpen] = useState(false);
 
   const wasDragging = useRef(false);
   const pointerStart = useRef<{ x: number; y: number } | null>(null);
@@ -75,7 +76,9 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
   const startMinutes = (hours * 60) + minutes;
   const topOffset = (startMinutes - visibleStartMinute) * minuteHeight;
   const isShortBlock = block.durationMinutes <= 30;
+  const usesCompactActions = block.durationMinutes <= 45;
   const isLongBlock = block.durationMinutes >= 60;
+  const actionPlacement: ActionPlacement = topOffset < 34 ? 'below' : 'above';
   const titleLineClamp = block.durationMinutes < 45 ? 1 : block.durationMinutes < 90 ? 2 : 3;
   let endTime = block.endTime;
   if (!endTime) {
@@ -130,18 +133,31 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
     block.reviewColour ? `Status: ${getReviewStatus(block.reviewColour)}` : undefined,
   ].filter(Boolean).join('\n');
 
+  const stopActionPointer = (e: React.PointerEvent | React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
+  const handleEditAction = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsActionsOpen(false);
+    onEditBlock(block.id);
+  };
+
   const handleMoveToSchedule = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    setIsActionsOpen(false);
     await moveBlockToSchedule(block.id);
   };
 
   const handleDuplicate = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    setIsActionsOpen(false);
     await duplicateBlock(block.id);
   };
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    setIsActionsOpen(false);
     await deleteBlock(block.id);
   };
 
@@ -176,6 +192,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
       onPointerUp={handlePointerUp}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
+      onMouseLeave={() => setIsActionsOpen(false)}
       tabIndex={0}
       className={`absolute left-1 right-1 rounded-small p-1.5 shadow-sm z-blocks cursor-grab active:cursor-grabbing hover:ring-2 hover:ring-text-primary/10 transition-colors group flex flex-col border border-l-[3px] text-text-primary overflow-visible ${isDragging ? 'opacity-85 scale-[1.02] shadow-hover' : ''} ${isSelected ? 'scheduled-block-selected' : ''}`}
       title={tooltip}
@@ -201,14 +218,31 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
             {block.title}
           </div>
         </div>
-        <div className="hidden group-hover:flex absolute right-1 top-1 items-center gap-1 bg-surface-primary/95 px-1 rounded z-20 border border-border-default shadow-sm">
-          <button onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onEditBlock(block.id); }} className="text-text-secondary hover:text-text-primary p-0.5" title="Edit">✎</button>
-          <span className="text-text-secondary text-[11px] leading-[22px]" title="Move">↕</span>
-          <button onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={handleMoveToSchedule} className="text-text-secondary hover:text-text-primary p-0.5" title="Move to Ready to schedule">↰</button>
-          <button onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={handleDuplicate} className="text-text-secondary hover:text-text-primary p-0.5" title="Duplicate">⧉</button>
-          <button onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={handleDelete} className="text-semantic-danger hover:text-semantic-danger p-0.5" title="Delete">×</button>
-        </div>
       </div>
+
+      {usesCompactActions ? (
+        <CompactActionMenu
+          isOpen={isActionsOpen}
+          onToggle={(e) => {
+            e.stopPropagation();
+            setIsActionsOpen(prev => !prev);
+          }}
+          onEdit={handleEditAction}
+          onMoveToSchedule={handleMoveToSchedule}
+          onDuplicate={handleDuplicate}
+          onDelete={handleDelete}
+          onPointerStop={stopActionPointer}
+        />
+      ) : (
+        <FloatingActionToolbar
+          placement={actionPlacement}
+          onEdit={handleEditAction}
+          onMoveToSchedule={handleMoveToSchedule}
+          onDuplicate={handleDuplicate}
+          onDelete={handleDelete}
+          onPointerStop={stopActionPointer}
+        />
+      )}
       
       <div className="flex flex-wrap items-center gap-1 mt-0.5 overflow-hidden pointer-events-none">
         {childcare?.enabled && !childcare.isComplete && <div className="text-[10px] font-semibold bg-white/70 border border-border-default px-1 rounded flex items-center whitespace-nowrap" title="Childcare needed">Childcare?</div>}
@@ -239,6 +273,82 @@ const SelectionHandles: React.FC = () => (
     <span className="pointer-events-none absolute -bottom-1 -left-1 h-2 w-2 rounded-full border border-[#2563EB] bg-white shadow-sm" />
     <span className="pointer-events-none absolute -bottom-1 -right-1 h-2 w-2 rounded-full border border-[#2563EB] bg-white shadow-sm" />
   </>
+);
+
+interface ActionControlsProps {
+  onEdit: (e: React.MouseEvent) => void;
+  onMoveToSchedule: (e: React.MouseEvent) => void;
+  onDuplicate: (e: React.MouseEvent) => void;
+  onDelete: (e: React.MouseEvent) => void;
+  onPointerStop: (e: React.PointerEvent | React.MouseEvent) => void;
+}
+
+type ActionPlacement = 'above' | 'below';
+
+interface FloatingActionToolbarProps extends ActionControlsProps {
+  placement: ActionPlacement;
+}
+
+const FloatingActionToolbar: React.FC<FloatingActionToolbarProps> = ({ placement, onEdit, onMoveToSchedule, onDuplicate, onDelete, onPointerStop }) => (
+  <div className={`pointer-events-none absolute right-0 z-30 hidden items-center gap-1 rounded-small border border-border-default bg-surface-primary/95 px-1 py-1 shadow-sm backdrop-blur group-hover:flex group-focus-within:flex ${placement === 'above' ? '-top-8' : 'top-full mt-1'}`}>
+    <ActionButton label="Edit" onClick={onEdit} onPointerStop={onPointerStop}>✎</ActionButton>
+    <ActionButton label="Move to Ready to schedule" onClick={onMoveToSchedule} onPointerStop={onPointerStop}>↰</ActionButton>
+    <ActionButton label="Duplicate" onClick={onDuplicate} onPointerStop={onPointerStop}>⧉</ActionButton>
+    <ActionButton label="Delete" onClick={onDelete} onPointerStop={onPointerStop} danger>×</ActionButton>
+  </div>
+);
+
+interface CompactActionMenuProps extends ActionControlsProps {
+  isOpen: boolean;
+  onToggle: (e: React.MouseEvent) => void;
+}
+
+const CompactActionMenu: React.FC<CompactActionMenuProps> = ({ isOpen, onToggle, onEdit, onMoveToSchedule, onDuplicate, onDelete, onPointerStop }) => (
+  <div className="pointer-events-none absolute -right-2 -top-2 z-30 flex items-start justify-end">
+    <button
+      type="button"
+      aria-label="Block actions"
+      aria-expanded={isOpen}
+      onPointerDown={onPointerStop}
+      onPointerUp={onPointerStop}
+      onClick={onToggle}
+      className="pointer-events-none h-6 w-6 rounded-full border border-border-default bg-surface-primary/95 text-[13px] font-bold leading-none text-text-secondary opacity-0 shadow-sm transition-opacity hover:text-text-primary group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+      title="Block actions"
+    >
+      ⋯
+    </button>
+
+    {isOpen && (
+      <div className="pointer-events-auto absolute right-0 top-7 flex items-center gap-1 rounded-small border border-border-default bg-surface-primary/95 px-1 py-1 shadow-sm backdrop-blur">
+        <ActionButton label="Edit" onClick={onEdit} onPointerStop={onPointerStop}>✎</ActionButton>
+        <ActionButton label="Move to Ready to schedule" onClick={onMoveToSchedule} onPointerStop={onPointerStop}>↰</ActionButton>
+        <ActionButton label="Duplicate" onClick={onDuplicate} onPointerStop={onPointerStop}>⧉</ActionButton>
+        <ActionButton label="Delete" onClick={onDelete} onPointerStop={onPointerStop} danger>×</ActionButton>
+      </div>
+    )}
+  </div>
+);
+
+interface ActionButtonProps {
+  children: React.ReactNode;
+  label: string;
+  onClick: (e: React.MouseEvent) => void;
+  onPointerStop: (e: React.PointerEvent | React.MouseEvent) => void;
+  danger?: boolean;
+}
+
+const ActionButton: React.FC<ActionButtonProps> = ({ children, label, onClick, onPointerStop, danger = false }) => (
+  <button
+    type="button"
+    onPointerDown={onPointerStop}
+    onPointerUp={onPointerStop}
+    onClick={onClick}
+    className={`pointer-events-auto flex h-6 w-6 items-center justify-center rounded-[7px] text-[12px] font-bold transition-colors ${danger ? 'text-semantic-danger hover:bg-semantic-danger/10' : 'text-text-secondary hover:bg-background hover:text-text-primary'}`}
+    title={label}
+    aria-label={label}
+  >
+    {children}
+  </button>
 );
 
 const getBlockTone = (block: PlannerBlock, hasConflicts: boolean, categoryName?: string): { background: string; border: string; accent: string } => {
