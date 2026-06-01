@@ -6,6 +6,7 @@ import { calculateEndTime, getBlockConflicts, getEffectiveMinuteRange, minutesTo
 import { useCategories, useFeatures } from '../../hooks/usePlannerData';
 import { deleteBlock, duplicateBlock, moveBlockToSchedule, moveBlockToWeek } from '../../services/plannerActions';
 import { BUILT_IN_CHILDCARE_FEATURE_ID } from '../../utils/plannerSetup';
+import { formatDurationLabel } from '../../utils/durationLabels';
 
 interface Props {
   block: PlannerBlock;
@@ -105,7 +106,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
         minute: '2-digit'
       });
       secondaryTimeStr = formatter.format(d);
-    } catch (e) {
+    } catch {
       // Fallback silently if timezone parsing fails
     }
   }
@@ -119,13 +120,13 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
     backgroundColor: blockTone.background,
     borderColor: isSelected ? '#2563EB' : blockTone.border,
     borderLeftColor: blockTone.accent,
-    boxShadow: isSelected ? '0 0 0 1px rgba(37,99,235,0.18), 0 8px 18px rgba(37,99,235,0.10)' : `0 2px 8px ${blockTone.accent}1F`,
+    boxShadow: isSelected ? '0 0 0 1px rgba(37,99,235,0.18), 0 8px 18px rgba(37,99,235,0.10)' : `0 2px 7px ${blockTone.accent}18`,
   };
   const tooltip = [
     block.title,
     block.date ? `Date: ${block.date}` : undefined,
     `Time: ${timeRange}`,
-    `Duration: ${block.durationMinutes} min`,
+    `Duration: ${formatDurationLabel(block.durationMinutes)}`,
     block.reviewColour ? `Status: ${getReviewStatus(block.reviewColour)}` : undefined,
   ].filter(Boolean).join('\n');
 
@@ -176,16 +177,16 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       tabIndex={0}
-      className={`absolute left-0.5 right-0.5 rounded-small p-1.5 shadow-sm z-blocks cursor-grab active:cursor-grabbing hover:ring-2 hover:ring-text-primary/10 transition-colors group flex flex-col border border-l-[3px] text-text-primary overflow-visible ${isDragging ? 'opacity-85 scale-[1.02] shadow-hover' : ''} ${isSelected ? 'scheduled-block-selected' : ''}`}
+      className={`absolute left-1 right-1 rounded-small p-1.5 shadow-sm z-blocks cursor-grab active:cursor-grabbing hover:ring-2 hover:ring-text-primary/10 transition-colors group flex flex-col border border-l-[3px] text-text-primary overflow-visible ${isDragging ? 'opacity-85 scale-[1.02] shadow-hover' : ''} ${isSelected ? 'scheduled-block-selected' : ''}`}
       title={tooltip}
     >
       {isSelected && <SelectionHandles />}
 
       <div className="flex justify-between items-start gap-1 min-w-0">
         <div className="min-w-0 flex-1 pr-0">
-          <div className="text-[11px] font-semibold text-text-secondary leading-[1.15] truncate" style={{ wordBreak: 'normal', overflowWrap: 'normal', hyphens: 'none' }}>{visibleTimeLabel}{secondaryTimeStr && !isShortBlock && ` • ${secondaryTimeStr}`}</div>
+          <div className="text-[10px] font-bold text-text-secondary leading-[1.15] truncate" style={{ wordBreak: 'normal', overflowWrap: 'normal', hyphens: 'none' }}>{visibleTimeLabel}{secondaryTimeStr && !isShortBlock && ` • ${secondaryTimeStr}`}</div>
           <div
-            className="mt-0.5 text-[13px] font-semibold leading-[1.15]"
+            className="mt-0.5 text-[12px] font-bold leading-[1.15]"
             style={{
               display: '-webkit-box',
               WebkitLineClamp: titleLineClamp,
@@ -203,7 +204,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
         <div className="hidden group-hover:flex absolute right-1 top-1 items-center gap-1 bg-surface-primary/95 px-1 rounded z-20 border border-border-default shadow-sm">
           <button onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onEditBlock(block.id); }} className="text-text-secondary hover:text-text-primary p-0.5" title="Edit">✎</button>
           <span className="text-text-secondary text-[11px] leading-[22px]" title="Move">↕</span>
-          <button onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={handleMoveToSchedule} className="text-text-secondary hover:text-text-primary p-0.5" title="Move to Life Inbox">↰</button>
+          <button onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={handleMoveToSchedule} className="text-text-secondary hover:text-text-primary p-0.5" title="Move to Ready to schedule">↰</button>
           <button onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={handleDuplicate} className="text-text-secondary hover:text-text-primary p-0.5" title="Duplicate">⧉</button>
           <button onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={handleDelete} className="text-semantic-danger hover:text-semantic-danger p-0.5" title="Delete">×</button>
         </div>
@@ -214,7 +215,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
         {childcare?.enabled && childcare.isComplete && <div className="text-[10px] font-semibold bg-white/60 border border-border-default px-1 rounded flex items-center whitespace-nowrap opacity-80" title="Childcare sorted">✓ childcare</div>}
         {hasConflicts && <div className="text-[10px] font-bold text-semantic-danger bg-white/75 border border-semantic-danger/30 px-1 rounded flex items-center whitespace-nowrap" title="Overlaps with another block">⚠ overlap</div>}
         {isOutOfBounds && <div className="text-[10px] font-bold text-semantic-danger bg-white/75 border border-semantic-danger/30 px-1 rounded flex items-center whitespace-nowrap" title="Travel extends outside day bounds">⚠ bounds</div>}
-        {isLongBlock && <div className="text-[10px] text-text-secondary bg-white/55 border border-border-default px-1 rounded whitespace-nowrap">{block.durationMinutes}m</div>}
+        {isLongBlock && <div className="text-[10px] font-semibold text-text-secondary bg-white/55 border border-border-default px-1 rounded whitespace-nowrap">{formatDurationLabel(block.durationMinutes)}</div>}
       </div>
 
       {activeFeatures.length > 0 && (
@@ -248,9 +249,9 @@ const getBlockTone = (block: PlannerBlock, hasConflicts: boolean, categoryName?:
     return { background: '#FFF7E6', border: '#F4B04F', accent: '#F59E0B' };
   }
   if (categoryName?.trim().toLowerCase() === 'personal') {
-    return { background: '#F1EEFF', border: '#C4B5FD', accent: '#7C5CFC' };
+    return { background: '#F3EFFF', border: '#CDBDFF', accent: '#7C5CFC' };
   }
-  return { background: '#F3F6FB', border: '#C9D3E1', accent: '#8A93A3' };
+  return { background: '#F4F7FB', border: '#CDD6E3', accent: '#8A93A3' };
 };
 
 const getReviewStatus = (reviewColour: string): string => {

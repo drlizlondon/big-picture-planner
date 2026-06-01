@@ -1,5 +1,5 @@
 // Add To Planner Modal Component
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createBlock } from '../../services/plannerActions';
 import { DurationSelector } from '../DurationSelector/component';
 import { looksLikePlannerImport, parsePlannerImportText, type PlannerImportItem } from '../../utils/plannerImport';
@@ -23,7 +23,7 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
   const [drafts, setDrafts] = useState<Array<{ id: string; title: string; durationMinutes: number; selected: boolean }>>([]);
   const [importDrafts, setImportDrafts] = useState<Array<PlannerImportItem & { selected: boolean }>>([]);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setView('menu');
     setQuickTitle('');
     setQuickDuration(30);
@@ -31,12 +31,12 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
     setDefaultDuration(30);
     setDrafts([]);
     setImportDrafts([]);
-  };
+  }, []);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     reset();
     onClose();
-  };
+  }, [onClose, reset]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -47,7 +47,7 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
       setTimeout(() => quickTitleRef.current?.focus() || createBtnRef.current?.focus(), 50);
     }
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [handleClose, isOpen]);
 
   if (!isOpen) return null;
 
@@ -207,7 +207,7 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
                 disabled={!quickTitle.trim() || isQuickSaving}
                 className="w-full h-[44px] bg-accent-primary hover:bg-accent-hover disabled:opacity-50 text-white rounded-medium font-bold text-[14px] transition-colors shadow-sm"
               >
-                {isQuickSaving ? 'Adding...' : 'Add to Life Inbox'}
+                {isQuickSaving ? 'Adding...' : 'Add to Ready to schedule'}
               </button>
             </form>
             <button 
@@ -299,7 +299,7 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
               disabled={!drafts.some(draft => draft.selected && draft.title.trim())}
               className="w-full h-[44px] bg-accent-primary hover:bg-accent-hover disabled:opacity-50 text-white rounded-medium font-bold text-[14px] transition-colors shadow-sm"
             >
-              Add to Life Inbox
+              Add to Ready to schedule
             </button>
           </div>
         )}
@@ -314,7 +314,7 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
                 onDelete={(id) => setImportDrafts(prev => prev.filter(draft => draft.id !== id))}
               />
               <ImportGroup
-                title="Life Inbox"
+                title="Ready to schedule"
                 drafts={importDrafts.filter(draft => draft.destination === 'LIFE_INBOX')}
                 onChange={(updated) => setImportDrafts(prev => prev.map(draft => draft.id === updated.id ? updated : draft))}
                 onDelete={(id) => setImportDrafts(prev => prev.filter(draft => draft.id !== id))}

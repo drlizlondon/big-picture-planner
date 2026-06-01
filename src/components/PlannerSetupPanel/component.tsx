@@ -12,14 +12,15 @@ const LOCATION_OPTIONS: Array<{ value: EditorFieldLocation; label: string }> = [
   { value: 'hidden', label: 'Hide' },
 ];
 
-type SetupSection = 'general' | 'editorLayout' | 'labels' | 'views' | 'sources';
+type SetupSection = 'general' | 'editorLayout' | 'sources' | 'filters' | 'appearance' | 'advanced';
 
 const SECTIONS: Array<{ id: SetupSection; label: string; description: string }> = [
   { id: 'general', label: 'General', description: 'Everyday planner preferences.' },
   { id: 'editorLayout', label: 'Editor Layout', description: 'Choose what appears when editing a block.' },
-  { id: 'labels', label: 'Labels', description: 'Prepared for future labels.' },
-  { id: 'views', label: 'Views', description: 'Prepared for saved planner views.' },
   { id: 'sources', label: 'Sources', description: 'Understand where planner items come from.' },
+  { id: 'filters', label: 'Filters', description: 'Control what appears on the calendar.' },
+  { id: 'appearance', label: 'Appearance', description: 'Keep the planner visually calm.' },
+  { id: 'advanced', label: 'Advanced', description: 'Quiet power-user details.' },
 ];
 
 export const PlannerSetupPanel: React.FC<Props> = ({ isOpen, onClose }) => {
@@ -66,9 +67,10 @@ export const PlannerSetupPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           <div className="overflow-y-auto p-6">
             {activeSection === 'general' && <GeneralSection />}
             {activeSection === 'editorLayout' && <EditorLayoutSection setup={setup} updateField={updateField} />}
-            {activeSection === 'labels' && <FutureSection title="Labels" body="Labels will let you group blocks in a way that matches your life, such as work, family, housework or projects. The planner data model is ready for labels, but the visible label system is not switched on yet." />}
-            {activeSection === 'views' && <FutureSection title="Views" body="Saved views will let you focus the planner around a part of life without changing the underlying week. The planner can now store the metadata future views will use." />}
             {activeSection === 'sources' && <SourcesSection />}
+            {activeSection === 'filters' && <FutureSection title="Filters" body="The side panel filters show or hide matching calendar blocks. Full saved views and custom labels are not enabled yet." />}
+            {activeSection === 'appearance' && <FutureSection title="Appearance" body="The launch theme is intentionally restrained: small type, light grid lines and clear block colours." />}
+            {activeSection === 'advanced' && <FutureSection title="Advanced" body="Keyboard nudging, import metadata and local-first sync behaviour stay available without making setup the centre of the product." />}
           </div>
         </div>
       </div>

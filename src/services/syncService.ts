@@ -115,7 +115,7 @@ export const getSyncSnapshot = async (): Promise<SyncSnapshot> => {
   const pendingItems = await db.syncQueue.toArray();
   const retrying = pendingItems.some(item => item.attempts > 0);
   const importDecision = session ? await getImportDecision(session.user.id) : undefined;
-  const canImportLocalData = session ? await hasLocalData(session.user.id) : false;
+  const canImportLocalData = session ? await hasLocalData() : false;
   const importPromptState = getImportPromptState({ hasLocalData: canImportLocalData, decision: importDecision });
   const needsImport = importPromptState === 'prompt';
   const online = isOnline();
@@ -286,7 +286,7 @@ const getImportDecision = async (userId: string): Promise<ImportDecision | undef
   return undefined;
 };
 
-const hasLocalData = async (_userId: string): Promise<boolean> => {
+const hasLocalData = async (): Promise<boolean> => {
   const [blockCount, templateCount] = await Promise.all([
     db.blocks.count(),
     db.templates.count(),
@@ -299,7 +299,7 @@ const canQueueForCurrentUser = async (): Promise<boolean> => {
   const supabase = getSupabaseClient();
   const session = await getCurrentSession();
   const decision = session ? await getImportDecision(session.user.id) : undefined;
-  const localData = session ? await hasLocalData(session.user.id) : false;
+  const localData = session ? await hasLocalData() : false;
 
   return shouldQueueForSync({
     isConfigured: !!supabase,

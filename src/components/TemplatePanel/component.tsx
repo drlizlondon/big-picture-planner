@@ -2,20 +2,32 @@
 import React from 'react';
 import { useTemplates, useCategories } from '../../hooks/usePlannerData';
 import { createBlock } from '../../services/plannerActions';
+import type { Category, PlannerTemplate } from '../../types/models';
 
 export const TemplatePanel: React.FC = () => {
   const templates = useTemplates();
   const categories = useCategories();
   
-  const categoryMap = categories?.reduce((acc, cat) => {
+  const categoryMap = categories?.reduce<Record<string, Category>>((acc, cat) => {
     acc[cat.id] = cat;
     return acc;
-  }, {} as Record<string, any>) || {};
+  }, {}) || {};
 
-  const handleUseTemplate = async (template: any) => {
-    const { id, isArchived, createdAt, updatedAt, ...templateData } = template;
+  const handleUseTemplate = async (template: PlannerTemplate) => {
     await createBlock({
-      ...templateData,
+      title: template.title,
+      durationMinutes: template.durationMinutes,
+      description: template.description,
+      categoryId: template.categoryId,
+      travelEnabled: template.travelEnabled,
+      travelBeforeMinutes: template.travelBeforeMinutes,
+      travelAfterMinutes: template.travelAfterMinutes,
+      additionalTimezone: template.additionalTimezone,
+      features: template.features,
+      metadata: template.metadata,
+      date: undefined,
+      startTime: undefined,
+      endTime: undefined,
       isScheduled: false,
       isBaseEvent: false,
       isHidden: false,
@@ -43,7 +55,7 @@ export const TemplatePanel: React.FC = () => {
               <div className="text-[11px] font-medium text-text-secondary mt-1">{template.durationMinutes} min</div>
             </div>
             <div className="absolute right-2 top-2 hidden group-hover:flex gap-1 z-20">
-              <button className="text-text-muted hover:text-text-primary bg-surface-primary rounded shadow-sm border border-border-default text-[10px] font-bold px-2 py-1" title="Add to Life Inbox">
+              <button className="text-text-muted hover:text-text-primary bg-surface-primary rounded shadow-sm border border-border-default text-[10px] font-bold px-2 py-1" title="Add to Ready to schedule">
                 Use
               </button>
             </div>

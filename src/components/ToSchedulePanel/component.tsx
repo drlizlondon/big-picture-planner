@@ -28,14 +28,14 @@ export const ToSchedulePanel: React.FC<Props> = ({
   const [query, setQuery] = useState('');
   const trayPointerStart = useRef<{ x: number; y: number } | null>(null);
   const { isOver, setNodeRef } = useDroppable({
-    id: 'life-inbox-drop',
+    id: 'ready-to-schedule-drop',
     data: { toLifeInbox: true },
   });
   
-  const categoryMap = categories?.reduce((acc: Record<string, Category>, cat: Category) => {
+  const categoryMap = useMemo(() => categories?.reduce((acc: Record<string, Category>, cat: Category) => {
     acc[cat.id] = cat;
     return acc;
-  }, {} as Record<string, Category>) || {};
+  }, {} as Record<string, Category>) || {}, [categories]);
 
   const visibleBlocks = useMemo(() => {
     const blocks = unscheduledBlocks || [];
@@ -64,7 +64,8 @@ export const ToSchedulePanel: React.FC<Props> = ({
   };
 
   const isTray = variant === 'tray';
-  const gridRows = isTray ? (isExpanded ? 'repeat(3, minmax(64px, 1fr))' : 'repeat(1, minmax(64px, 1fr))') : undefined;
+  const gridRows = isTray ? 'repeat(1, minmax(58px, 1fr))' : undefined;
+  const inboxTitle = isTray ? 'Life Inbox' : 'Ready to schedule';
 
   return (
     <div ref={setNodeRef} className={`${isTray ? 'mobile-tray-panel' : 'flex flex-col bg-surface-primary rounded-medium border p-3 flex-1 shadow-sm overflow-hidden min-h-0'} transition-colors ${isOver ? 'border-accent-primary bg-accent-primary/[0.035]' : 'border-border-default'}`}>
@@ -77,22 +78,22 @@ export const ToSchedulePanel: React.FC<Props> = ({
           type="button"
           onClick={onTrayToggle}
           className={`${isTray ? 'mobile-tray-handle' : 'hidden'}`}
-          aria-label={isExpanded ? 'Collapse Life Inbox' : 'Expand Life Inbox'}
+          aria-label={isExpanded ? 'Collapse Ready to schedule' : 'Expand Ready to schedule'}
         >
           <span className={isExpanded ? 'rotate-180' : ''}>▲</span>
         </button>
         <div className="min-w-0">
-          <h2 className="text-[16px] font-semibold">Life Inbox <span className="text-[13px] text-text-muted font-semibold">({unscheduledBlocks?.length || 0})</span></h2>
+          <h2 className="text-[15px] font-bold">{inboxTitle} <span className="text-[12px] text-text-muted font-semibold">({unscheduledBlocks?.length || 0})</span></h2>
           {!isTray && <p className="text-[12px] text-text-secondary mt-0.5">Things waiting for a place.</p>}
         </div>
-        {isTray && <div className="text-[12px] font-semibold text-text-secondary">{isDraggingBlock ? 'Place it in the week' : 'Swipe tasks'}</div>}
+        {isTray && <div className="ml-auto text-[12px] font-semibold text-text-secondary">{isDraggingBlock ? 'Place it in the week' : 'Long press to pick up'}</div>}
       </div>
 
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className={`${isTray && !isExpanded ? 'sr-only' : 'h-[36px]'} rounded-small border border-border-default bg-background px-3 text-[13px] outline-none focus:border-accent-primary mb-3`}
-        placeholder="Search your life inbox…"
+        className={`${isTray ? 'sr-only' : 'h-[36px]'} rounded-small border border-border-default bg-background px-3 text-[13px] outline-none focus:border-accent-primary mb-3`}
+        placeholder="Search ready items..."
       />
       
       <div
@@ -102,8 +103,8 @@ export const ToSchedulePanel: React.FC<Props> = ({
         {unscheduledBlocks === undefined ? (
           <p className="text-[14px] text-text-muted text-center mt-4">Loading...</p>
         ) : visibleBlocks.length === 0 ? (
-          <p className="text-[13px] text-text-secondary text-center mt-4">
-            {query.trim() ? 'Nothing matching that search.' : 'Nothing waiting for a place right now.'}
+          <p className={`${isTray ? 'mobile-inbox-empty' : 'text-center mt-4'} text-[13px] text-text-secondary`}>
+            {query.trim() ? 'Nothing matching that search.' : isTray ? 'Nothing to schedule.' : 'Nothing waiting for a place right now.'}
           </p>
         ) : (
           visibleBlocks.map((block: PlannerBlock) => (
@@ -198,19 +199,19 @@ const DraggableBlockItem: React.FC<DraggableBlockProps> = ({ block, categoryMap,
       }}
       onPointerUp={handlePointerUp}
       onClick={handleClick}
-      className={`${isTray ? 'mobile-inbox-card' : 'min-h-[42px] px-2.5 py-1.5'} bg-surface-primary rounded-small border border-border-default cursor-grab active:cursor-grabbing hover:shadow-hover hover:-translate-y-[2px] hover:border-accent-primary/35 transition-all group relative overflow-hidden flex gap-2 shadow-sm touch-none ${isDragging ? 'opacity-90 scale-[1.04] shadow-hover ring-2 ring-accent-primary/20' : ''}`}
+      className={`${isTray ? 'mobile-inbox-card' : 'min-h-[46px] px-2.5 py-2 touch-none'} bg-surface-primary rounded-small border border-border-default cursor-grab active:cursor-grabbing hover:shadow-hover hover:-translate-y-[1px] hover:border-accent-primary/35 transition-all group relative overflow-hidden flex gap-2 shadow-sm ${isDragging ? 'opacity-90 scale-[1.04] shadow-hover ring-2 ring-accent-primary/20' : ''}`}
       style={{ ...style, borderColor: reviewColor ? `${reviewColor}99` : `${categoryColor}33`, backgroundColor: reviewColor ? `${reviewColor}0D` : undefined }}
       title="Edit block"
     >
       {(category || reviewColor) && (
         <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: reviewColor || categoryColor }} />
       )}
-      <div className="w-5 flex-shrink-0 flex items-center justify-center rounded-[7px] border border-border-default/70 bg-background text-text-muted text-[13px] opacity-80 group-hover:border-accent-primary/35 group-hover:text-accent-primary group-hover:opacity-100" title="Drag into your week">⋮⋮</div>
+      <div className="w-5 flex-shrink-0 flex items-center justify-center rounded-[7px] border border-border-default/70 bg-background text-text-muted text-[12px] opacity-80 group-hover:border-accent-primary/35 group-hover:text-accent-primary group-hover:opacity-100" title="Drag into your week">⋮⋮</div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           {category && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: categoryColor }} title={category.name} />}
-          <div className="text-[13px] font-semibold text-text-primary truncate">{block.title}</div>
-          <div className="text-[11px] font-medium text-text-secondary ml-auto flex-shrink-0">{block.durationMinutes} min</div>
+          <div className={`${isTray ? 'mobile-inbox-card-title' : 'truncate'} text-[12px] font-bold text-text-primary`}>{block.title}</div>
+          <div className="ml-auto flex-shrink-0 rounded-[999px] border border-border-default bg-background px-2 py-0.5 text-[10px] font-bold text-text-secondary">{block.durationMinutes} min</div>
         </div>
         {!isTray && block.description && (
           <div className="text-[11px] text-text-secondary mt-0.5 truncate leading-tight">

@@ -17,14 +17,15 @@ body {
 
 .mobile-life-inbox-tray,
 .mobile-add-fab,
+.mobile-selected-sheet,
 .planner-week-range-mobile {
   display: none;
 }
 
 @media (max-width: 767px) {
   .planner-header {
-    height: 82px;
-    padding: 8px 12px;
+    height: 68px;
+    padding: 6px 10px;
     align-items: flex-start;
     gap: 8px;
   }
@@ -41,8 +42,8 @@ body {
     min-width: 0;
   }
 
-  .planner-brand .text-\[22px\] {
-    font-size: 20px;
+  .planner-brand .text-\[20px\] {
+    font-size: 17px;
     line-height: 1.05;
   }
 
@@ -56,8 +57,8 @@ body {
   }
 
   .planner-today-button {
-    height: 36px;
-    padding-inline: 14px;
+    height: 30px;
+    padding-inline: 10px;
   }
 
   .planner-week-nav {
@@ -67,8 +68,8 @@ body {
   }
 
   .planner-week-button {
-    height: 36px;
-    width: 38px;
+    height: 30px;
+    width: 32px;
     flex-shrink: 0;
   }
 
@@ -79,7 +80,7 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 15px;
+    font-size: 13px;
   }
 
   .planner-week-range-desktop {
@@ -96,8 +97,8 @@ body {
   }
 
   .planner-setup-button {
-    height: 36px;
-    width: 42px;
+    height: 30px;
+    width: 34px;
     padding: 0;
     justify-content: center;
     font-size: 0;
@@ -108,21 +109,21 @@ body {
   }
 
   .planner-workspace {
-    padding: 8px;
-    padding-bottom: var(--mobile-tray-offset, 172px);
-    gap: 6px;
+    padding: 6px;
+    padding-bottom: var(--mobile-tray-offset, 124px);
+    gap: 0;
   }
 
   .planner-workspace.mobile-inbox-expanded {
-    --mobile-tray-offset: 342px;
+    --mobile-tray-offset: 124px;
   }
 
   .planner-workspace.mobile-inbox-collapsed {
-    --mobile-tray-offset: 168px;
+    --mobile-tray-offset: 124px;
   }
 
   .planner-workspace.is-dragging-block {
-    --mobile-tray-offset: 128px;
+    --mobile-tray-offset: 112px;
   }
 
   .planner-sidebar,
@@ -149,22 +150,22 @@ body {
   }
 
   .mobile-life-inbox-tray.collapsed {
-    height: 152px;
+    height: 118px;
   }
 
   .mobile-life-inbox-tray.expanded {
-    height: min(336px, 46dvh);
+    height: 118px;
   }
 
   .mobile-life-inbox-tray.dragging {
-    height: 112px;
+    height: 104px;
   }
 
   .mobile-tray-panel {
     height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 8px 12px 12px;
+    padding: 6px 10px 8px;
     border: 0;
     border-radius: 0;
     background: #fff;
@@ -172,26 +173,16 @@ body {
   }
 
   .mobile-tray-header {
-    min-height: 42px;
+    min-height: 30px;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     user-select: none;
     touch-action: pan-x;
   }
 
   .mobile-tray-handle {
-    width: 42px;
-    height: 30px;
-    border-radius: 10px;
-    border: 1px solid #e7eaf0;
-    background: #f7f8fb;
-    color: #667085;
-    font-size: 12px;
-    font-weight: 800;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    display: none;
   }
 
   .mobile-tray-handle span {
@@ -204,26 +195,63 @@ body {
     min-height: 0;
     display: grid;
     grid-auto-flow: column;
-    grid-auto-columns: minmax(172px, 43vw);
+    grid-auto-columns: minmax(132px, 42vw);
     gap: 8px;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 2px 2px 8px;
+    padding: 2px 116px 6px 2px;
     scroll-snap-type: x proximity;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
   }
 
   .mobile-inbox-card {
-    min-height: 62px;
-    padding: 8px 10px;
+    min-height: 58px;
+    padding: 7px 8px;
     scroll-snap-align: start;
+    touch-action: pan-x;
+  }
+
+  .mobile-inbox-card-title {
+    display: -webkit-box;
+    overflow: hidden;
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: none;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .mobile-inbox-empty {
+    margin: 8px 0 0 2px;
+    text-align: left;
   }
 
   .mobile-add-fab {
-    display: block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     position: absolute;
     z-index: 1001;
-    bottom: calc(var(--mobile-tray-offset, 168px) + 14px);
+    right: 10px;
+    bottom: 11px;
+    white-space: nowrap;
+  }
+
+  .mobile-selected-sheet {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: calc(var(--mobile-tray-offset, 124px) + 8px);
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #e7eaf0;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.97);
+    padding: 8px;
+    box-shadow: 0 10px 30px rgba(26, 29, 41, 0.14);
   }
 
   .week-grid-shell {
@@ -234,21 +262,55 @@ body {
   .week-grid-toolbar {
     align-items: flex-start;
     flex-direction: column;
+    gap: 6px;
+  }
+
+  .week-grid-toolbar > div:first-child {
+    min-width: 0;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .week-grid-toolbar > div:first-child .text-\[15px\] {
+    font-size: 13px;
+  }
+
+  .week-grid-toolbar > div:first-child .text-\[12px\] {
+    font-size: 11px;
+    white-space: nowrap;
   }
 
   .week-grid-controls {
     width: 100%;
     justify-content: flex-start;
+    gap: 6px;
+    padding-bottom: 0;
+    overflow-x: visible;
+  }
+
+  .week-grid-controls > div:nth-of-type(2),
+  .week-grid-controls > div:nth-of-type(3) {
+    display: none;
+  }
+
+  .week-grid-controls .zoom-select {
+    display: block;
   }
 
   .week-days-header {
-    top: 83px;
-    min-width: max-content;
+    top: 75px;
+    min-width: 100%;
+    height: 28px;
+  }
+
+  .week-time-gutter {
+    width: 34px;
+    flex-basis: 34px;
   }
 
   .week-day-heading,
   .day-column {
-    min-width: 86px;
+    min-width: calc((100vw - 46px) / 7);
     transition: min-width 180ms ease, flex 180ms ease, box-shadow 180ms ease;
   }
 
@@ -266,21 +328,34 @@ body {
   }
 
   .week-grid-shell .text-\[13px\] {
-    font-size: 12px;
+    font-size: 10px;
   }
 
   .week-grid-shell .text-\[11px\] {
-    font-size: 11px;
+    font-size: 10px;
+  }
+
+  .keyboard-hint {
+    display: none;
+  }
+
+  .scheduled-block-selected > span {
+    display: none;
+  }
+
+  .scheduled-block-selected .group-hover\:flex,
+  .mobile-inbox-card .group-hover\:flex {
+    display: none;
   }
 }
 
 @media (max-width: 420px) {
   .mobile-inbox-rail {
-    grid-auto-columns: minmax(154px, 58vw);
+    grid-auto-columns: minmax(128px, 46vw);
   }
 
   .week-day-heading,
   .day-column {
-    min-width: 78px;
+    min-width: calc((100vw - 46px) / 7);
   }
 }

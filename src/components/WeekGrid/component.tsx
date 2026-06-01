@@ -4,6 +4,7 @@ import { addDays, formatDate, getStartOfWeek, getWeekDays } from '../../utils/da
 import { DayColumn } from '../DayColumn/component';
 import { useWeekBlocks } from '../../hooks/usePlannerData';
 import type { PlannerBlock } from '../../types/models';
+import { matchesPlannerFilters, type PlannerFilterId } from '../../utils/plannerFilters';
 
 type ViewMode = 'day' | 'week' | 'month';
 type ZoomMode = 'compact' | 'comfortable' | 'focus';
@@ -22,9 +23,10 @@ interface Props {
   selectedBlockId: string | null;
   expandedDate?: string | null;
   isDraggingBlock?: boolean;
+  activeFilters: PlannerFilterId[];
 }
 
-export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBlock, selectedBlockId, expandedDate = null, isDraggingBlock = false }) => {
+export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBlock, selectedBlockId, expandedDate = null, isDraggingBlock = false, activeFilters }) => {
   const [viewMode, setViewMode] = usePersistedSetting<ViewMode>('planner.viewMode', 'week');
   const [zoomMode, setZoomMode] = usePersistedSetting<ZoomMode>('planner.zoomMode', 'comfortable');
   const [visibleHoursPreset, setVisibleHoursPreset] = usePersistedSetting<VisibleHoursPreset>('planner.visibleHoursPreset', '07-22');
@@ -33,17 +35,22 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
   const today = formatDate(new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
   const [boardHeight, setBoardHeight] = useState(640);
+  const isMobile = useIsMobile();
 
-  const visibleRange = useMemo(
+  const selectedVisibleRange = useMemo(
     () => getVisibleHourRange(visibleHoursPreset, customStartHour, customEndHour),
     [visibleHoursPreset, customStartHour, customEndHour]
+  );
+  const visibleRange = useMemo(
+    () => isMobile ? getMobileVisibleHourRange(boardHeight) : selectedVisibleRange,
+    [boardHeight, isMobile, selectedVisibleRange]
   );
   const visibleHours = useMemo(
     () => Array.from({ length: visibleRange.end - visibleRange.start }, (_, index) => visibleRange.start + index),
     [visibleRange.end, visibleRange.start]
   );
-  const fitHourHeight = Math.max(32, (boardHeight - 112) / Math.max(1, visibleHours.length));
-  const hourHeight = fitHourHeight * ZOOM_SCALE[zoomMode];
+  const fitHourHeight = Math.max(isMobile ? 22 : 32, (boardHeight - (isMobile ? 56 : 112)) / Math.max(1, visibleHours.length));
+  const hourHeight = fitHourHeight * (isMobile ? 1 : ZOOM_SCALE[zoomMode]);
 
   const visibleDates = useMemo(() => {
     if (viewMode === 'day') {
@@ -55,7 +62,8 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
   const monthDates = useMemo(() => getMonthCanvasDays(currentDate), [currentDate]);
   const queryStart = viewMode === 'month' ? monthDates[0].value : visibleDates[0].value;
   const queryEnd = viewMode === 'month' ? monthDates[monthDates.length - 1].value : visibleDates[visibleDates.length - 1].value;
-  const visibleBlocks = useWeekBlocks(queryStart, queryEnd) || [];
+  const allVisibleBlocks = useWeekBlocks(queryStart, queryEnd) || [];
+  const visibleBlocks = allVisibleBlocks.filter(block => matchesPlannerFilters(block, activeFilters));
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -70,12 +78,12 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
 
   return (
     <div ref={scrollRef} className={`week-grid-shell flex flex-col h-full overflow-auto bg-white ${expandedDate ? 'has-expanded-day' : ''} ${isDraggingBlock ? 'is-dragging-block' : ''}`}>
-      <div className="sticky top-0 z-header bg-surface-primary/95 backdrop-blur border-b border-border-default px-4 py-2">
+      <div className="sticky top-0 z-header bg-surface-primary/95 backdrop-blur border-b border-border-default/70 px-4 py-2">
         <div className="week-grid-toolbar flex items-center justify-between gap-3 min-w-0">
           <div className="min-w-[230px] flex items-baseline gap-2">
-            <div className="text-[16px] font-bold text-text-primary">Fit your life into the week</div>
+            <div className="text-[15px] font-bold text-text-primary">Fit your life into the week</div>
             <div className="text-[12px] text-text-secondary">
-              {visibleBlocks.length === 0 ? 'Drag from Life Inbox' : `${visibleBlocks.length} scheduled this week`}
+              {isMobile ? 'Drag from Life Inbox' : visibleBlocks.length === 0 ? 'Drag from Ready to schedule' : `${visibleBlocks.length} visible this week`}
             </div>
           </div>
           <div className="week-grid-controls flex flex-nowrap justify-end items-center gap-2 overflow-x-auto min-w-0 pb-1">
@@ -91,6 +99,7 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
               labels={{ compact: 'Compact', comfortable: 'Comfortable', focus: 'Focus' }}
               onChange={setZoomMode}
             />
+            <ZoomSelect value={zoomMode} onChange={setZoomMode} />
             <VisibleHoursControl
               preset={visibleHoursPreset}
               onPresetChange={setVisibleHoursPreset}
@@ -107,27 +116,27 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
         <MonthCanvas dates={monthDates} blocks={visibleBlocks} today={today} />
       ) : (
         <>
-          <div className="week-days-header flex border-b border-border-default h-10 sticky top-[53px] bg-surface-primary z-header shadow-sm">
-            <div className="w-12 flex-shrink-0 border-r border-border-default" />
+          <div className="week-days-header flex border-b border-border-default/70 h-10 sticky top-[53px] bg-surface-primary z-header shadow-sm">
+            <div className="week-time-gutter w-12 flex-shrink-0 border-r border-border-default/60" />
             {visibleDates.map(day => {
               const isExpanded = expandedDate === day.value;
               return (
-              <div key={day.value} className={`week-day-heading ${isExpanded ? 'expanded-day' : ''} flex-1 min-w-[120px] flex items-center justify-center border-r border-border-default/45 last:border-r-0 ${day.value === today ? 'bg-accent-primary/[0.07]' : ''}`}>
-                <span className={`text-[14px] font-semibold ${day.value === today ? 'text-accent-primary' : 'text-text-primary'}`}>{day.label}</span>
+              <div key={day.value} className={`week-day-heading ${isExpanded ? 'expanded-day' : ''} flex-1 min-w-[120px] flex items-center justify-center border-r border-border-default/35 last:border-r-0 ${day.value === today ? 'bg-accent-primary/[0.06]' : ''}`}>
+                <span className={`text-[13px] font-bold ${day.value === today ? 'text-accent-primary' : 'text-text-primary'}`}>{day.label}</span>
               </div>
               );
             })}
           </div>
 
           <div className="flex flex-1 relative min-h-max">
-            <div className="w-12 flex-shrink-0 border-r border-border-default/70 flex flex-col bg-surface-primary">
+            <div className="week-time-gutter w-12 flex-shrink-0 border-r border-border-default/50 flex flex-col bg-surface-primary">
               {visibleHours.map(hour => (
-                <div key={hour} className="flex justify-center text-text-muted text-[11px] font-medium pt-2 border-b border-border-default box-border" style={{ height: `${hourHeight}px` }}>
+                <div key={hour} className="flex justify-center text-text-muted text-[10px] font-semibold pt-2 border-b border-border-default/55 box-border" style={{ height: `${hourHeight}px` }}>
                   {`${String(hour).padStart(2, '0')}:00`}
                 </div>
               ))}
               <div className="relative h-0 flex justify-center text-text-muted text-[11px] font-medium">
-                <span className="-translate-y-1/2">{`${String(visibleRange.end).padStart(2, '0')}:00`}</span>
+                <span className="-translate-y-1/2 text-[10px] font-semibold">{`${String(visibleRange.end).padStart(2, '0')}:00`}</span>
               </div>
             </div>
 
@@ -143,10 +152,11 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
                 visibleStartHour={visibleRange.start}
                 visibleEndHour={visibleRange.end}
                 isExpanded={expandedDate === day.value}
+                activeFilters={activeFilters}
               />
             ))}
           </div>
-          <KeyboardHint selectedBlock={visibleBlocks.find(block => block.id === selectedBlockId)} />
+          {!isMobile && <KeyboardHint selectedBlock={visibleBlocks.find(block => block.id === selectedBlockId)} />}
           <div className="h-4 flex-shrink-0 bg-white" />
         </>
       )}
@@ -155,16 +165,28 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
 };
 
 const KeyboardHint: React.FC<{ selectedBlock?: PlannerBlock }> = ({ selectedBlock }) => (
-  <div className="sticky bottom-0 z-header border-t border-border-default bg-surface-primary/95 px-4 py-2 shadow-sm backdrop-blur">
-    <div className="mx-auto flex max-w-[760px] flex-wrap items-center justify-center gap-2 text-[12px] text-text-secondary">
+  <div className="keyboard-hint sticky bottom-0 z-header border-t border-border-default/70 bg-surface-primary/95 px-4 py-2 shadow-sm backdrop-blur">
+    <div className="mx-auto flex max-w-[760px] flex-wrap items-center justify-center gap-2 text-[11px] text-text-secondary">
       <span className="font-bold text-text-primary">Keyboard shortcuts</span>
       <span>{selectedBlock ? 'Selected block:' : 'Select a block:'}</span>
-      <span className="rounded-small border border-border-default bg-white px-2 py-1 font-semibold">↑ / ↓ Move by 15 min</span>
-      <span className="rounded-small border border-border-default bg-white px-2 py-1 font-semibold">← / → Move by 1 day</span>
-      <span className="rounded-small border border-border-default bg-white px-2 py-1 font-semibold">+ Add 15 min</span>
-      <span className="rounded-small border border-border-default bg-white px-2 py-1 font-semibold">- Subtract 15 min</span>
+      <span className="rounded-small border border-border-default bg-white px-2 py-1 font-semibold">↑ / ↓ 15 min</span>
+      <span className="rounded-small border border-border-default bg-white px-2 py-1 font-semibold">← / → day</span>
+      <span className="rounded-small border border-border-default bg-white px-2 py-1 font-semibold">+ / - duration</span>
     </div>
   </div>
+);
+
+const ZoomSelect: React.FC<{ value: ZoomMode; onChange: (value: ZoomMode) => void }> = ({ value, onChange }) => (
+  <select
+    value={value}
+    onChange={(event) => onChange(event.target.value as ZoomMode)}
+    className="zoom-select hidden h-[30px] rounded-small border border-border-default bg-background px-2 text-[12px] font-semibold text-text-secondary outline-none"
+    title="Calendar density"
+  >
+    <option value="compact">Compact</option>
+    <option value="comfortable">Comfortable</option>
+    <option value="focus">Focus</option>
+  </select>
 );
 
 interface SegmentedControlProps<T extends string> {
@@ -367,4 +389,24 @@ const getVisibleHourRange = (preset: VisibleHoursPreset, customStartHour: number
     return { start, end };
   }
   return { start: 7, end: 22 };
+};
+
+const getMobileVisibleHourRange = (boardHeight: number) => {
+  if (boardHeight >= 760) return { start: 8, end: 23 };
+  if (boardHeight >= 640) return { start: 8, end: 22 };
+  return { start: 8, end: 20 };
+};
+
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 767px)');
+    const handleChange = () => setIsMobile(query.matches);
+    handleChange();
+    query.addEventListener('change', handleChange);
+    return () => query.removeEventListener('change', handleChange);
+  }, []);
+
+  return isMobile;
 };

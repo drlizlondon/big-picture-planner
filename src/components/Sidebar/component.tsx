@@ -16,7 +16,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAddClick, onEditBlock, onVie
   return (
     <>
       {/* Add To Planner Button */}
-      <button onClick={onAddClick} className="w-full h-11 bg-accent-primary hover:bg-accent-hover text-white rounded-medium font-bold text-[14px] transition-colors shadow-sm">
+      <button onClick={onAddClick} className="w-full h-11 bg-accent-primary hover:bg-accent-hover text-white rounded-medium font-bold text-[13px] transition-colors shadow-sm">
         + Add to Planner
       </button>
 
@@ -50,7 +50,7 @@ const TodayPanel: React.FC<TodayPanelProps> = ({ onViewToday, onEditBlock }) => 
   return (
     <section className="bg-surface-primary rounded-medium border border-border-default p-3 shadow-sm flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[16px] font-semibold">Today</h2>
+        <h2 className="text-[15px] font-bold">Today</h2>
         <span className="text-[11px] font-semibold text-text-muted">Next up</span>
       </div>
 
@@ -61,7 +61,7 @@ const TodayPanel: React.FC<TodayPanelProps> = ({ onViewToday, onEditBlock }) => 
           title="Edit next placed block"
         >
           <div className="text-[11px] font-bold uppercase tracking-[0.04em] text-accent-primary">Next</div>
-          <div className="mt-1 text-[13px] font-semibold text-text-primary truncate">{nextBlock.title}</div>
+          <div className="mt-1 text-[12px] font-bold text-text-primary truncate">{nextBlock.title}</div>
           <div className="mt-1 text-[12px] text-text-secondary">{nextBlock.startTime || 'Waiting for a time'}</div>
         </button>
       ) : (
@@ -89,7 +89,7 @@ const TodayPanel: React.FC<TodayPanelProps> = ({ onViewToday, onEditBlock }) => 
         onClick={onViewToday}
         className="h-[36px] rounded-small bg-background hover:bg-border-default border border-border-default text-[13px] font-semibold text-text-primary transition-colors"
       >
-        {nextBlock ? 'View Today' : 'Choose something from Life Inbox'}
+        View full day
       </button>
     </section>
   );

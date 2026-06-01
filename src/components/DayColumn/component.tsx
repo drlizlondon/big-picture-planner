@@ -6,6 +6,8 @@ import { ScheduledBlock } from '../ScheduledBlock/component';
 import { formatDate } from '../../utils/dateUtils';
 import type { PlannerBlock } from '../../types/models';
 import { timeToMinutes } from '../../utils/planningEngine';
+import { matchesPlannerFilters, type PlannerFilterId } from '../../utils/plannerFilters';
+import { formatDurationLabel } from '../../utils/durationLabels';
 
 const QUARTERS = [0, 15, 30, 45]; // 15-minute snap intervals
 
@@ -19,9 +21,10 @@ interface Props {
   visibleStartHour: number;
   visibleEndHour: number;
   isExpanded?: boolean;
+  activeFilters: PlannerFilterId[];
 }
 
-export const DayColumn: React.FC<Props> = ({ date, onEditBlock, onSelectBlock, selectedBlockId, hourHeight, visibleHours, visibleStartHour, visibleEndHour, isExpanded = false }) => {
+export const DayColumn: React.FC<Props> = ({ date, onEditBlock, onSelectBlock, selectedBlockId, hourHeight, visibleHours, visibleStartHour, visibleEndHour, isExpanded = false, activeFilters }) => {
   const blocks = useWeekBlocks(date, date) || [];
   const isToday = date === formatDate(new Date());
   const now = new Date();
@@ -30,6 +33,7 @@ export const DayColumn: React.FC<Props> = ({ date, onEditBlock, onSelectBlock, s
   const visibleStartMinute = visibleStartHour * 60;
   const visibleEndMinute = visibleEndHour * 60;
   const visibleBlocks = blocks.filter(block => {
+    if (!matchesPlannerFilters(block, activeFilters)) return false;
     if (!block.startTime) return false;
     const [hours, minutes] = block.startTime.split(':').map(Number);
     const start = hours * 60 + minutes;
@@ -38,11 +42,11 @@ export const DayColumn: React.FC<Props> = ({ date, onEditBlock, onSelectBlock, s
   });
 
   return (
-    <div className={`day-column ${isExpanded ? 'expanded-day' : ''} flex-1 min-w-[120px] border-r border-border-default/30 last:border-r-0 relative flex flex-col z-grid ${isToday ? 'bg-accent-primary/[0.035]' : 'bg-surface-primary'}`}>
+    <div className={`day-column ${isExpanded ? 'expanded-day' : ''} flex-1 min-w-[120px] border-r border-border-default/25 last:border-r-0 relative flex flex-col z-grid ${isToday ? 'bg-accent-primary/[0.028]' : 'bg-surface-primary'}`}>
       
       {/* Render 15-min snap drop slots */}
       {visibleHours.map(hour => (
-        <div key={hour} className="relative border-b border-border-default box-border" style={{ height: `${hourHeight}px` }}>
+        <div key={hour} className="relative border-b border-border-default/45 box-border" style={{ height: `${hourHeight}px` }}>
           {QUARTERS.map(minute => {
             const startTime = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
             return <DropSlot key={startTime} date={date} startTime={startTime} topOffset={minute * minuteHeight} height={15 * minuteHeight} />;
@@ -102,7 +106,7 @@ const DropSlot: React.FC<DropSlotProps> = ({ date, startTime, topOffset, height 
   return (
     <div
       ref={setNodeRef}
-      className={`absolute w-full transition-colors hover:bg-accent-primary/[0.06] ${isOver ? 'bg-accent-primary/10' : ''}`}
+      className={`absolute w-full transition-colors hover:bg-accent-primary/[0.045] ${isOver ? 'bg-accent-primary/10 ring-1 ring-inset ring-accent-primary/25' : ''}`}
       style={{ top: `${topOffset}px`, height: `${height}px` }}
     />
   );
@@ -126,7 +130,7 @@ const TravelSegments: React.FC<TravelSegmentsProps> = ({ block, minuteHeight, vi
         <TravelSegment
           startMinute={start - block.travelBeforeMinutes}
           durationMinutes={block.travelBeforeMinutes}
-          label={`Travel ${block.travelBeforeMinutes}m`}
+          label={`Travel ${formatDurationLabel(block.travelBeforeMinutes)}`}
           minuteHeight={minuteHeight}
           visibleStartMinute={visibleStartMinute}
           visibleEndMinute={visibleEndMinute}
@@ -136,7 +140,7 @@ const TravelSegments: React.FC<TravelSegmentsProps> = ({ block, minuteHeight, vi
         <TravelSegment
           startMinute={end}
           durationMinutes={block.travelAfterMinutes}
-          label={`Travel ${block.travelAfterMinutes}m`}
+          label={`Travel ${formatDurationLabel(block.travelAfterMinutes)}`}
           minuteHeight={minuteHeight}
           visibleStartMinute={visibleStartMinute}
           visibleEndMinute={visibleEndMinute}
@@ -162,7 +166,7 @@ const TravelSegment: React.FC<TravelSegmentProps> = ({ startMinute, durationMinu
 
   return (
     <div
-      className="pointer-events-none absolute left-2 right-2 z-[6] rounded-small border border-[#8EC5FF]/55 bg-[#D8ECFF]/65 px-2 py-1 text-[10px] font-semibold leading-tight text-[#2877BD] shadow-sm"
+      className="pointer-events-none absolute left-2 right-2 z-[6] rounded-small border border-[#8EC5FF]/45 bg-[#D8ECFF]/55 px-2 py-1 text-[10px] font-semibold leading-tight text-[#2877BD] shadow-sm"
       style={{
         top: `${(segmentStart - visibleStartMinute) * minuteHeight}px`,
         height: `${Math.max((segmentEnd - segmentStart) * minuteHeight, 22)}px`,

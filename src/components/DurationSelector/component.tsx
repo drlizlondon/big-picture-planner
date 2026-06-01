@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 
 const DURATION_OPTIONS = [
   { label: '15 mins', value: 15 },
@@ -19,22 +19,17 @@ interface Props {
 
 export const DurationSelector: React.FC<Props> = ({ value, onChange, label = 'Duration', compact = false }) => {
   const isPreset = DURATION_OPTIONS.some(option => option.value === value);
-  const [customMode, setCustomMode] = useState(!isPreset);
+  const [manualCustomMode, setManualCustomMode] = useState(!isPreset);
+  const customMode = manualCustomMode || !isPreset;
   const selectedValue = !customMode && isPreset ? String(value) : 'custom';
-
-  useEffect(() => {
-    if (!isPreset) {
-      setCustomMode(true);
-    }
-  }, [isPreset]);
 
   const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (e.target.value === 'custom') {
-      setCustomMode(true);
+      setManualCustomMode(true);
       onChange(isPreset ? value : Math.max(5, value || 15));
       return;
     }
-    setCustomMode(false);
+    setManualCustomMode(false);
     onChange(Number(e.target.value));
   };
 

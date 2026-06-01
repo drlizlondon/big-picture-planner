@@ -3,19 +3,52 @@ import { PlannerHeader } from '../PlannerHeader/component';
 import { Sidebar } from '../Sidebar/component';
 import { WeekGrid } from '../WeekGrid/component';
 import { addDays } from '../../utils/dateUtils';
-import { DndContext, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useDroppable, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
+import { DndContext, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useDroppable, useSensor, useSensors, type Collision, type CollisionDetection, type DragEndEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
 import { moveBlockByDays, moveBlockByMinutes, moveBlockToSchedule, moveBlockToWeek, resizeBlockDuration } from '../../services/plannerActions';
 import { AddToPlannerModal } from '../AddToPlannerModal/component';
 import { BlockEditor } from '../BlockEditor/component';
 import { PlannerSetupPanel } from '../PlannerSetupPanel/component';
 import { ToSchedulePanel } from '../ToSchedulePanel/component';
-import { useBlock } from '../../hooks/usePlannerData';
+import { useBlock, useWeekBlocks } from '../../hooks/usePlannerData';
 import { calculateEndTime } from '../../utils/planningEngine';
+import { DEFAULT_FILTERS, FILTER_LABELS, matchesPlannerFilters, type PlannerFilterId } from '../../utils/plannerFilters';
+import { formatDate, getStartOfWeek } from '../../utils/dateUtils';
 
 const MOBILE_INBOX_PREF_KEY = 'planner.mobileInboxExpanded';
 const collisionDetection: CollisionDetection = (args) => {
+  const topEdgeCollisions = getTopEdgeSlotCollisions(args);
+  if (topEdgeCollisions.length > 0) return topEdgeCollisions;
+
   const pointerCollisions = pointerWithin(args);
   return pointerCollisions.length > 0 ? pointerCollisions : rectIntersection(args);
+};
+
+const getTopEdgeSlotCollisions: CollisionDetection = ({ collisionRect, droppableContainers, droppableRects }) => {
+  const topAnchor = {
+    x: collisionRect.left + collisionRect.width / 2,
+    y: collisionRect.top + 1,
+  };
+  const collisions: Collision[] = [];
+
+  for (const droppableContainer of droppableContainers) {
+    if (!String(droppableContainer.id).startsWith('slot-')) continue;
+    const rect = droppableRects.get(droppableContainer.id);
+    if (!rect) continue;
+
+    const isInsideTopSlot = topAnchor.x >= rect.left
+      && topAnchor.x <= rect.right
+      && topAnchor.y >= rect.top
+      && topAnchor.y <= rect.bottom;
+
+    if (isInsideTopSlot) {
+      collisions.push({
+        id: droppableContainer.id,
+        data: { droppableContainer, value: 0 },
+      });
+    }
+  }
+
+  return collisions;
 };
 
 // The main application shell layout
@@ -43,6 +76,7 @@ export const AppShell: React.FC = () => {
   });
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [activeFilters, setActiveFilters] = useState<PlannerFilterId[]>(DEFAULT_FILTERS);
   const selectedBlock = useBlock(selectedBlockId);
   const weekSwitchTimer = useRef<number | null>(null);
   const dayExpandTimer = useRef<number | null>(null);
@@ -54,7 +88,7 @@ export const AppShell: React.FC = () => {
       activationConstraint: { distance: 6 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 220, tolerance: 8 },
+      activationConstraint: { delay: 420, tolerance: 10 },
     })
   );
 
@@ -71,6 +105,16 @@ export const AppShell: React.FC = () => {
   const handlePrevWeek = () => setCurrentDate(prev => addDays(prev, -7));
   const handleNextWeek = () => setCurrentDate(prev => addDays(prev, 7));
   const handleToday = () => setCurrentDate(new Date());
+  const handleFilterToggle = (filter: PlannerFilterId) => {
+    setActiveFilters(prev => {
+      if (filter === 'all') return ['all'];
+      const withoutAll = prev.filter(item => item !== 'all');
+      const next = withoutAll.includes(filter)
+        ? withoutAll.filter(item => item !== filter)
+        : [...withoutAll, filter];
+      return next.length === 0 ? ['all'] : next;
+    });
+  };
 
   const updateSidebarCollapsed = (isCollapsed: boolean) => {
     setIsSidebarCollapsed(isCollapsed);
@@ -182,7 +226,7 @@ export const AppShell: React.FC = () => {
     setIsDraggingBlock(true);
   };
 
-  // Handle drop from Life Inbox -> Week Canvas OR moving between days/times.
+  // Handle drop from Ready to schedule -> Week Canvas OR moving between days/times.
   const handleDragEnd = async (event: DragEndEvent) => {
     clearWeekSwitchTimer();
     clearDayExpandTimer();
@@ -223,7 +267,7 @@ export const AppShell: React.FC = () => {
           <button
             onClick={() => updateSidebarCollapsed(false)}
             className="hidden md:block w-11 flex-shrink-0 rounded-medium border border-border-default bg-surface-primary shadow-sm text-accent-primary font-bold hover:bg-background transition-colors"
-            title="Show Life Inbox"
+            title="Show Ready to schedule"
           >
             »
           </button>
@@ -242,9 +286,23 @@ export const AppShell: React.FC = () => {
         
         <WeekEdgeDropZone id="previous-week" title="Previous Week" helper="Drag here or click to view previous week" weekOffset={-1} isDraggingBlock={isDraggingBlock} onClick={handlePrevWeek} />
         <main className="flex-1 bg-surface-primary rounded-large shadow-sm border border-border-default overflow-hidden flex flex-col min-w-0">
-          <WeekGrid currentDate={currentDate} onEditBlock={handleEditBlock} onSelectBlock={handleSelectBlock} selectedBlockId={selectedBlockId} expandedDate={mobileExpandedDate} isDraggingBlock={isDraggingBlock} />
+          <WeekGrid
+            currentDate={currentDate}
+            onEditBlock={handleEditBlock}
+            onSelectBlock={handleSelectBlock}
+            selectedBlockId={selectedBlockId}
+            expandedDate={mobileExpandedDate}
+            isDraggingBlock={isDraggingBlock}
+            activeFilters={activeFilters}
+          />
         </main>
         <WeekEdgeDropZone id="next-week" title="Next Week" helper="Drag here or click to view next week" weekOffset={1} isDraggingBlock={isDraggingBlock} onClick={handleNextWeek} />
+        <PlannerSidePanel
+          currentDate={currentDate}
+          activeFilters={activeFilters}
+          onSelectDate={setCurrentDate}
+          onFilterToggle={handleFilterToggle}
+        />
       </div>
 
       {!isBlockingPanelOpen && (
@@ -260,12 +318,18 @@ export const AppShell: React.FC = () => {
             />
           </div>
 
+          <MobileSelectedBlockControls
+            blockId={selectedBlockId}
+            onEditBlock={handleEditBlock}
+            onClose={() => setSelectedBlockId(null)}
+          />
+
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="mobile-add-fab fixed right-4 z-sidebar h-14 w-14 rounded-full bg-accent-primary text-white text-[26px] leading-none shadow-modal border border-white/30"
+            className="mobile-add-fab fixed right-4 z-sidebar h-11 rounded-full bg-accent-primary px-4 text-white text-[13px] font-bold shadow-modal border border-white/30"
             title="Add item"
           >
-            +
+            + Add Task
           </button>
         </>
       )}
@@ -289,6 +353,35 @@ export const AppShell: React.FC = () => {
       <PlannerSetupPanel isOpen={isPlannerSetupOpen} onClose={() => setIsPlannerSetupOpen(false)} />
     </div>
     </DndContext>
+  );
+};
+
+interface MobileSelectedBlockControlsProps {
+  blockId: string | null;
+  onEditBlock: (blockId: string) => void;
+  onClose: () => void;
+}
+
+const MobileSelectedBlockControls: React.FC<MobileSelectedBlockControlsProps> = ({ blockId, onEditBlock, onClose }) => {
+  const block = useBlock(blockId);
+
+  if (!blockId || !block?.date || !block.startTime) return null;
+
+  const handleMoveToInbox = async () => {
+    await moveBlockToSchedule(block.id);
+    onClose();
+  };
+
+  return (
+    <div className="mobile-selected-sheet">
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-bold text-text-primary">{block.title}</div>
+        <div className="text-[11px] font-semibold text-text-secondary">{block.startTime} · {block.durationMinutes}m</div>
+      </div>
+      <button type="button" onClick={() => onEditBlock(block.id)} className="h-8 rounded-small border border-border-default bg-background px-3 text-[12px] font-bold text-text-primary">Edit</button>
+      <button type="button" onClick={handleMoveToInbox} className="h-8 rounded-small border border-border-default bg-background px-3 text-[12px] font-bold text-text-primary">Inbox</button>
+      <button type="button" onClick={onClose} className="h-8 w-8 rounded-small border border-border-default bg-background text-[14px] font-bold text-text-secondary" aria-label="Close selected block controls">×</button>
+    </div>
   );
 };
 
@@ -364,4 +457,114 @@ const WeekEdgeDropZone: React.FC<WeekEdgeDropZoneProps> = ({ id, title, helper, 
       <div className={`${isDraggingBlock ? 'block' : 'hidden'} text-[10px] leading-snug text-text-muted`}>{helper}</div>
     </button>
   );
+};
+
+interface PlannerSidePanelProps {
+  currentDate: Date;
+  activeFilters: PlannerFilterId[];
+  onSelectDate: (date: Date) => void;
+  onFilterToggle: (filter: PlannerFilterId) => void;
+}
+
+const PlannerSidePanel: React.FC<PlannerSidePanelProps> = ({ currentDate, activeFilters, onSelectDate, onFilterToggle }) => {
+  const [displayMonth, setDisplayMonth] = useState(() => new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
+
+  /* eslint-disable react-hooks/set-state-in-effect -- Keep the side-panel month aligned when the active planner week changes. */
+  useEffect(() => {
+    setDisplayMonth(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
+  }, [currentDate]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const monthDays = getMonthPanelDays(displayMonth);
+  const selectedDate = formatDate(currentDate);
+  const weekStartDate = getStartOfWeek(currentDate);
+  const weekStart = formatDate(weekStartDate);
+  const weekEnd = formatDate(addDays(weekStartDate, 6));
+  const monthBlocks = useWeekBlocks(monthDays[0].value, monthDays[monthDays.length - 1].value) || [];
+  const activeBlockCount = monthBlocks.filter(block => matchesPlannerFilters(block, activeFilters)).length;
+
+  return (
+    <aside className="planner-side-panel hidden lg:flex w-[220px] flex-shrink-0 flex-col gap-3 overflow-y-auto">
+      <section className="rounded-medium border border-border-default bg-surface-primary p-3 shadow-sm">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setDisplayMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+            className="h-8 w-8 rounded-small border border-border-default bg-background text-[13px] font-bold text-text-secondary hover:text-text-primary"
+            aria-label="Previous month"
+          >
+            ‹
+          </button>
+          <div className="text-center text-[13px] font-bold text-text-primary">
+            {displayMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+          </div>
+          <button
+            type="button"
+            onClick={() => setDisplayMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+            className="h-8 w-8 rounded-small border border-border-default bg-background text-[13px] font-bold text-text-secondary hover:text-text-primary"
+            aria-label="Next month"
+          >
+            ›
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 text-center">
+          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, index) => (
+            <div key={`${day}-${index}`} className="text-[10px] font-bold text-text-muted">{day}</div>
+          ))}
+          {monthDays.map(day => {
+            const isSelected = day.value === selectedDate;
+            const isInWeek = day.value >= weekStart && day.value <= weekEnd;
+            return (
+              <button
+                key={day.value}
+                type="button"
+                onClick={() => onSelectDate(new Date(`${day.value}T12:00:00`))}
+                className={`h-7 rounded-[8px] text-[11px] font-semibold transition-colors ${isSelected ? 'bg-accent-primary text-white' : isInWeek ? 'bg-accent-primary/10 text-accent-primary' : day.inMonth ? 'text-text-primary hover:bg-background' : 'text-text-muted/55 hover:bg-background/70'}`}
+                title={`Go to ${day.value}`}
+              >
+                {day.label}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="rounded-medium border border-border-default bg-surface-primary p-3 shadow-sm">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="text-[13px] font-bold text-text-primary">Filters</h2>
+          <span className="text-[11px] font-semibold text-text-muted">{activeBlockCount}</span>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {(Object.keys(FILTER_LABELS) as PlannerFilterId[]).map(filter => (
+            <button
+              key={filter}
+              type="button"
+              onClick={() => onFilterToggle(filter)}
+              className={`flex h-8 items-center justify-between rounded-small border px-2 text-left text-[12px] font-semibold transition-colors ${activeFilters.includes(filter) ? 'border-accent-primary/45 bg-accent-primary/[0.07] text-accent-primary' : 'border-border-default bg-background text-text-secondary hover:text-text-primary'}`}
+            >
+              <span>{FILTER_LABELS[filter]}</span>
+              <span className={`h-2 w-2 rounded-full ${activeFilters.includes(filter) ? 'bg-accent-primary' : 'bg-border-strong'}`} />
+            </button>
+          ))}
+        </div>
+      </section>
+    </aside>
+  );
+};
+
+const getMonthPanelDays = (date: Date) => {
+  const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+  const lastOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  const gridStart = getStartOfWeek(firstOfMonth);
+  const totalDays = Math.ceil((Math.round((lastOfMonth.getTime() - gridStart.getTime()) / 86400000) + 1) / 7) * 7;
+
+  return Array.from({ length: totalDays }).map((_, index) => {
+    const current = addDays(gridStart, index);
+    return {
+      label: String(current.getDate()),
+      value: formatDate(current),
+      inMonth: current.getMonth() === date.getMonth(),
+    };
+  });
 };

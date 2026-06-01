@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createBlock, createTemplate, deleteBlock, duplicateBlock, moveBlockToSchedule, updateBlock } from '../../services/plannerActions';
 import { useBlock, useCategories } from '../../hooks/usePlannerData';
 import { calculateEndTime } from '../../utils/planningEngine';
@@ -48,6 +48,25 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
   const block = useBlock(blockId || null);
   const { setup } = usePlannerSetup();
 
+  const resetForm = useCallback(() => {
+    setTitle('');
+    setDuration(15);
+    setDescription('');
+    setCategoryId('');
+    setDate('');
+    setStartTime('');
+    setIsBaseEvent(false);
+    setShowMoreDetails(false);
+    setTravelEnabled(false);
+    setTravelBeforeMinutes(60);
+    setTravelAfterMinutes(60);
+    setAdditionalTimezone(undefined);
+    setTimezoneEnabled(false);
+    setFeatures({});
+    setSaveAsTemplate(false);
+    setError(null);
+  }, []);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -55,14 +74,14 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
       setTimeout(() => titleRef.current?.focus(), 50);
-    } else {
-      setError(null);
     }
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Form state is intentionally hydrated when the editor opens for a different block. */
   useEffect(() => {
     if (block && isOpen) {
+      setError(null);
       setTitle(block.title);
       setDuration(block.durationMinutes);
       setDescription(block.description || '');
@@ -80,27 +99,10 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
     } else if (!blockId && isOpen) {
       resetForm();
     }
-  }, [block, isOpen, blockId]);
+  }, [block, isOpen, blockId, resetForm]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!isOpen) return null;
-
-  const resetForm = () => {
-    setTitle('');
-    setDuration(15);
-    setDescription('');
-    setCategoryId('');
-    setDate('');
-    setStartTime('');
-    setIsBaseEvent(false);
-    setShowMoreDetails(false);
-    setTravelEnabled(false);
-    setTravelBeforeMinutes(60);
-    setTravelAfterMinutes(60);
-    setAdditionalTimezone(undefined);
-    setTimezoneEnabled(false);
-    setFeatures({});
-    setSaveAsTemplate(false);
-  };
 
   const setChildcareFeature = (updates: Partial<FeatureData>) => {
     setFeatures(prev => {
@@ -123,8 +125,8 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
     if (isScheduledLocal) {
       try {
         endTimeToSave = calculateEndTime(startTime, duration);
-      } catch (e: any) {
-        return setError(e.message || 'Invalid time. Block cannot cross midnight.');
+      } catch (e: unknown) {
+        return setError(e instanceof Error ? e.message : 'Invalid time. Block cannot cross midnight.');
       }
     } else if (date || startTime) {
       return setError('Both Date and Time are required to schedule a block.');
@@ -420,7 +422,7 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
             <div className="flex flex-col gap-2">
               {block?.isScheduled && (
                 <button onClick={handleMoveToSchedule} className="h-[36px] bg-surface-secondary border border-border-default hover:bg-background text-text-primary rounded-small font-semibold text-[13px] transition-colors">
-                  Move back to Life Inbox
+                  Move back to Ready to schedule
                 </button>
               )}
               <button onClick={handleDuplicate} className="h-[36px] bg-surface-secondary border border-border-default hover:bg-background text-text-primary rounded-small font-semibold text-[13px] transition-colors">
@@ -439,7 +441,7 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
             disabled={!title.trim()}
             className="w-full h-[44px] bg-accent-primary hover:bg-accent-hover disabled:opacity-50 text-white rounded-medium font-bold text-[14px] transition-colors shadow-sm"
           >
-            {blockId ? 'Save Changes' : 'Save to Life Inbox'}
+            {blockId ? 'Save Changes' : 'Save to Ready to schedule'}
           </button>
         </div>
       </div>
