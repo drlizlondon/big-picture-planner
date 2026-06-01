@@ -1,4 +1,6 @@
 export type BlockSourceType = 'manual' | 'calendar_import' | 'paste' | 'template_instance';
+export type PlannerSourceProvider = 'manual' | 'google_calendar' | 'outlook' | 'import' | 'template' | 'system';
+export type PlannerSystemTag = 'travel' | 'recurring' | 'imported' | 'review' | 'conflict' | 'base_event' | 'template_instance';
 export type ReviewColour = 'GREEN' | 'ORANGE' | 'RED';
 
 export interface FeatureData {
@@ -6,6 +8,18 @@ export interface FeatureData {
   isComplete: boolean;
   status?: 'needed' | 'sorted';
   notes?: string;
+}
+
+export interface PlannerItemMetadata {
+  source?: {
+    provider: PlannerSourceProvider;
+    name: string;
+    externalId?: string;
+    importedAt?: number;
+  };
+  labelIds: string[];
+  systemTags: PlannerSystemTag[];
+  viewIds: string[];
 }
 
 export interface PlannerBlock {
@@ -24,6 +38,7 @@ export interface PlannerBlock {
   isBaseEvent: boolean;
   isHidden: boolean;
   sourceType: BlockSourceType;
+  metadata?: PlannerItemMetadata;
   
   // Relationships & Categorization
   categoryId?: string;
@@ -83,10 +98,31 @@ export interface PlannerTemplate {
   // Features & Localization
   additionalTimezone?: string;
   features: Record<string, FeatureData>; 
+  metadata?: PlannerItemMetadata;
   
   createdAt: number;
   updatedAt: number;
   isArchived: boolean; // Soft delete
+}
+
+export interface PlannerLabel {
+  id: string;
+  name: string;
+  colorHex: string;
+  isArchived: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PlannerViewDefinition {
+  id: string;
+  name: string;
+  labelIds: string[];
+  sourceProviders: PlannerSourceProvider[];
+  systemTags: PlannerSystemTag[];
+  isArchived: boolean;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export type SyncEntityType = 'blocks' | 'templates';

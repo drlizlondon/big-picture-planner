@@ -1,5 +1,5 @@
 import { db, createId } from '../db/db';
-import type { PlannerBlock, PlannerTemplate } from '../types/models';
+import type { BlockSourceType, PlannerBlock, PlannerItemMetadata, PlannerTemplate } from '../types/models';
 import { calculateEndTime, minutesToTime, timeToMinutes } from '../utils/planningEngine';
 import { addDays, formatDate } from '../utils/dateUtils';
 import { enqueueSyncChange } from './syncService';
@@ -13,6 +13,7 @@ export const createBlock = async (
   const newBlock: PlannerBlock = {
     ...blockData,
     id,
+    metadata: normalizeBlockMetadata(blockData),
     createdAt: now,
     updatedAt: now,
     endTime: blockData.startTime && blockData.durationMinutes 
@@ -27,8 +28,10 @@ export const createBlock = async (
 
 export const updateBlock = async (id: string, updates: Partial<PlannerBlock>): Promise<void> => {
   const now = Date.now();
+  const existing = await db.blocks.get(id);
   await db.blocks.update(id, {
     ...updates,
+    metadata: updates.metadata || (existing ? normalizeBlockMetadata({ ...existing, ...updates }) : updates.metadata),
     updatedAt: now
   });
   const block = await db.blocks.get(id);
@@ -55,6 +58,7 @@ export const createTemplate = async (
   const newTemplate: PlannerTemplate = {
     ...templateData,
     id,
+    metadata: normalizeTemplateMetadata(templateData),
     createdAt: now,
     updatedAt: now,
     isArchived: false
@@ -85,6 +89,7 @@ export const duplicateBlock = async (id: string, inPlace: boolean = false): Prom
   const duplicatedBlock: PlannerBlock = {
     ...block,
     id: newId,
+    metadata: normalizeBlockMetadata({ ...block, sourceType: 'template_instance' }),
     createdAt: now,
     updatedAt: now,
     // Default behavior is to un-schedule duplicates so they appear in the Life Inbox.
@@ -99,6 +104,41 @@ export const duplicateBlock = async (id: string, inPlace: boolean = false): Prom
   await db.blocks.add(duplicatedBlock);
   await enqueueSyncChange('blocks', newId, 'upsert', duplicatedBlock);
   return newId;
+};
+
+const normalizeBlockMetadata = (block: Pick<PlannerBlock, 'sourceType'> & Partial<PlannerBlock>): PlannerItemMetadata => {
+  return {
+    source: block.metadata?.source || getSourceForBlock(block.sourceType, block.importSource),
+    labelIds: block.metadata?.labelIds || [],
+    systemTags: block.metadata?.systemTags || getSystemTagsForBlock(block),
+    viewIds: block.metadata?.viewIds || [],
+  };
+};
+
+const normalizeTemplateMetadata = (template: Partial<PlannerTemplate>): PlannerItemMetadata => {
+  return {
+    source: template.metadata?.source || { provider: 'template', name: 'Template' },
+    labelIds: template.metadata?.labelIds || [],
+    systemTags: template.metadata?.systemTags || [],
+    viewIds: template.metadata?.viewIds || [],
+  };
+};
+
+const getSourceForBlock = (sourceType: BlockSourceType, importSource?: string): PlannerItemMetadata['source'] => {
+  if (sourceType === 'calendar_import') return { provider: 'import', name: importSource || 'Calendar import' };
+  if (sourceType === 'paste') return { provider: 'import', name: importSource || 'Import' };
+  if (sourceType === 'template_instance') return { provider: 'template', name: 'Template' };
+  return { provider: 'manual', name: 'Manual Entry' };
+};
+
+const getSystemTagsForBlock = (block: Partial<PlannerBlock>): PlannerItemMetadata['systemTags'] => {
+  const tags: PlannerItemMetadata['systemTags'] = [];
+  if (block.travelEnabled && ((block.travelBeforeMinutes || 0) > 0 || (block.travelAfterMinutes || 0) > 0)) tags.push('travel');
+  if (block.importSource || block.sourceType === 'paste' || block.sourceType === 'calendar_import') tags.push('imported');
+  if (block.reviewColour && block.reviewColour !== 'GREEN') tags.push('review');
+  if (block.isBaseEvent) tags.push('base_event');
+  if (block.sourceType === 'template_instance') tags.push('template_instance');
+  return tags;
 };
 
 export const moveBlockToWeek = async (id: string, date: string, startTime: string): Promise<void> => {

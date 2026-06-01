@@ -1,11 +1,13 @@
 import Dexie, { type Table } from 'dexie';
-import type { PlannerBlock, Category, FeatureDefinition, PlannerTemplate, SyncMeta, SyncQueueItem } from '../types/models';
+import type { PlannerBlock, Category, FeatureDefinition, PlannerLabel, PlannerTemplate, PlannerViewDefinition, SyncMeta, SyncQueueItem } from '../types/models';
 
 export class PlannerDatabase extends Dexie {
   blocks!: Table<PlannerBlock, string>;
   categories!: Table<Category, string>;
   features!: Table<FeatureDefinition, string>;
   templates!: Table<PlannerTemplate, string>;
+  labels!: Table<PlannerLabel, string>;
+  views!: Table<PlannerViewDefinition, string>;
   syncQueue!: Table<SyncQueueItem, string>;
   syncMeta!: Table<SyncMeta, string>;
 
@@ -28,6 +30,17 @@ export class PlannerDatabase extends Dexie {
       categories: 'id, isArchived',
       features: 'id, isArchived',
       templates: 'id, isArchived',
+      syncQueue: 'id, [entityType+entityId], entityType, entityId, updatedAt, nextAttemptAt',
+      syncMeta: 'key'
+    });
+
+    this.version(6).stores({
+      blocks: 'id, isScheduled, date, isBaseEvent, deletedAt, metadata.source.provider, *metadata.labelIds, *metadata.systemTags, *metadata.viewIds',
+      categories: 'id, isArchived',
+      features: 'id, isArchived',
+      templates: 'id, isArchived, metadata.source.provider, *metadata.labelIds, *metadata.systemTags, *metadata.viewIds',
+      labels: 'id, name, isArchived',
+      views: 'id, name, isArchived',
       syncQueue: 'id, [entityType+entityId], entityType, entityId, updatedAt, nextAttemptAt',
       syncMeta: 'key'
     });
