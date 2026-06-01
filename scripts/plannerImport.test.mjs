@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { parsePlannerImportLine, parsePlannerImportText } from '../src/utils/plannerImport.ts';
+import { looksLikePlannerImport, parsePlannerImportLine, parsePlannerImportText } from '../src/utils/plannerImport.ts';
+import { PLANNER_IMPORT_PROMPT } from '../src/utils/plannerImportPrompt.ts';
 
 const explicitCalendar = parsePlannerImportLine('CALENDAR | GP appointment | 28/05/2026 | 11:30 | 12:00 | 30m | ORANGE |', 0);
 assert.equal(explicitCalendar.destination, 'CALENDAR');
@@ -46,5 +47,39 @@ CALENDAR | A&E Shift | 12/06/2026 | 08:00 | 18:00 | 10h | GREEN | Emergency Depa
 assert.equal(parsed.length, 1);
 assert.equal(parsed[0].durationMinutes, 600);
 assert.equal(parsed[0].notes, 'Emergency Department');
+
+const structuredAiOutput = parsePlannerImportText(`
+destination | title | date | start_time | end_time | duration | review_colour | notes
+CALENDAR | School meeting | 01/06/2026 | 15:00 | | | GREEN | Start time only
+LIFE_INBOX | Pay water bill | 02/06/2026 | | | | GREEN | Date only
+LIFE_INBOX | Call dentist | | | | | GREEN |
+`);
+assert.equal(structuredAiOutput.length, 3);
+assert.equal(structuredAiOutput[0].destination, 'CALENDAR');
+assert.equal(structuredAiOutput[0].date, '2026-06-01');
+assert.equal(structuredAiOutput[0].durationMinutes, 30);
+assert.equal(structuredAiOutput[0].end, '15:30');
+assert.equal(structuredAiOutput[0].reviewColour, 'ORANGE');
+assert.equal(structuredAiOutput[0].isMalformed, false);
+assert.equal(structuredAiOutput[1].destination, 'LIFE_INBOX');
+assert.equal(structuredAiOutput[1].date, '2026-06-02');
+assert.equal(structuredAiOutput[1].start, undefined);
+assert.equal(structuredAiOutput[1].reviewColour, 'ORANGE');
+assert.equal(structuredAiOutput[1].isMalformed, false);
+assert.equal(structuredAiOutput[2].title, 'Call dentist');
+assert.equal(structuredAiOutput[2].reviewColour, 'GREEN');
+
+const calendarDateOnly = parsePlannerImportLine('CALENDAR | Submit form | 03/06/2026 | | | | GREEN | Date only but wrong destination', 6);
+assert.equal(calendarDateOnly.destination, 'LIFE_INBOX');
+assert.equal(calendarDateOnly.date, '2026-06-03');
+assert.equal(calendarDateOnly.reviewColour, 'ORANGE');
+assert.equal(calendarDateOnly.isMalformed, false);
+
+assert.equal(looksLikePlannerImport('Call dentist\nPay water bill'), false);
+assert.equal(looksLikePlannerImport('CALENDAR | School meeting | 01/06/2026 | 15:00 | | | ORANGE |'), true);
+
+assert.equal(PLANNER_IMPORT_PROMPT.includes('You are a Planner Import Engine.'), true);
+assert.equal(PLANNER_IMPORT_PROMPT.includes('destination | title | date | start_time | end_time | duration | review_colour | notes'), true);
+assert.equal(PLANNER_IMPORT_PROMPT.includes('Return only planner-ready items.'), true);
 
 console.log('planner import parser tests passed');

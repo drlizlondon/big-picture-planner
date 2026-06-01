@@ -23,6 +23,7 @@ export const parsePlannerImportText = (text: string): PlannerImportItem[] => {
     .split('\n')
     .map(line => line.trim())
     .filter(Boolean)
+    .filter(line => !isPlannerImportHeader(line))
     .map((line, index) => parsePlannerImportLine(line, index));
 };
 
@@ -33,15 +34,23 @@ export const looksLikePlannerImport = (text: string): boolean => {
 export const parsePlannerImportLine = (line: string, index: number): PlannerImportItem => {
   const parts = line.split('|').map(part => part.trim());
   const [destinationRaw, titleRaw, dateRaw, startRaw, endRaw, durationRaw, reviewColourRaw, ...notesParts] = parts;
-  const destination = normalizeDestination(destinationRaw);
-  const reviewColour = normalizeReviewColour(reviewColourRaw);
+  const parsedDestination = normalizeDestination(destinationRaw);
   const date = normalizeDate(dateRaw);
   const start = normalizeTime(startRaw);
   const end = normalizeTime(endRaw);
+  const destination = parsedDestination === 'CALENDAR' && date && !start ? 'LIFE_INBOX' : parsedDestination;
   const durationFromText = parseDurationMinutes(durationRaw);
   const notes = notesParts.join(' | ').trim() || undefined;
   const durationFromTimes = start && end ? minutesBetween(start, end) : undefined;
   const durationMinutes = durationFromTimes || durationFromText || (destination === 'CALENDAR' && start ? 30 : durationFromText);
+  const reviewColour = normalizeReviewColourForItem({
+    destination,
+    date,
+    start,
+    end,
+    durationFromText,
+    reviewColourRaw,
+  });
 
   const isMalformed =
     parts.length < 7 ||
@@ -62,6 +71,13 @@ export const parsePlannerImportLine = (line: string, index: number): PlannerImpo
     notes,
     isMalformed,
   };
+};
+
+const isPlannerImportHeader = (line: string): boolean => {
+  return line
+    .split('|')
+    .map(part => part.trim().toLowerCase())
+    .join('|') === 'destination|title|date|start_time|end_time|duration|review_colour|notes';
 };
 
 export const parseDurationMinutes = (value?: string): number | undefined => {
@@ -89,6 +105,21 @@ const normalizeDestination = (value?: string): ImportDestination | undefined => 
 const normalizeReviewColour = (value?: string): ReviewColour => {
   const normalized = value?.trim().toUpperCase() as ReviewColour;
   return REVIEW_COLOURS.includes(normalized) ? normalized : 'RED';
+};
+
+interface ReviewColourContext {
+  destination?: ImportDestination;
+  date?: string;
+  start?: string;
+  end?: string;
+  durationFromText?: number;
+  reviewColourRaw?: string;
+}
+
+const normalizeReviewColourForItem = ({ destination, date, start, end, durationFromText, reviewColourRaw }: ReviewColourContext): ReviewColour => {
+  if (destination === 'CALENDAR' && start && !end && !durationFromText) return 'ORANGE';
+  if (destination === 'LIFE_INBOX' && date && !start) return 'ORANGE';
+  return normalizeReviewColour(reviewColourRaw);
 };
 
 const normalizeDate = (value?: string): string | undefined => {
