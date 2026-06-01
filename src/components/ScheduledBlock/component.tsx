@@ -5,18 +5,19 @@ import type { PlannerBlock } from '../../types/models';
 import { calculateEndTime, getBlockConflicts, getEffectiveMinuteRange, minutesToTime, timeToMinutes } from '../../utils/planningEngine';
 import { useCategories, useFeatures } from '../../hooks/usePlannerData';
 import { deleteBlock, duplicateBlock, moveBlockToSchedule, moveBlockToWeek } from '../../services/plannerActions';
-import { getCategoryColor } from '../../utils/categoryColors';
 import { BUILT_IN_CHILDCARE_FEATURE_ID } from '../../utils/plannerSetup';
 
 interface Props {
   block: PlannerBlock;
   dailyBlocks: PlannerBlock[];
   onEditBlock: (blockId: string) => void;
+  onSelectBlock: (blockId: string) => void;
+  isSelected: boolean;
   minuteHeight: number;
   visibleStartMinute: number;
 }
 
-export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBlock, minuteHeight, visibleStartMinute }) => {
+export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBlock, onSelectBlock, isSelected, minuteHeight, visibleStartMinute }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: block.id,
     data: block
@@ -26,7 +27,6 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
   const activeFeatures = allFeatures.filter(f => block.features?.[f.id]?.enabled);
   const categories = useCategories() || [];
   const category = block.categoryId ? categories.find(cat => cat.id === block.categoryId) : undefined;
-  const categoryColor = getReviewColor(block.reviewColour) || getCategoryColor(category);
   const childcare = block.features?.[BUILT_IN_CHILDCARE_FEATURE_ID];
 
   const wasDragging = useRef(false);
@@ -46,7 +46,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
       e.stopPropagation();
       return;
     }
-    onEditBlock(block.id);
+    onSelectBlock(block.id);
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -64,7 +64,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
     if (distance < 5) {
       e.preventDefault();
       e.stopPropagation();
-      onEditBlock(block.id);
+      onSelectBlock(block.id);
     }
   };
 
@@ -110,15 +110,16 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
     }
   }
 
+  const blockTone = getBlockTone(block, hasConflicts, category?.name);
   const style = {
     top: `${topOffset}px`,
     height: `${Math.max(block.durationMinutes * minuteHeight, isShortBlock ? 40 : 46)}px`,
     transform: CSS.Translate.toString(transform),
-    zIndex: isDragging ? 50 : 10,
-    backgroundColor: `${categoryColor}24`,
-    borderColor: categoryColor,
-    borderLeftColor: categoryColor,
-    boxShadow: `0 2px 8px ${categoryColor}1F`,
+    zIndex: isDragging ? 50 : isSelected ? 22 : 10,
+    backgroundColor: blockTone.background,
+    borderColor: isSelected ? '#2563EB' : blockTone.border,
+    borderLeftColor: blockTone.accent,
+    boxShadow: isSelected ? '0 0 0 1px rgba(37,99,235,0.18), 0 8px 18px rgba(37,99,235,0.10)' : `0 2px 8px ${blockTone.accent}1F`,
   };
   const tooltip = [
     block.title,
@@ -175,14 +176,10 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       tabIndex={0}
-      className={`absolute left-0.5 right-0.5 rounded-small p-1.5 shadow-sm z-blocks cursor-grab active:cursor-grabbing hover:ring-2 hover:ring-text-primary/10 transition-colors group flex flex-col border border-l-[3px] text-text-primary overflow-hidden ${isDragging ? 'opacity-85 scale-[1.02] shadow-hover' : ''}`}
+      className={`absolute left-0.5 right-0.5 rounded-small p-1.5 shadow-sm z-blocks cursor-grab active:cursor-grabbing hover:ring-2 hover:ring-text-primary/10 transition-colors group flex flex-col border border-l-[3px] text-text-primary overflow-visible ${isDragging ? 'opacity-85 scale-[1.02] shadow-hover' : ''} ${isSelected ? 'scheduled-block-selected' : ''}`}
       title={tooltip}
     >
-      {block.travelEnabled && block.travelBeforeMinutes > 0 && (
-        <div className="absolute bottom-full left-1 right-1 border border-b-0 rounded-t-small flex flex-col justify-end px-1 py-0.5 pointer-events-none" style={{ height: `${block.travelBeforeMinutes * minuteHeight}px`, backgroundColor: `${categoryColor}14`, borderColor: `${categoryColor}2E`, color: categoryColor }}>
-          {block.travelBeforeMinutes >= 15 && <span className="text-[10px] opacity-65 pl-1 leading-tight">{block.travelBeforeMinutes}m travel</span>}
-        </div>
-      )}
+      {isSelected && <SelectionHandles />}
 
       <div className="flex justify-between items-start gap-1 min-w-0">
         <div className="min-w-0 flex-1 pr-0">
@@ -204,7 +201,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
           </div>
         </div>
         <div className="hidden group-hover:flex absolute right-1 top-1 items-center gap-1 bg-surface-primary/95 px-1 rounded z-20 border border-border-default shadow-sm">
-          <span className="text-text-secondary text-[11px] leading-[22px]" title="Edit">✎</span>
+          <button onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onEditBlock(block.id); }} className="text-text-secondary hover:text-text-primary p-0.5" title="Edit">✎</button>
           <span className="text-text-secondary text-[11px] leading-[22px]" title="Move">↕</span>
           <button onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={handleMoveToSchedule} className="text-text-secondary hover:text-text-primary p-0.5" title="Move to Life Inbox">↰</button>
           <button onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onClick={handleDuplicate} className="text-text-secondary hover:text-text-primary p-0.5" title="Duplicate">⧉</button>
@@ -230,19 +227,30 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
         </div>
       )}
 
-      {block.travelEnabled && block.travelAfterMinutes > 0 && (
-        <div className="absolute top-full left-1 right-1 border border-t-0 rounded-b-small flex flex-col justify-start px-1 py-0.5 pointer-events-none" style={{ height: `${block.travelAfterMinutes * minuteHeight}px`, backgroundColor: `${categoryColor}14`, borderColor: `${categoryColor}2E`, color: categoryColor }}>
-          {block.travelAfterMinutes >= 15 && <span className="text-[10px] opacity-65 pl-1 leading-tight">{block.travelAfterMinutes}m travel</span>}
-        </div>
-      )}
     </div>
   );
 };
 
-const getReviewColor = (reviewColour?: string): string | undefined => {
-  if (reviewColour === 'ORANGE') return '#F4B04F';
-  if (reviewColour === 'RED') return '#E85D75';
-  return undefined;
+const SelectionHandles: React.FC = () => (
+  <>
+    <span className="pointer-events-none absolute -left-1 -top-1 h-2 w-2 rounded-full border border-[#2563EB] bg-white shadow-sm" />
+    <span className="pointer-events-none absolute -right-1 -top-1 h-2 w-2 rounded-full border border-[#2563EB] bg-white shadow-sm" />
+    <span className="pointer-events-none absolute -bottom-1 -left-1 h-2 w-2 rounded-full border border-[#2563EB] bg-white shadow-sm" />
+    <span className="pointer-events-none absolute -bottom-1 -right-1 h-2 w-2 rounded-full border border-[#2563EB] bg-white shadow-sm" />
+  </>
+);
+
+const getBlockTone = (block: PlannerBlock, hasConflicts: boolean, categoryName?: string): { background: string; border: string; accent: string } => {
+  if (hasConflicts || block.reviewColour === 'RED') {
+    return { background: '#FFF1F3', border: '#FDA4AF', accent: '#E85D75' };
+  }
+  if (block.reviewColour === 'ORANGE' || block.isBaseEvent) {
+    return { background: '#FFF7E6', border: '#F4B04F', accent: '#F59E0B' };
+  }
+  if (categoryName?.trim().toLowerCase() === 'personal') {
+    return { background: '#F1EEFF', border: '#C4B5FD', accent: '#7C5CFC' };
+  }
+  return { background: '#F3F6FB', border: '#C9D3E1', accent: '#8A93A3' };
 };
 
 const getReviewStatus = (reviewColour: string): string => {

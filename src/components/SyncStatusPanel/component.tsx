@@ -58,7 +58,7 @@ export const SyncStatusPanel: React.FC = () => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(prev => !prev)}
-        className="h-10 rounded-medium border border-border-default bg-surface-primary px-3 text-[12px] font-bold text-text-primary shadow-sm hover:bg-background transition-colors flex items-center gap-2"
+        className="h-9 rounded-medium border border-transparent bg-transparent px-2 text-[12px] font-semibold text-text-secondary hover:border-border-default hover:bg-surface-primary transition-colors flex items-center gap-2"
         aria-expanded={isOpen}
       >
         <span className={`h-2.5 w-2.5 rounded-full ${sync.label === 'Synced' ? 'bg-green-500' : sync.label === 'Syncing' ? 'bg-accent-primary' : sync.label === 'Sync failed, retrying' ? 'bg-amber-500' : 'bg-text-muted'}`} />

@@ -4,12 +4,16 @@ import { useDroppable } from '@dnd-kit/core';
 import { useWeekBlocks } from '../../hooks/usePlannerData';
 import { ScheduledBlock } from '../ScheduledBlock/component';
 import { formatDate } from '../../utils/dateUtils';
+import type { PlannerBlock } from '../../types/models';
+import { timeToMinutes } from '../../utils/planningEngine';
 
 const QUARTERS = [0, 15, 30, 45]; // 15-minute snap intervals
 
 interface Props {
   date: string;
   onEditBlock: (blockId: string) => void;
+  onSelectBlock: (blockId: string) => void;
+  selectedBlockId: string | null;
   hourHeight: number;
   visibleHours: number[];
   visibleStartHour: number;
@@ -17,7 +21,7 @@ interface Props {
   isExpanded?: boolean;
 }
 
-export const DayColumn: React.FC<Props> = ({ date, onEditBlock, hourHeight, visibleHours, visibleStartHour, visibleEndHour, isExpanded = false }) => {
+export const DayColumn: React.FC<Props> = ({ date, onEditBlock, onSelectBlock, selectedBlockId, hourHeight, visibleHours, visibleStartHour, visibleEndHour, isExpanded = false }) => {
   const blocks = useWeekBlocks(date, date) || [];
   const isToday = date === formatDate(new Date());
   const now = new Date();
@@ -55,6 +59,16 @@ export const DayColumn: React.FC<Props> = ({ date, onEditBlock, hourHeight, visi
         </div>
       )}
 
+      {visibleBlocks.map(block => (
+        <TravelSegments
+          key={`${block.id}-travel`}
+          block={block}
+          minuteHeight={minuteHeight}
+          visibleStartMinute={visibleStartMinute}
+          visibleEndMinute={visibleEndMinute}
+        />
+      ))}
+
       {/* Render absolutely positioned blocks mapped on top of the drop grid */}
       {visibleBlocks.map(block => (
         <ScheduledBlock 
@@ -62,6 +76,8 @@ export const DayColumn: React.FC<Props> = ({ date, onEditBlock, hourHeight, visi
           block={block} 
           dailyBlocks={blocks} 
           onEditBlock={onEditBlock} 
+          onSelectBlock={onSelectBlock}
+          isSelected={selectedBlockId === block.id}
           minuteHeight={minuteHeight}
           visibleStartMinute={visibleStartMinute}
         />
@@ -89,5 +105,71 @@ const DropSlot: React.FC<DropSlotProps> = ({ date, startTime, topOffset, height 
       className={`absolute w-full transition-colors hover:bg-accent-primary/[0.06] ${isOver ? 'bg-accent-primary/10' : ''}`}
       style={{ top: `${topOffset}px`, height: `${height}px` }}
     />
+  );
+};
+
+interface TravelSegmentsProps {
+  block: PlannerBlock;
+  minuteHeight: number;
+  visibleStartMinute: number;
+  visibleEndMinute: number;
+}
+
+const TravelSegments: React.FC<TravelSegmentsProps> = ({ block, minuteHeight, visibleStartMinute, visibleEndMinute }) => {
+  if (!block.travelEnabled || !block.startTime) return null;
+  const start = timeToMinutes(block.startTime);
+  const end = start + block.durationMinutes;
+
+  return (
+    <>
+      {block.travelBeforeMinutes > 0 && (
+        <TravelSegment
+          startMinute={start - block.travelBeforeMinutes}
+          durationMinutes={block.travelBeforeMinutes}
+          label={`Travel ${block.travelBeforeMinutes}m`}
+          minuteHeight={minuteHeight}
+          visibleStartMinute={visibleStartMinute}
+          visibleEndMinute={visibleEndMinute}
+        />
+      )}
+      {block.travelAfterMinutes > 0 && (
+        <TravelSegment
+          startMinute={end}
+          durationMinutes={block.travelAfterMinutes}
+          label={`Travel ${block.travelAfterMinutes}m`}
+          minuteHeight={minuteHeight}
+          visibleStartMinute={visibleStartMinute}
+          visibleEndMinute={visibleEndMinute}
+        />
+      )}
+    </>
+  );
+};
+
+interface TravelSegmentProps {
+  startMinute: number;
+  durationMinutes: number;
+  label: string;
+  minuteHeight: number;
+  visibleStartMinute: number;
+  visibleEndMinute: number;
+}
+
+const TravelSegment: React.FC<TravelSegmentProps> = ({ startMinute, durationMinutes, label, minuteHeight, visibleStartMinute, visibleEndMinute }) => {
+  const segmentStart = Math.max(startMinute, visibleStartMinute);
+  const segmentEnd = Math.min(startMinute + durationMinutes, visibleEndMinute);
+  if (segmentEnd <= visibleStartMinute || segmentStart >= visibleEndMinute || segmentEnd <= segmentStart) return null;
+
+  return (
+    <div
+      className="pointer-events-none absolute left-2 right-2 z-[6] rounded-small border border-[#8EC5FF]/55 bg-[#D8ECFF]/65 px-2 py-1 text-[10px] font-semibold leading-tight text-[#2877BD] shadow-sm"
+      style={{
+        top: `${(segmentStart - visibleStartMinute) * minuteHeight}px`,
+        height: `${Math.max((segmentEnd - segmentStart) * minuteHeight, 22)}px`,
+      }}
+      title={label}
+    >
+      <span className="opacity-90">{label}</span>
+    </div>
   );
 };

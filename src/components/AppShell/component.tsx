@@ -4,7 +4,7 @@ import { Sidebar } from '../Sidebar/component';
 import { WeekGrid } from '../WeekGrid/component';
 import { addDays } from '../../utils/dateUtils';
 import { DndContext, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useDroppable, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
-import { moveBlockToSchedule, moveBlockToWeek } from '../../services/plannerActions';
+import { moveBlockByDays, moveBlockByMinutes, moveBlockToSchedule, moveBlockToWeek, resizeBlockDuration } from '../../services/plannerActions';
 import { AddToPlannerModal } from '../AddToPlannerModal/component';
 import { BlockEditor } from '../BlockEditor/component';
 import { PlannerSetupPanel } from '../PlannerSetupPanel/component';
@@ -42,8 +42,11 @@ export const AppShell: React.FC = () => {
     }
   });
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const selectedBlock = useBlock(selectedBlockId);
   const weekSwitchTimer = useRef<number | null>(null);
   const dayExpandTimer = useRef<number | null>(null);
+  const keyboardQueueRef = useRef<Promise<void>>(Promise.resolve());
   const activeHoverDate = useRef<string | null>(null);
   const activeEdgeId = useRef<string | null>(null);
   const sensors = useSensors(
@@ -56,8 +59,13 @@ export const AppShell: React.FC = () => {
   );
 
   const handleEditBlock = (blockId: string) => {
+    setSelectedBlockId(null);
     setEditingBlockId(blockId);
     setIsBlockEditorOpen(true);
+  };
+
+  const handleSelectBlock = (blockId: string) => {
+    setSelectedBlockId(blockId);
   };
 
   const handlePrevWeek = () => setCurrentDate(prev => addDays(prev, -7));
@@ -81,6 +89,44 @@ export const AppShell: React.FC = () => {
       // Keep the in-memory preference if storage is unavailable.
     }
   };
+  const isBlockingPanelOpen = isAddModalOpen || isBlockEditorOpen || isPlannerSetupOpen;
+
+  useEffect(() => {
+    const handleKeyDown = async (event: KeyboardEvent) => {
+      if (!selectedBlock || isBlockingPanelOpen) return;
+      if (isTypingTarget(event.target)) return;
+      if (!selectedBlock.date || !selectedBlock.startTime) return;
+
+      const isMoveKey = event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight';
+      const isDurationKey = event.key === '+' || event.key === '=' || event.key === '-' || event.key === '_';
+      if (!isMoveKey && !isDurationKey) return;
+
+      event.preventDefault();
+      const key = event.key;
+      const blockId = selectedBlock.id;
+
+      keyboardQueueRef.current = keyboardQueueRef.current.catch(() => undefined).then(async () => {
+        if (key === 'ArrowLeft' || key === 'ArrowRight') {
+          await moveBlockByDays(blockId, key === 'ArrowLeft' ? -1 : 1);
+          return;
+        }
+
+        if (key === 'ArrowUp' || key === 'ArrowDown') {
+          await moveBlockByMinutes(blockId, key === 'ArrowUp' ? -15 : 15);
+          return;
+        }
+
+        try {
+          await resizeBlockDuration(blockId, key === '-' || key === '_' ? -15 : 15);
+        } catch {
+          // Keep the current duration if the new end time would leave the day.
+        }
+      });
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isBlockingPanelOpen, selectedBlock]);
 
   const clearWeekSwitchTimer = () => {
     if (weekSwitchTimer.current !== null) {
@@ -150,9 +196,13 @@ export const AppShell: React.FC = () => {
     
     if (dropData && dropData.date && dropData.startTime) {
       await moveBlockToWeek(blockId, dropData.date, dropData.startTime);
+      setSelectedBlockId(blockId);
       setLastScheduledBlockId(blockId);
+    } else if (dropData?.edgeWeekOffset) {
+      setCurrentDate(prev => addDays(prev, dropData.edgeWeekOffset! * 7));
     } else if (dropData && dropData.toLifeInbox) {
       await moveBlockToSchedule(blockId);
+      setSelectedBlockId(null);
     }
   };
 
@@ -162,7 +212,6 @@ export const AppShell: React.FC = () => {
     setIsDraggingBlock(false);
     setMobileExpandedDate(null);
   };
-  const isBlockingPanelOpen = isAddModalOpen || isBlockEditorOpen || isPlannerSetupOpen;
 
   return (
     <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
@@ -191,11 +240,11 @@ export const AppShell: React.FC = () => {
           </aside>
         )}
         
-        <WeekEdgeDropZone id="previous-week" title="Previous Week" helper="Drag here to view previous week" weekOffset={-1} isDraggingBlock={isDraggingBlock} />
+        <WeekEdgeDropZone id="previous-week" title="Previous Week" helper="Drag here or click to view previous week" weekOffset={-1} isDraggingBlock={isDraggingBlock} onClick={handlePrevWeek} />
         <main className="flex-1 bg-surface-primary rounded-large shadow-sm border border-border-default overflow-hidden flex flex-col min-w-0">
-          <WeekGrid currentDate={currentDate} onEditBlock={handleEditBlock} expandedDate={mobileExpandedDate} isDraggingBlock={isDraggingBlock} />
+          <WeekGrid currentDate={currentDate} onEditBlock={handleEditBlock} onSelectBlock={handleSelectBlock} selectedBlockId={selectedBlockId} expandedDate={mobileExpandedDate} isDraggingBlock={isDraggingBlock} />
         </main>
-        <WeekEdgeDropZone id="next-week" title="Next Week" helper="Drag here to view next week" weekOffset={1} isDraggingBlock={isDraggingBlock} />
+        <WeekEdgeDropZone id="next-week" title="Next Week" helper="Drag here or click to view next week" weekOffset={1} isDraggingBlock={isDraggingBlock} onClick={handleNextWeek} />
       </div>
 
       {!isBlockingPanelOpen && (
@@ -243,6 +292,12 @@ export const AppShell: React.FC = () => {
   );
 };
 
+const isTypingTarget = (target: EventTarget | null): boolean => {
+  if (!(target instanceof HTMLElement)) return false;
+  const tagName = target.tagName.toLowerCase();
+  return tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target.isContentEditable;
+};
+
 interface DropConfirmationToastProps {
   blockId: string | null;
   onClose: () => void;
@@ -288,21 +343,25 @@ interface WeekEdgeDropZoneProps {
   helper: string;
   weekOffset: -1 | 1;
   isDraggingBlock: boolean;
+  onClick: () => void;
 }
 
-const WeekEdgeDropZone: React.FC<WeekEdgeDropZoneProps> = ({ id, title, helper, weekOffset, isDraggingBlock }) => {
+const WeekEdgeDropZone: React.FC<WeekEdgeDropZoneProps> = ({ id, title, helper, weekOffset, isDraggingBlock, onClick }) => {
   const { isOver, setNodeRef } = useDroppable({
     id,
     data: { edgeWeekOffset: weekOffset },
   });
 
   return (
-    <div
+    <button
+      type="button"
       ref={setNodeRef}
+      onClick={onClick}
       className={`week-edge-drop-zone ${isDraggingBlock ? 'w-11' : 'w-9'} flex-shrink-0 rounded-medium border transition-all flex flex-col items-center justify-center gap-3 text-center px-0.5 ${isOver ? 'bg-accent-primary/10 border-accent-primary text-accent-primary shadow-sm' : isDraggingBlock ? 'bg-accent-primary/[0.045] border-border-default/80 text-text-secondary' : 'bg-surface-primary/45 border-border-default/60 text-text-muted'}`}
+      aria-label={weekOffset < 0 ? 'Go to previous week from edge' : 'Go to next week from edge'}
     >
       <div className="text-[11px] font-bold leading-tight">{weekOffset < 0 ? '‹' : '›'}<br />{title}</div>
       <div className={`${isDraggingBlock ? 'block' : 'hidden'} text-[10px] leading-snug text-text-muted`}>{helper}</div>
-    </div>
+    </button>
   );
 };

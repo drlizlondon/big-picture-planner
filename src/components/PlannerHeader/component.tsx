@@ -24,26 +24,26 @@ export const PlannerHeader: React.FC<Props> = ({ currentDate, onPrevWeek, onNext
   const weekRange = `${startStr} - ${endStr} ${year}`;
 
   return (
-    <header className="planner-header h-[82px] bg-white flex items-center px-5 justify-between gap-5 sticky top-0 z-header">
+    <header className="planner-header h-[82px] bg-white/95 backdrop-blur flex items-center px-6 justify-between gap-5 sticky top-0 z-header border-b border-border-default/50">
       <div className="planner-header-main flex items-center gap-6">
         <div className="planner-brand">
-          <div className="text-[22px] font-bold tracking-tight">Big Picture Planner</div>
+          <div className="text-[22px] font-bold tracking-tight text-text-primary">Big Picture Planner</div>
           <div className="text-[11px] font-medium text-text-secondary">See the big picture. Fit everything in.</div>
         </div>
         
         <div className="planner-nav flex items-center gap-3 pl-4">
-          <button onClick={onToday} className="planner-today-button h-10 text-[13px] font-semibold px-5 hover:bg-background rounded-medium border border-border-default shadow-sm transition-colors">
+          <button onClick={onToday} className="planner-today-button h-10 text-[13px] font-semibold px-5 hover:bg-background rounded-medium border border-border-default shadow-sm transition-colors bg-surface-primary">
             Today
           </button>
           <div className="planner-week-nav flex items-center gap-3">
-            <button onClick={onPrevWeek} className="planner-week-button h-10 w-10 border border-border-default hover:bg-background rounded-medium shadow-sm transition-colors text-text-secondary hover:text-text-primary" aria-label="Previous Week">
+            <button onClick={onPrevWeek} className="planner-week-button h-10 w-10 border border-border-default hover:bg-background rounded-medium shadow-sm transition-colors text-text-secondary hover:text-text-primary bg-surface-primary" aria-label="Previous Week">
               ←
             </button>
-            <span className="planner-week-range text-[17px] font-bold w-[220px] text-center">
-              <span className="planner-week-range-desktop">▣ {weekRange}</span>
-              <span className="planner-week-range-mobile">▣ {mobileWeekRange}</span>
+            <span className="planner-week-range text-[17px] font-bold w-[240px] text-center text-text-primary">
+              <span className="planner-week-range-desktop">{weekRange}</span>
+              <span className="planner-week-range-mobile">{mobileWeekRange}</span>
             </span>
-            <button onClick={onNextWeek} className="planner-week-button h-10 w-10 border border-border-default hover:bg-background rounded-medium shadow-sm transition-colors text-text-secondary hover:text-text-primary" aria-label="Next Week">
+            <button onClick={onNextWeek} className="planner-week-button h-10 w-10 border border-border-default hover:bg-background rounded-medium shadow-sm transition-colors text-text-secondary hover:text-text-primary bg-surface-primary" aria-label="Next Week">
               →
             </button>
           </div>
@@ -67,6 +67,7 @@ const PlanningLegend: React.FC = () => (
     <LegendItem color="#8A93A3" label="Flexible task" />
     <LegendItem color="#F59E0B" label="Fixed/review" />
     <LegendItem color="#5B35F5" label="Personal time" />
+    <LegendItem color="#44A7F7" label="Travel" />
     <LegendItem color="#E85D75" label="Conflict" />
   </div>
 );

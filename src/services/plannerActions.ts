@@ -1,6 +1,7 @@
 import { db, createId } from '../db/db';
 import type { PlannerBlock, PlannerTemplate } from '../types/models';
-import { calculateEndTime } from '../utils/planningEngine';
+import { calculateEndTime, minutesToTime, timeToMinutes } from '../utils/planningEngine';
+import { addDays, formatDate } from '../utils/dateUtils';
 import { enqueueSyncChange } from './syncService';
 
 export const createBlock = async (
@@ -123,11 +124,30 @@ export const moveBlockByDays = async (id: string, days: number): Promise<void> =
   const block = await db.blocks.get(id);
   if (!block?.date || !block.startTime) return;
 
-  const nextDate = new Date(`${block.date}T00:00:00`);
-  nextDate.setDate(nextDate.getDate() + days);
-  const date = nextDate.toISOString().slice(0, 10);
+  const nextDate = addDays(new Date(`${block.date}T12:00:00`), days);
+  const date = formatDate(nextDate);
 
   await moveBlockToWeek(id, date, block.startTime);
+};
+
+export const moveBlockByMinutes = async (id: string, minutes: number): Promise<void> => {
+  const block = await db.blocks.get(id);
+  if (!block?.date || !block.startTime) return;
+
+  const currentStart = timeToMinutes(block.startTime);
+  const nextStart = Math.max(0, Math.min(24 * 60 - block.durationMinutes, currentStart + minutes));
+  await moveBlockToWeek(id, block.date, minutesToTime(nextStart));
+};
+
+export const resizeBlockDuration = async (id: string, minutes: number): Promise<void> => {
+  const block = await db.blocks.get(id);
+  if (!block?.startTime) return;
+
+  const nextDuration = Math.max(15, block.durationMinutes + minutes);
+  await updateBlock(id, {
+    durationMinutes: nextDuration,
+    endTime: calculateEndTime(block.startTime, nextDuration),
+  });
 };
 
 export const moveBlockToSchedule = async (id: string): Promise<void> => {

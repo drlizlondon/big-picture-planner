@@ -198,14 +198,14 @@ const DraggableBlockItem: React.FC<DraggableBlockProps> = ({ block, categoryMap,
       }}
       onPointerUp={handlePointerUp}
       onClick={handleClick}
-      className={`${isTray ? 'mobile-inbox-card' : 'min-h-[42px] px-2.5 py-1.5'} bg-surface-primary rounded-small border border-border-default cursor-grab active:cursor-grabbing hover:shadow-card hover:-translate-y-[1px] transition-all group relative overflow-hidden flex gap-2 shadow-sm touch-none ${isDragging ? 'opacity-90 scale-[1.04] shadow-hover ring-2 ring-accent-primary/20' : ''}`}
+      className={`${isTray ? 'mobile-inbox-card' : 'min-h-[42px] px-2.5 py-1.5'} bg-surface-primary rounded-small border border-border-default cursor-grab active:cursor-grabbing hover:shadow-hover hover:-translate-y-[2px] hover:border-accent-primary/35 transition-all group relative overflow-hidden flex gap-2 shadow-sm touch-none ${isDragging ? 'opacity-90 scale-[1.04] shadow-hover ring-2 ring-accent-primary/20' : ''}`}
       style={{ ...style, borderColor: reviewColor ? `${reviewColor}99` : `${categoryColor}33`, backgroundColor: reviewColor ? `${reviewColor}0D` : undefined }}
       title="Edit block"
     >
       {(category || reviewColor) && (
         <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: reviewColor || categoryColor }} />
       )}
-      <div className="w-4 flex-shrink-0 flex items-center justify-center text-text-muted text-[13px] opacity-70 group-hover:opacity-100" title="Drag into your week">⋮⋮</div>
+      <div className="w-5 flex-shrink-0 flex items-center justify-center rounded-[7px] border border-border-default/70 bg-background text-text-muted text-[13px] opacity-80 group-hover:border-accent-primary/35 group-hover:text-accent-primary group-hover:opacity-100" title="Drag into your week">⋮⋮</div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           {category && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: categoryColor }} title={category.name} />}

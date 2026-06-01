@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, formatDate, getStartOfWeek, getWeekDays } from '../../utils/dateUtils';
 import { DayColumn } from '../DayColumn/component';
 import { useWeekBlocks } from '../../hooks/usePlannerData';
+import type { PlannerBlock } from '../../types/models';
 
 type ViewMode = 'day' | 'week' | 'month';
 type ZoomMode = 'compact' | 'comfortable' | 'focus';
@@ -17,11 +18,13 @@ const ZOOM_SCALE: Record<ZoomMode, number> = {
 interface Props {
   currentDate: Date;
   onEditBlock: (blockId: string) => void;
+  onSelectBlock: (blockId: string) => void;
+  selectedBlockId: string | null;
   expandedDate?: string | null;
   isDraggingBlock?: boolean;
 }
 
-export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, expandedDate = null, isDraggingBlock = false }) => {
+export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBlock, selectedBlockId, expandedDate = null, isDraggingBlock = false }) => {
   const [viewMode, setViewMode] = usePersistedSetting<ViewMode>('planner.viewMode', 'week');
   const [zoomMode, setZoomMode] = usePersistedSetting<ZoomMode>('planner.zoomMode', 'comfortable');
   const [visibleHoursPreset, setVisibleHoursPreset] = usePersistedSetting<VisibleHoursPreset>('planner.visibleHoursPreset', '07-22');
@@ -69,8 +72,8 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, expandedDa
     <div ref={scrollRef} className={`week-grid-shell flex flex-col h-full overflow-auto bg-white ${expandedDate ? 'has-expanded-day' : ''} ${isDraggingBlock ? 'is-dragging-block' : ''}`}>
       <div className="sticky top-0 z-header bg-surface-primary/95 backdrop-blur border-b border-border-default px-4 py-2">
         <div className="week-grid-toolbar flex items-center justify-between gap-3 min-w-0">
-          <div className="min-w-[210px] flex items-baseline gap-2">
-            <div className="text-[15px] font-bold text-text-primary">Fit things into your week</div>
+          <div className="min-w-[230px] flex items-baseline gap-2">
+            <div className="text-[16px] font-bold text-text-primary">Fit your life into the week</div>
             <div className="text-[12px] text-text-secondary">
               {visibleBlocks.length === 0 ? 'Drag from Life Inbox' : `${visibleBlocks.length} scheduled this week`}
             </div>
@@ -129,15 +132,40 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, expandedDa
             </div>
 
             {visibleDates.map(day => (
-              <DayColumn key={day.value} date={day.value} onEditBlock={onEditBlock} hourHeight={hourHeight} visibleHours={visibleHours} visibleStartHour={visibleRange.start} visibleEndHour={visibleRange.end} isExpanded={expandedDate === day.value} />
+              <DayColumn
+                key={day.value}
+                date={day.value}
+                onEditBlock={onEditBlock}
+                onSelectBlock={onSelectBlock}
+                selectedBlockId={selectedBlockId}
+                hourHeight={hourHeight}
+                visibleHours={visibleHours}
+                visibleStartHour={visibleRange.start}
+                visibleEndHour={visibleRange.end}
+                isExpanded={expandedDate === day.value}
+              />
             ))}
           </div>
+          <KeyboardHint selectedBlock={visibleBlocks.find(block => block.id === selectedBlockId)} />
           <div className="h-4 flex-shrink-0 bg-white" />
         </>
       )}
     </div>
   );
 };
+
+const KeyboardHint: React.FC<{ selectedBlock?: PlannerBlock }> = ({ selectedBlock }) => (
+  <div className="sticky bottom-0 z-header border-t border-border-default bg-surface-primary/95 px-4 py-2 shadow-sm backdrop-blur">
+    <div className="mx-auto flex max-w-[760px] flex-wrap items-center justify-center gap-2 text-[12px] text-text-secondary">
+      <span className="font-bold text-text-primary">Keyboard shortcuts</span>
+      <span>{selectedBlock ? 'Selected block:' : 'Select a block:'}</span>
+      <span className="rounded-small border border-border-default bg-white px-2 py-1 font-semibold">↑ / ↓ Move by 15 min</span>
+      <span className="rounded-small border border-border-default bg-white px-2 py-1 font-semibold">← / → Move by 1 day</span>
+      <span className="rounded-small border border-border-default bg-white px-2 py-1 font-semibold">+ Add 15 min</span>
+      <span className="rounded-small border border-border-default bg-white px-2 py-1 font-semibold">- Subtract 15 min</span>
+    </div>
+  </div>
+);
 
 interface SegmentedControlProps<T extends string> {
   value: T;
@@ -216,12 +244,12 @@ const HourSelect: React.FC<{ value: number; min: number; max: number; onChange: 
 
 interface MonthCanvasProps {
   dates: Array<{ label: string; value: string; inMonth: boolean }>;
-  blocks: Array<{ id: string; title: string; date?: string }>;
+  blocks: PlannerBlock[];
   today: string;
 }
 
 const MonthCanvas: React.FC<MonthCanvasProps> = ({ dates, blocks, today }) => {
-  const blocksByDate = blocks.reduce<Record<string, Array<{ id: string; title: string }>>>((acc, block) => {
+  const blocksByDate = blocks.reduce<Record<string, PlannerBlock[]>>((acc, block) => {
     if (!block.date) return acc;
     acc[block.date] = [...(acc[block.date] || []), block];
     return acc;
@@ -242,9 +270,7 @@ const MonthCanvas: React.FC<MonthCanvasProps> = ({ dates, blocks, today }) => {
               <div className="text-[12px] font-semibold text-text-secondary">{day.label}</div>
               <div className="mt-2 flex flex-col gap-1">
                 {dayBlocks.slice(0, 3).map(block => (
-                  <div key={block.id} className="truncate text-[12px] text-text-primary rounded-small bg-background border border-border-default px-2 py-1">
-                    {block.title}
-                  </div>
+                  <MonthBlock key={block.id} block={block} />
                 ))}
                 {dayBlocks.length > 3 && <div className="text-[11px] text-text-muted px-1">More placed here</div>}
               </div>
@@ -252,6 +278,23 @@ const MonthCanvas: React.FC<MonthCanvasProps> = ({ dates, blocks, today }) => {
           );
         })}
       </div>
+    </div>
+  );
+};
+
+const MonthBlock: React.FC<{ block: PlannerBlock }> = ({ block }) => {
+  const tone = block.reviewColour === 'RED'
+    ? 'border-[#FDA4AF] bg-[#FFF1F3]'
+    : block.reviewColour === 'ORANGE' || block.isBaseEvent
+      ? 'border-[#F4B04F] bg-[#FFF7E6]'
+      : 'border-[#C9D3E1] bg-[#F3F6FB]';
+
+  return (
+    <div className={`truncate text-[12px] text-text-primary rounded-small border px-2 py-1 ${tone}`}>
+      <span>{block.title}</span>
+      {block.travelEnabled && (block.travelBeforeMinutes > 0 || block.travelAfterMinutes > 0) && (
+        <span className="ml-1 text-[#2877BD]">Travel</span>
+      )}
     </div>
   );
 };
