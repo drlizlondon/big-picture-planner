@@ -3,6 +3,7 @@ import type { BlockSourceType, PlannerBlock, PlannerItemMetadata, PlannerTemplat
 import { calculateEndTime, minutesToTime, timeToMinutes } from '../utils/planningEngine';
 import { addDays, formatDate } from '../utils/dateUtils';
 import { enqueueSyncChange } from './syncService';
+import { isGCalBlock, getGCalEventId, patchGoogleCalendarEvent } from './googleCalendarService';
 
 export const createBlock = async (
   blockData: Omit<PlannerBlock, 'id' | 'createdAt' | 'updatedAt'>
@@ -39,14 +40,21 @@ export const updateBlock = async (id: string, updates: Partial<PlannerBlock>): P
 };
 
 export const deleteBlock = async (id: string): Promise<void> => {
-  const now = Date.now();
-  // Soft delete as required by specification
-  await db.blocks.update(id, {
-    deletedAt: now,
-    updatedAt: now
-  });
   const block = await db.blocks.get(id);
-  if (block) await enqueueSyncChange('blocks', id, 'delete', block);
+  if (!block) return;
+
+  if (isGCalBlock(block)) {
+    // Hard-delete GCal cache entries from Dexie — they are not user data and
+    // are not stored in Supabase. They will reappear on the next calendar sync
+    // unless the user also deletes the event in Google Calendar.
+    await db.blocks.delete(id);
+  } else {
+    const now = Date.now();
+    // Soft delete as required by specification
+    await db.blocks.update(id, { deletedAt: now, updatedAt: now });
+    const updated = await db.blocks.get(id);
+    if (updated) await enqueueSyncChange('blocks', id, 'delete', updated);
+  }
 };
 
 export const createTemplate = async (
@@ -147,17 +155,30 @@ export const moveBlockToWeek = async (id: string, date: string, startTime: strin
 
   const endTime = calculateEndTime(startTime, block.durationMinutes);
 
-  const updates: Partial<PlannerBlock> = {
+  await db.blocks.update(id, {
     isScheduled: true,
     date,
     startTime,
     endTime,
-    updatedAt: Date.now()
-  };
+    updatedAt: Date.now(),
+  });
 
-  await db.blocks.update(id, updates);
-  const updatedBlock = await db.blocks.get(id);
-  if (updatedBlock) await enqueueSyncChange('blocks', id, 'upsert', updatedBlock);
+  if (isGCalBlock(block)) {
+    // Write the new time back to Google Calendar.
+    // Fire-and-forget: Dexie is already updated so the UI stays snappy.
+    // On next calendar sync Google's version will confirm the change.
+    const eventId = getGCalEventId(block);
+    if (eventId) {
+      void patchGoogleCalendarEvent(eventId, date, startTime, endTime).catch(() => {
+        // Silent failure — the user will see the move in the grid and Google
+        // Calendar will be retried on the next periodic sync.
+      });
+    }
+    // GCal events are not stored in Supabase — skip the sync queue.
+  } else {
+    const updatedBlock = await db.blocks.get(id);
+    if (updatedBlock) await enqueueSyncChange('blocks', id, 'upsert', updatedBlock);
+  }
 };
 
 export const moveBlockByDays = async (id: string, days: number): Promise<void> => {

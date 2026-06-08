@@ -1,9 +1,20 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useSyncStatus } from '../../hooks/useSyncStatus';
 import { markImportDeviceOnlyForCurrentUser, markImportLaterForCurrentUser, queueLocalImportForCurrentUser, signOut, syncPendingChanges } from '../../services/syncService';
-import { sendMagicLink, signInWithGoogle } from '../../services/supabaseClient';
+import { connectGoogleCalendar, sendMagicLink, signInWithGoogle } from '../../services/supabaseClient';
+import { getLastSyncTime, hasGCalAccess, syncGoogleCalendarEvents } from '../../services/googleCalendarService';
 
 const accountHref = `${import.meta.env.BASE_URL || '/'}account`.replace(/\/{2,}/g, '/');
+
+const formatRelativeTime = (iso: string): string => {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return `${Math.floor(diffHr / 24)}d ago`;
+};
 
 export const SyncStatusPanel: React.FC = () => {
   const sync = useSyncStatus();
@@ -11,6 +22,16 @@ export const SyncStatusPanel: React.FC = () => {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [gcalConnected, setGcalConnected] = useState(false);
+  const [gcalLastSync, setGcalLastSync] = useState<string | null>(null);
+  const [gcalSyncing, setGcalSyncing] = useState(false);
+
+  // Check Google Calendar connection state when panel opens
+  useEffect(() => {
+    if (!isOpen || !sync.isLoggedIn) return;
+    void hasGCalAccess().then(setGcalConnected);
+    void getLastSyncTime().then(setGcalLastSync);
+  }, [isOpen, sync.isLoggedIn]);
 
   const handleGoogleSignIn = async () => {
     setIsSubmitting(true);
@@ -63,6 +84,35 @@ export const SyncStatusPanel: React.FC = () => {
   const handleSignOut = async () => {
     await signOut();
     setMessage('Saved on this device');
+  };
+
+  const handleConnectGoogleCalendar = async () => {
+    setIsSubmitting(true);
+    try {
+      await connectGoogleCalendar();
+      // Page will redirect for OAuth — no further action needed here
+    } catch {
+      setMessage('Could not connect Google Calendar.');
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSyncGoogleCalendar = async () => {
+    setGcalSyncing(true);
+    try {
+      const result = await syncGoogleCalendarEvents();
+      if (result.status === 'connected') {
+        setGcalLastSync(result.lastSyncAt ?? null);
+        setMessage(`Synced ${result.upserted} calendar event${result.upserted === 1 ? '' : 's'}`);
+      } else if (result.status === 'unauthorized') {
+        setGcalConnected(false);
+        setMessage('Google Calendar access expired — reconnect below.');
+      } else {
+        setMessage('Calendar sync failed. Try again.');
+      }
+    } finally {
+      setGcalSyncing(false);
+    }
   };
 
   return (
@@ -190,20 +240,85 @@ export const SyncStatusPanel: React.FC = () => {
           )}
 
           {sync.isLoggedIn && !sync.needsImport && sync.importDecision !== 'later' && (
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={() => void syncPendingChanges()}
-                className="h-9 flex-1 rounded-small border border-border-default bg-background px-3 text-[12px] font-bold text-text-primary"
-              >
-                Retry sync
-              </button>
-              <button
-                onClick={handleSignOut}
-                className="h-9 flex-1 rounded-small border border-border-default bg-surface-primary px-3 text-[12px] font-bold text-text-primary"
-              >
-                Sign out
-              </button>
-            </div>
+            <>
+              {/* Google Calendar section */}
+              <div className="mt-3 rounded-small border border-border-default bg-background p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg width="14" height="14" viewBox="0 0 18 18" aria-hidden="true" className="flex-shrink-0">
+                    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"/>
+                    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"/>
+                    <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z"/>
+                    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z"/>
+                  </svg>
+                  <span className="text-[13px] font-bold text-text-primary">Google Calendar</span>
+                  {gcalConnected && (
+                    <span className="ml-auto text-[11px] font-bold text-green-600">Connected</span>
+                  )}
+                </div>
+
+                {gcalConnected ? (
+                  <>
+                    <p className="text-[12px] text-text-secondary leading-snug mb-2">
+                      Your calendar events appear in blue in the grid. Drag them to reschedule &mdash; changes sync back to Google Calendar.
+                      {gcalLastSync && (
+                        <span className="block mt-1 text-text-muted">Last synced {formatRelativeTime(gcalLastSync)}</span>
+                      )}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSyncGoogleCalendar}
+                        disabled={gcalSyncing}
+                        className="h-8 flex-1 rounded-small border border-border-default bg-surface-primary px-3 text-[12px] font-bold text-text-primary disabled:opacity-60"
+                      >
+                        {gcalSyncing ? 'Syncing...' : 'Sync now'}
+                      </button>
+                      <button
+                        onClick={handleConnectGoogleCalendar}
+                        disabled={isSubmitting}
+                        className="h-8 flex-1 rounded-small border border-border-default bg-surface-primary px-3 text-[12px] font-bold text-text-secondary disabled:opacity-60"
+                        title="Re-authorise Google Calendar access"
+                      >
+                        Reconnect
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[12px] text-text-secondary leading-snug mb-2">
+                      Pull in your existing Google Calendar events. Drag them to reschedule &mdash; changes go straight back to Google.
+                    </p>
+                    <button
+                      onClick={handleConnectGoogleCalendar}
+                      disabled={isSubmitting}
+                      className="flex h-9 w-full items-center justify-center gap-2 rounded-small border border-border-default bg-surface-primary px-3 text-[13px] font-bold text-text-primary hover:bg-[#E8F0FE] disabled:opacity-60 transition-colors"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 18 18" aria-hidden="true">
+                        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"/>
+                        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"/>
+                        <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z"/>
+                        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z"/>
+                      </svg>
+                      Connect Google Calendar
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => void syncPendingChanges()}
+                  className="h-9 flex-1 rounded-small border border-border-default bg-background px-3 text-[12px] font-bold text-text-primary"
+                >
+                  Retry sync
+                </button>
+                <button
+                  onClick={handleSignOut}
+                  className="h-9 flex-1 rounded-small border border-border-default bg-surface-primary px-3 text-[12px] font-bold text-text-primary"
+                >
+                  Sign out
+                </button>
+              </div>
+            </>
           )}
 
           {message && (

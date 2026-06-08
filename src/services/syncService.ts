@@ -2,6 +2,7 @@ import { db, createId } from '../db/db';
 import type { ImportDecision, PlannerBlock, PlannerTemplate, SyncAction, SyncEntityType, SyncStatusText } from '../types/models';
 import { getCurrentSession, getSupabaseClient } from './supabaseClient';
 import { getImportPromptState, getRetryDelayMs, getSyncStatusLabel, mergeQueuedChange, shouldQueueForSync } from './syncCore';
+import { syncGoogleCalendarEvents } from './googleCalendarService';
 
 const CLOUD_TABLES: Record<SyncEntityType, string> = {
   blocks: 'planner_blocks',
@@ -58,6 +59,7 @@ export const subscribeToSyncChanges = (callback: () => void): (() => void) => {
     callback();
     if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
       void pullFromCloud().then(() => syncPendingChanges());
+      void syncGoogleCalendarEvents();
     } else {
       void syncPendingChanges();
     }
@@ -66,6 +68,7 @@ export const subscribeToSyncChanges = (callback: () => void): (() => void) => {
   const periodicInterval = setInterval(() => {
     if (isOnline()) {
       void pullFromCloud().then(() => syncPendingChanges());
+      void syncGoogleCalendarEvents();
     }
   }, PERIODIC_SYNC_MS);
 

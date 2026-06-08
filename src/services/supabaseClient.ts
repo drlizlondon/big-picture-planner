@@ -56,6 +56,30 @@ export const signInWithGoogle = async (): Promise<void> => {
   if (error) throw error;
 };
 
+/**
+ * Re-authenticate with Google requesting the calendar.events scope.
+ * Uses prompt:'consent' to ensure Google shows the permission screen even
+ * if the user previously signed in without the calendar scope.
+ */
+export const connectGoogleCalendar = async (): Promise<void> => {
+  const supabase = getSupabaseClient();
+  if (!supabase) throw new Error('Supabase is not configured.');
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      scopes: 'https://www.googleapis.com/auth/calendar.events',
+      redirectTo: window.location.origin + window.location.pathname,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent',
+      },
+    },
+  });
+
+  if (error) throw error;
+};
+
 export const sendMagicLink = async (email: string): Promise<void> => {
   const supabase = getSupabaseClient();
   if (!supabase) {

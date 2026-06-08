@@ -7,6 +7,7 @@ import { useCategories, useFeatures } from '../../hooks/usePlannerData';
 import { deleteBlock, duplicateBlock, moveBlockToSchedule, moveBlockToWeek } from '../../services/plannerActions';
 import { BUILT_IN_CHILDCARE_FEATURE_ID } from '../../utils/plannerSetup';
 import { formatDurationLabel } from '../../utils/durationLabels';
+import { isGCalBlock } from '../../services/googleCalendarService';
 
 interface Props {
   block: PlannerBlock;
@@ -114,6 +115,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
     }
   }
 
+  const gcal = isGCalBlock(block);
   const blockTone = getBlockTone(block, hasConflicts, category?.name);
   const style = {
     top: `${topOffset}px`,
@@ -201,7 +203,17 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
 
       <div className="flex justify-between items-start gap-1 min-w-0">
         <div className="min-w-0 flex-1 pr-0">
-          <div className="text-[10px] font-bold text-text-secondary leading-[1.15] truncate" style={{ wordBreak: 'normal', overflowWrap: 'normal', hyphens: 'none' }}>{visibleTimeLabel}{secondaryTimeStr && !isShortBlock && ` • ${secondaryTimeStr}`}</div>
+          <div className="text-[10px] font-bold text-text-secondary leading-[1.15] truncate flex items-center gap-1" style={{ wordBreak: 'normal', overflowWrap: 'normal', hyphens: 'none' }}>
+            {gcal && (
+              <svg width="9" height="9" viewBox="0 0 18 18" aria-label="Google Calendar" className="flex-shrink-0 opacity-70">
+                <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"/>
+                <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"/>
+                <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z"/>
+                <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z"/>
+              </svg>
+            )}
+            <span>{visibleTimeLabel}{secondaryTimeStr && !isShortBlock && ` • ${secondaryTimeStr}`}</span>
+          </div>
           <div
             className="mt-0.5 text-[12px] font-bold leading-[1.15]"
             style={{
@@ -220,7 +232,19 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
         </div>
       </div>
 
-      {usesCompactActions ? (
+      {gcal ? (
+        // Google Calendar events: link out to Google Calendar + allow removal
+        // from local view. Dragging (write-back) is handled in plannerActions.
+        <GCalActionMenu
+          block={block}
+          isOpen={isActionsOpen}
+          onToggle={(e) => { e.stopPropagation(); setIsActionsOpen(prev => !prev); }}
+          onDelete={handleDelete}
+          onPointerStop={stopActionPointer}
+          isCompact={usesCompactActions}
+          placement={actionPlacement}
+        />
+      ) : usesCompactActions ? (
         <CompactActionMenu
           isOpen={isActionsOpen}
           onToggle={(e) => {
@@ -351,9 +375,83 @@ const ActionButton: React.FC<ActionButtonProps> = ({ children, label, onClick, o
   </button>
 );
 
+// ─── Google Calendar action menu ──────────────────────────────────────────────
+
+interface GCalActionMenuProps {
+  block: PlannerBlock;
+  isOpen: boolean;
+  onToggle: (e: React.MouseEvent) => void;
+  onDelete: (e: React.MouseEvent) => void;
+  onPointerStop: (e: React.PointerEvent | React.MouseEvent) => void;
+  isCompact: boolean;
+  placement: ActionPlacement;
+}
+
+const GCalActionMenu: React.FC<GCalActionMenuProps> = ({ block, isOpen, onToggle, onDelete, onPointerStop, isCompact, placement }) => {
+  const gcalHref = block.importRawLine || 'https://calendar.google.com';
+
+  const buttons = (
+    <>
+      <a
+        href={gcalHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        onPointerDown={onPointerStop}
+        onPointerUp={onPointerStop}
+        onClick={(e) => e.stopPropagation()}
+        className="pointer-events-auto flex h-6 items-center justify-center gap-1 rounded-[7px] px-2 text-[11px] font-bold text-[#4285F4] hover:bg-[#E8F0FE] whitespace-nowrap"
+        title="Open in Google Calendar"
+      >
+        <svg width="10" height="10" viewBox="0 0 18 18" aria-hidden="true">
+          <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"/>
+          <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z"/>
+          <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z"/>
+        </svg>
+        Open
+      </a>
+      <ActionButton label="Remove from view" onClick={onDelete} onPointerStop={onPointerStop} danger>×</ActionButton>
+    </>
+  );
+
+  if (isCompact) {
+    return (
+      <div className="pointer-events-none absolute -right-2 -top-2 z-30 flex items-start justify-end">
+        <button
+          type="button"
+          aria-label="Calendar event options"
+          aria-expanded={isOpen}
+          onPointerDown={onPointerStop}
+          onPointerUp={onPointerStop}
+          onClick={onToggle}
+          className="pointer-events-none h-6 w-6 rounded-full border border-[#A8C4FB] bg-[#E8F0FE]/95 text-[13px] font-bold leading-none text-[#4285F4] opacity-0 shadow-sm transition-opacity hover:text-[#1a73e8] group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+        >
+          ⋯
+        </button>
+        {isOpen && (
+          <div className="pointer-events-auto absolute right-0 top-7 flex items-center gap-1 rounded-small border border-[#A8C4FB] bg-[#E8F0FE]/95 px-1 py-1 shadow-sm backdrop-blur">
+            {buttons}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`pointer-events-none absolute right-0 z-30 hidden items-center gap-1 rounded-small border border-[#A8C4FB] bg-[#E8F0FE]/95 px-1 py-1 shadow-sm backdrop-blur group-hover:flex group-focus-within:flex ${placement === 'above' ? '-top-8' : 'top-full mt-1'}`}>
+      {buttons}
+    </div>
+  );
+};
+
 const getBlockTone = (block: PlannerBlock, hasConflicts: boolean, categoryName?: string): { background: string; border: string; accent: string } => {
   if (hasConflicts || block.reviewColour === 'RED') {
     return { background: '#FFF1F3', border: '#FDA4AF', accent: '#E85D75' };
+  }
+  // Google Calendar events get a distinct blue so they're immediately
+  // distinguishable from BPP tasks at a glance.
+  if (isGCalBlock(block)) {
+    return { background: '#E8F0FE', border: '#A8C4FB', accent: '#4285F4' };
   }
   if (block.reviewColour === 'ORANGE' || block.isBaseEvent) {
     return { background: '#FFF7E6', border: '#F4B04F', accent: '#F59E0B' };
