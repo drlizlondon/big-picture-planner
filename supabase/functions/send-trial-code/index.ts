@@ -22,7 +22,7 @@ serve(async (req) => {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 </head>
-<body style="margin:0;padding:0;background:#f9f8ff;font-family:Inter,system-ui,sans-serif;">
+<body style="margin:0;padding:0;background:#f9f8ff;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f8ff;padding:40px 20px;">
     <tr>
       <td align="center">
@@ -31,44 +31,47 @@ serve(async (req) => {
           <!-- Header -->
           <tr>
             <td style="background:#5B35F5;padding:32px;text-align:center;">
-              <p style="margin:0;color:rgba(255,255,255,0.7);font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Big Picture Planner</p>
-              <h1 style="margin:8px 0 0;color:#ffffff;font-size:26px;font-weight:900;letter-spacing:-0.02em;">Your access code is ready</h1>
+              <p style="margin:0;color:rgba(255,255,255,0.65);font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;">Big Picture Planner</p>
+              <h1 style="margin:10px 0 0;color:#ffffff;font-size:24px;font-weight:900;letter-spacing:-0.02em;line-height:1.3;">
+                You're in &#x1F389;
+              </h1>
             </td>
           </tr>
 
           <!-- Body -->
           <tr>
-            <td style="padding:36px 32px;">
-              <p style="margin:0 0 20px;font-size:16px;color:#333;line-height:1.6;">
-                Hi${position ? ' #' + position : ''} 👋
+            <td style="padding:36px 32px 28px;">
+              <p style="margin:0 0 18px;font-size:15px;color:#333;line-height:1.7;">
+                Thanks for signing up to the waitlist${position ? ' — you&apos;re #' + position : ''}. Here&apos;s your access code to get four weeks completely free.
               </p>
-              <p style="margin:0 0 20px;font-size:15px;color:#555;line-height:1.7;">
-                You're in! Here's your access code for <strong>28 days free</strong> on Big Picture Planner — the planner that helps you fit it all in, like Tetris for your actual life.
+
+              <p style="margin:0 0 24px;font-size:15px;color:#555;line-height:1.7;">
+                We&apos;d love to get your feedback — anything that works well, anything that&apos;s confusing, anything you wish it did. Just reply to this email.
               </p>
 
               <!-- Code block -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
                 <tr>
                   <td align="center" style="background:#f0ecff;border:2px dashed #5B35F5;border-radius:12px;padding:24px;">
-                    <p style="margin:0 0 6px;font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#5B35F5;">Your access code</p>
-                    <p style="margin:0;font-size:34px;font-weight:900;letter-spacing:0.15em;color:#0f0f0f;font-family:monospace;">${code}</p>
+                    <p style="margin:0 0 8px;font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;color:#5B35F5;">Your access code</p>
+                    <p style="margin:0;font-size:36px;font-weight:900;letter-spacing:0.2em;color:#0f0f0f;font-family:Courier New,monospace;">${code}</p>
+                    <p style="margin:8px 0 0;font-size:12px;color:#888;">4 weeks free &bull; no card needed</p>
                   </td>
                 </tr>
               </table>
 
-              <p style="margin:0 0 8px;font-size:14px;color:#555;line-height:1.7;">To get started:</p>
-              <ol style="margin:0 0 28px;padding-left:20px;font-size:14px;color:#555;line-height:2;">
-                <li>Open the planner</li>
+              <p style="margin:0 0 8px;font-size:14px;color:#555;line-height:1.7;font-weight:600;">How to get started:</p>
+              <ol style="margin:0 0 28px;padding-left:20px;font-size:14px;color:#555;line-height:2.2;">
+                <li>Open Big Picture Planner</li>
                 <li>Sign in with Google or your email</li>
-                <li>Enter your code when prompted</li>
-                <li>Your 28-day free trial begins immediately</li>
+                <li>Enter the code above when prompted</li>
               </ol>
 
               <!-- CTA Button -->
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center">
-                    <a href="${APP_URL}" style="display:inline-block;background:#5B35F5;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 36px;border-radius:100px;">
+                    <a href="${APP_URL}" style="display:inline-block;background:#5B35F5;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 40px;border-radius:100px;letter-spacing:-0.01em;">
                       Open Big Picture Planner &rarr;
                     </a>
                   </td>
@@ -79,10 +82,10 @@ serve(async (req) => {
 
           <!-- Footer -->
           <tr>
-            <td style="padding:20px 32px;border-top:1px solid #e8e8e8;text-align:center;">
-              <p style="margin:0;font-size:12px;color:#aaa;line-height:1.6;">
-                You're receiving this because you joined the Big Picture Planner waitlist.<br/>
-                Built with &#x2665; by Lizzie
+            <td style="padding:20px 32px 24px;border-top:1px solid #f0f0f0;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#bbb;line-height:1.7;">
+                Lizzie &bull; Big Picture Planner<br/>
+                Just reply to this email if you need anything.
               </p>
             </td>
           </tr>
@@ -93,6 +96,19 @@ serve(async (req) => {
   </table>
 </body>
 </html>`;
+
+  const text = `Thanks for signing up to the waitlist${position ? ` — you're #${position}` : ''}. Here's your access code to get four weeks completely free.
+
+Your access code: ${code}
+
+We'd love to get your feedback — anything that works well, anything that's confusing, anything you wish it did. Just reply to this email.
+
+To get started:
+1. Open Big Picture Planner: ${APP_URL}
+2. Sign in with Google or your email
+3. Enter the code above when prompted
+
+— Lizzie, Big Picture Planner`;
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -105,11 +121,13 @@ serve(async (req) => {
       to: [email],
       subject: `Your Big Picture Planner access code: ${code}`,
       html,
+      text,
     }),
   });
 
   if (!res.ok) {
     const err = await res.text();
+    console.error('Resend error:', err);
     return new Response(JSON.stringify({ error: err }), { status: 500 });
   }
 

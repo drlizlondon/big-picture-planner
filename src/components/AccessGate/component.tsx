@@ -36,12 +36,16 @@ export const AccessGate: React.FC<Props> = ({ children }) => {
     return <CodeEntryScreen onRedeemed={refresh} />;
   }
 
-  // Trial active or paid — show the app
-  if (access.status === 'trial' || access.status === 'paid') {
+  // Trial active, comped, or paid — show the app
+  if (access.status === 'trial' || access.status === 'comped' || access.status === 'paid') {
     return (
       <>
-        {access.status === 'trial' && access.daysRemaining !== undefined && access.daysRemaining <= 7 && (
+        {(access.status === 'trial' || access.status === 'comped') &&
+          access.daysRemaining !== undefined && access.daysRemaining <= 7 && (
           <TrialBanner daysRemaining={access.daysRemaining} />
+        )}
+        {access.status === 'paid' && access.inRefundWindow && (
+          <RefundWindowBanner endsAt={access.refundWindowEndsAt ?? ''} />
         )}
         {children}
       </>
@@ -239,6 +243,22 @@ const TrialBanner: React.FC<{ daysRemaining: number }> = ({ daysRemaining }) => 
     </p>
   </div>
 );
+
+// ─── Refund Window Banner ──────────────────────────────────────────────────────
+
+const RefundWindowBanner: React.FC<{ endsAt: string }> = ({ endsAt }) => {
+  const days = Math.ceil((new Date(endsAt).getTime() - Date.now()) / 86400000);
+  return (
+    <div className="bg-green-600 px-4 py-2 text-center">
+      <p className="text-[12px] font-bold text-white">
+        7-day money-back guarantee — {days} day{days === 1 ? '' : 's'} remaining.{' '}
+        <a href="mailto:hello@bigpictureplanner.app?subject=Refund request" className="underline">
+          Request a refund
+        </a>
+      </p>
+    </div>
+  );
+};
 
 // ─── Trial Expired Screen ──────────────────────────────────────────────────────
 

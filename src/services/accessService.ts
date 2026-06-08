@@ -1,11 +1,13 @@
 import { getSupabaseClient } from './supabaseClient';
 
-export type AccessStatus = 'trial' | 'expired' | 'paid' | 'no_access' | 'unauthenticated' | 'loading' | 'unconfigured';
+export type AccessStatus = 'trial' | 'comped' | 'expired' | 'paid' | 'no_access' | 'unauthenticated' | 'loading' | 'unconfigured';
 
 export interface AccessState {
   status: AccessStatus;
   trialEndsAt?: string;
   daysRemaining?: number;
+  inRefundWindow?: boolean;
+  refundWindowEndsAt?: string;
 }
 
 const ACCESS_EVENT = 'planner-access-change';
@@ -34,6 +36,8 @@ export const getAccessState = async (): Promise<AccessState> => {
     status: data.status as AccessStatus,
     trialEndsAt: data.trial_ends_at,
     daysRemaining: data.days_remaining,
+    inRefundWindow: data.in_refund_window,
+    refundWindowEndsAt: data.refund_window_ends_at,
   };
 };
 
