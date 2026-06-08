@@ -3,6 +3,7 @@ import { useSyncStatus } from '../../hooks/useSyncStatus';
 import { markImportDeviceOnlyForCurrentUser, markImportLaterForCurrentUser, queueLocalImportForCurrentUser, signOut, syncPendingChanges } from '../../services/syncService';
 import { connectGoogleCalendar, sendMagicLink, signInWithGoogle } from '../../services/supabaseClient';
 import { getLastSyncTime, hasGCalAccess, syncGoogleCalendarEvents } from '../../services/googleCalendarService';
+import { importIcsFile } from '../../services/icsImportService';
 
 const accountHref = `${import.meta.env.BASE_URL || '/'}account`.replace(/\/{2,}/g, '/');
 
@@ -25,6 +26,8 @@ export const SyncStatusPanel: React.FC = () => {
   const [gcalConnected, setGcalConnected] = useState(false);
   const [gcalLastSync, setGcalLastSync] = useState<string | null>(null);
   const [gcalSyncing, setGcalSyncing] = useState(false);
+  const [icsImporting, setIcsImporting] = useState(false);
+  const icsInputRef = React.useRef<HTMLInputElement>(null);
 
   // Check Google Calendar connection state when panel opens
   useEffect(() => {
@@ -94,6 +97,29 @@ export const SyncStatusPanel: React.FC = () => {
     } catch {
       setMessage('Could not connect Google Calendar.');
       setIsSubmitting(false);
+    }
+  };
+
+  const handleIcsFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIcsImporting(true);
+    setMessage(null);
+    try {
+      const result = await importIcsFile(file);
+      if (result.imported > 0) {
+        setMessage(`Imported ${result.imported} event${result.imported === 1 ? '' : 's'} from Apple Calendar`);
+      } else if (result.deduplicated > 0) {
+        setMessage('All events already imported — nothing new to add.');
+      } else {
+        setMessage('No timed events found in that file.');
+      }
+    } catch {
+      setMessage("Could not read that file. Make sure it's a .ics file exported from Apple Calendar.");
+    } finally {
+      setIcsImporting(false);
+      // Reset so the same file can be re-uploaded
+      if (icsInputRef.current) icsInputRef.current.value = '';
     }
   };
 
@@ -304,18 +330,33 @@ export const SyncStatusPanel: React.FC = () => {
                 )}
               </div>
 
-              {/* Apple Calendar — coming soon */}
-              <div className="mt-2 rounded-small border border-border-default bg-background p-3 opacity-60">
-                <div className="flex items-center gap-2">
+              {/* Apple Calendar — .ics import */}
+              <div className="mt-2 rounded-small border border-border-default bg-background p-3">
+                <div className="flex items-center gap-2 mb-2">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-red-500 flex-shrink-0" aria-hidden="true">
                     <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
                   </svg>
                   <span className="text-[13px] font-bold text-text-primary">Apple Calendar</span>
-                  <span className="ml-auto text-[10px] font-bold uppercase tracking-wide bg-surface-secondary px-2 py-0.5 rounded-full text-text-muted">Coming soon</span>
+                  <span className="ml-auto text-[10px] font-semibold text-text-muted">Manual import</span>
                 </div>
-                <p className="mt-1.5 text-[12px] text-text-secondary leading-snug">
-                  iCloud &amp; Apple Calendar sync is on the roadmap. Google Calendar is supported today.
+                <p className="text-[12px] text-text-secondary leading-snug mb-2">
+                  Export from Apple Calendar → File → Export, then upload the .ics file here.
                 </p>
+                <input
+                  ref={icsInputRef}
+                  type="file"
+                  accept=".ics,text/calendar"
+                  onChange={handleIcsFile}
+                  className="hidden"
+                  id="ics-file-input"
+                />
+                <button
+                  onClick={() => icsInputRef.current?.click()}
+                  disabled={icsImporting}
+                  className="flex h-9 w-full items-center justify-center gap-2 rounded-small border border-border-default bg-surface-primary px-3 text-[12px] font-bold text-text-primary hover:bg-red-50 hover:border-red-200 hover:text-red-600 disabled:opacity-60 transition-colors"
+                >
+                  {icsImporting ? 'Importing…' : 'Upload .ics file'}
+                </button>
               </div>
 
               <div className="mt-3 flex gap-2">

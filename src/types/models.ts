@@ -1,5 +1,5 @@
 export type BlockSourceType = 'manual' | 'calendar_import' | 'paste' | 'template_instance';
-export type PlannerSourceProvider = 'manual' | 'google_calendar' | 'outlook' | 'import' | 'template' | 'system';
+export type PlannerSourceProvider = 'manual' | 'google_calendar' | 'apple_calendar' | 'outlook' | 'import' | 'template' | 'system';
 export type PlannerSystemTag = 'travel' | 'recurring' | 'imported' | 'review' | 'conflict' | 'base_event' | 'template_instance';
 export type ReviewColour = 'GREEN' | 'ORANGE' | 'RED';
 
