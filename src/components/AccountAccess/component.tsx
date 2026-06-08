@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSyncStatus } from '../../hooks/useSyncStatus';
 import { markImportDeviceOnlyForCurrentUser, markImportLaterForCurrentUser, queueLocalImportForCurrentUser, signOut, syncPendingChanges } from '../../services/syncService';
-import { sendMagicLink } from '../../services/supabaseClient';
+import { sendMagicLink, signInWithGoogle } from '../../services/supabaseClient';
 import { getAccountAccessState, getImportChoiceDescription } from './accountAccessCore';
 
 const plannerHref = `${import.meta.env.BASE_URL || '/'}${import.meta.env.BASE_URL?.endsWith('/') ? '' : '/'}`
@@ -20,6 +20,17 @@ export const AccountAccess: React.FC = () => {
     importDecision: sync.importDecision,
     magicLinkSent,
   });
+
+  const handleGoogleSignIn = async () => {
+    setIsSubmitting(true);
+    setMessage(null);
+    try {
+      await signInWithGoogle();
+    } catch {
+      setMessage('Could not start Google sign-in. Please try email instead.');
+      setIsSubmitting(false);
+    }
+  };
 
   const handleMagicLink = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -101,34 +112,55 @@ export const AccountAccess: React.FC = () => {
             )}
 
             {(pageState === 'email-entry' || pageState === 'magic-link-sent') && (
-              <form onSubmit={handleMagicLink} className="space-y-3">
-                <h2 className="text-[18px] font-bold text-text-primary">Sign in by email</h2>
-                <p className="text-[14px] leading-6 text-text-secondary">
-                  Enter your email and we’ll send you a sign-in link.
-                </p>
-                <label className="block text-[12px] font-bold uppercase tracking-[0.04em] text-text-primary" htmlFor="account-email">Email</label>
-                <input
-                  id="account-email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  type="email"
-                  autoComplete="email"
-                  className="h-12 w-full rounded-small border border-border-default px-3 text-[16px] outline-none focus:border-accent-primary"
-                  placeholder="you@example.com"
-                />
+              <div className="space-y-3">
+                <h2 className="text-[18px] font-bold text-text-primary">Sign in</h2>
                 <button
-                  type="submit"
-                  disabled={isSubmitting || !email.trim()}
-                  className="min-h-11 w-full rounded-small bg-accent-primary px-4 py-2 text-[14px] font-bold text-white disabled:opacity-60"
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={isSubmitting}
+                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-small border border-border-default bg-surface-primary px-4 py-2 text-[14px] font-bold text-text-primary hover:bg-surface-secondary disabled:opacity-60"
                 >
-                  {isSubmitting ? 'Syncing' : 'Send sign-in link'}
+                  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+                    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"/>
+                    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"/>
+                    <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z"/>
+                    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z"/>
+                  </svg>
+                  Continue with Google
                 </button>
-                {pageState === 'magic-link-sent' && (
-                  <p className="rounded-small border border-semantic-success/30 bg-semantic-success/10 p-3 text-[13px] font-semibold text-text-primary">
-                    Sign-in link sent. You can keep planning on this device while you check your email.
+                <div className="flex items-center gap-2">
+                  <div className="h-px flex-1 bg-border-default" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-text-muted">or</span>
+                  <div className="h-px flex-1 bg-border-default" />
+                </div>
+                <form onSubmit={handleMagicLink} className="space-y-3">
+                  <p className="text-[14px] leading-6 text-text-secondary">
+                    Enter your email and we'll send you a sign-in link.
                   </p>
-                )}
-              </form>
+                  <label className="block text-[12px] font-bold uppercase tracking-[0.04em] text-text-primary" htmlFor="account-email">Email</label>
+                  <input
+                    id="account-email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    type="email"
+                    autoComplete="email"
+                    className="h-12 w-full rounded-small border border-border-default px-3 text-[16px] outline-none focus:border-accent-primary"
+                    placeholder="you@example.com"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !email.trim()}
+                    className="min-h-11 w-full rounded-small bg-accent-primary px-4 py-2 text-[14px] font-bold text-white disabled:opacity-60"
+                  >
+                    {isSubmitting ? 'Syncing' : 'Send sign-in link'}
+                  </button>
+                  {pageState === 'magic-link-sent' && (
+                    <p className="rounded-small border border-semantic-success/30 bg-semantic-success/10 p-3 text-[13px] font-semibold text-text-primary">
+                      Sign-in link sent. You can keep planning on this device while you check your email.
+                    </p>
+                  )}
+                </form>
+              </div>
             )}
 
             {pageState === 'import-choice' && (

@@ -40,6 +40,22 @@ export const getCurrentSession = async (): Promise<Session | null> => {
   }
 };
 
+export const signInWithGoogle = async (): Promise<void> => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error('Supabase is not configured.');
+  }
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin + window.location.pathname,
+    },
+  });
+
+  if (error) throw error;
+};
+
 export const sendMagicLink = async (email: string): Promise<void> => {
   const supabase = getSupabaseClient();
   if (!supabase) {

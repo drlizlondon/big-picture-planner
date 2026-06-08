@@ -9,7 +9,9 @@ const CLOUD_TABLES: Record<SyncEntityType, string> = {
 };
 
 const IMPORT_META_PREFIX = 'cloudImportDecision:';
+const LAST_PULLED_PREFIX = 'cloudLastPulledAt:';
 const SYNC_EVENT = 'planner-sync-change';
+const PERIODIC_SYNC_MS = 5 * 60 * 1000;
 
 type SyncPayload = PlannerBlock | PlannerTemplate;
 
@@ -44,7 +46,7 @@ export const subscribeToSyncChanges = (callback: () => void): (() => void) => {
 
   const handleOnline = () => {
     callback();
-    void syncPendingChanges();
+    void pullFromCloud().then(() => syncPendingChanges());
   };
 
   window.addEventListener(SYNC_EVENT, callback);
@@ -52,16 +54,27 @@ export const subscribeToSyncChanges = (callback: () => void): (() => void) => {
   window.addEventListener('offline', callback);
 
   const supabase = getSupabaseClient();
-  const subscription = supabase?.auth.onAuthStateChange(() => {
+  const subscription = supabase?.auth.onAuthStateChange((event) => {
     callback();
-    void syncPendingChanges();
+    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      void pullFromCloud().then(() => syncPendingChanges());
+    } else {
+      void syncPendingChanges();
+    }
   });
+
+  const periodicInterval = setInterval(() => {
+    if (isOnline()) {
+      void pullFromCloud().then(() => syncPendingChanges());
+    }
+  }, PERIODIC_SYNC_MS);
 
   return () => {
     window.removeEventListener(SYNC_EVENT, callback);
     window.removeEventListener('online', handleOnline);
     window.removeEventListener('offline', callback);
     subscription?.data.subscription.unsubscribe();
+    clearInterval(periodicInterval);
   };
 };
 
@@ -221,6 +234,81 @@ export const syncPendingChanges = async (): Promise<void> => {
   } finally {
     isSyncing = false;
     emitSyncChange();
+  }
+};
+
+export const pullFromCloud = async (): Promise<void> => {
+  const supabase = getSupabaseClient();
+  const session = await getCurrentSession();
+  if (!supabase || !session || !isOnline()) return;
+
+  const userId = session.user.id;
+  const cursorKey = `${LAST_PULLED_PREFIX}${userId}`;
+  const cursorMeta = await db.syncMeta.get(cursorKey);
+  const cursor = cursorMeta?.value;
+
+  // Capture fetch start before querying so next pull re-checks anything
+  // written during this pull window.
+  const fetchStartedAt = new Date().toISOString();
+
+  type CloudRow = { id: string; payload: unknown; updated_at: string; deleted_at: string | null };
+
+  const fetchRows = async (table: string): Promise<CloudRow[]> => {
+    let query = supabase
+      .from(table)
+      .select('id, payload, updated_at, deleted_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: true });
+
+    if (cursor) {
+      query = (query as typeof query).gt('updated_at', cursor);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []) as CloudRow[];
+  };
+
+  try {
+    const [blockRows, templateRows] = await Promise.all([
+      fetchRows('planner_blocks'),
+      fetchRows('planner_templates'),
+    ]);
+
+    for (const row of blockRows) {
+      if (!row.payload || typeof row.payload !== 'object') continue;
+      const cloud = row.payload as PlannerBlock;
+      const cloudUpdatedAt = new Date(row.updated_at).getTime();
+      const local = await db.blocks.get(row.id);
+
+      if (!local || cloudUpdatedAt > local.updatedAt) {
+        if (row.deleted_at) {
+          await db.blocks.put({ ...cloud, id: row.id, deletedAt: cloudUpdatedAt, updatedAt: cloudUpdatedAt });
+        } else {
+          await db.blocks.put({ ...cloud, id: row.id });
+        }
+      }
+    }
+
+    for (const row of templateRows) {
+      if (!row.payload || typeof row.payload !== 'object') continue;
+      const cloud = row.payload as PlannerTemplate;
+      const cloudUpdatedAt = new Date(row.updated_at).getTime();
+      const local = await db.templates.get(row.id);
+
+      if (!local || cloudUpdatedAt > local.updatedAt) {
+        if (row.deleted_at) {
+          await db.templates.put({ ...cloud, id: row.id, isArchived: true, updatedAt: cloudUpdatedAt });
+        } else {
+          await db.templates.put({ ...cloud, id: row.id });
+        }
+      }
+    }
+
+    await db.syncMeta.put({ key: cursorKey, value: fetchStartedAt, updatedAt: Date.now() });
+    emitSyncChange();
+  } catch {
+    // Pull failures are silent; the next periodic interval will retry.
   }
 };
 
