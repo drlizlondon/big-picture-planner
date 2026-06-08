@@ -13,6 +13,7 @@ import { useBlock, useWeekBlocks } from '../../hooks/usePlannerData';
 import { calculateEndTime } from '../../utils/planningEngine';
 import { DEFAULT_FILTERS, FILTER_LABELS, matchesPlannerFilters, type PlannerFilterId } from '../../utils/plannerFilters';
 import { formatDate, getStartOfWeek } from '../../utils/dateUtils';
+import { OnboardingTour } from '../OnboardingTour/component';
 
 const MOBILE_INBOX_PREF_KEY = 'planner.mobileInboxExpanded';
 const collisionDetection: CollisionDetection = (args) => {
@@ -351,6 +352,7 @@ export const AppShell: React.FC = () => {
         blockId={editingBlockId}
       />
       <PlannerSetupPanel isOpen={isPlannerSetupOpen} onClose={() => setIsPlannerSetupOpen(false)} />
+      <OnboardingTour />
     </div>
     </DndContext>
   );

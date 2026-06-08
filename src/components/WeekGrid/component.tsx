@@ -77,7 +77,7 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
   }, []);
 
   return (
-    <div ref={scrollRef} className={`week-grid-shell flex flex-col h-full overflow-auto bg-white ${expandedDate ? 'has-expanded-day' : ''} ${isDraggingBlock ? 'is-dragging-block' : ''}`}>
+    <div ref={scrollRef} data-tour="week-grid" className={`week-grid-shell flex flex-col h-full overflow-auto bg-white ${expandedDate ? 'has-expanded-day' : ''} ${isDraggingBlock ? 'is-dragging-block' : ''}`}>
       <div className="sticky top-0 z-header bg-surface-primary/95 backdrop-blur border-b border-border-default/70 px-4 py-2">
         <div className="week-grid-toolbar flex items-center justify-between gap-3 min-w-0">
           <div className="min-w-[230px] flex items-baseline gap-2">

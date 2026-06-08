@@ -68,7 +68,7 @@ export const ToSchedulePanel: React.FC<Props> = ({
   const inboxTitle = isTray ? 'Life Inbox' : 'Ready to schedule';
 
   return (
-    <div ref={setNodeRef} className={`${isTray ? 'mobile-tray-panel' : 'flex flex-col bg-surface-primary rounded-medium border p-3 flex-1 shadow-sm overflow-hidden min-h-0'} transition-colors ${isOver ? 'border-accent-primary bg-accent-primary/[0.035]' : 'border-border-default'}`}>
+    <div ref={setNodeRef} data-tour={isTray ? undefined : 'ready-to-schedule'} className={`${isTray ? 'mobile-tray-panel' : 'flex flex-col bg-surface-primary rounded-medium border p-3 flex-1 shadow-sm overflow-hidden min-h-0'} transition-colors ${isOver ? 'border-accent-primary bg-accent-primary/[0.035]' : 'border-border-default'}`}>
       <div
         className={`${isTray ? 'mobile-tray-header' : 'mb-3'}`}
         onPointerDown={isTray ? handleTrayPointerDown : undefined}

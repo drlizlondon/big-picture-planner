@@ -16,7 +16,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onAddClick, onEditBlock, onVie
   return (
     <>
       {/* Add To Planner Button */}
-      <button onClick={onAddClick} className="w-full h-11 bg-accent-primary hover:bg-accent-hover text-white rounded-medium font-bold text-[13px] transition-colors shadow-sm">
+      <button data-tour="add-button" onClick={onAddClick} className="w-full h-11 bg-accent-primary hover:bg-accent-hover text-white rounded-medium font-bold text-[13px] transition-colors shadow-sm">
         + Add to Planner
       </button>
 
