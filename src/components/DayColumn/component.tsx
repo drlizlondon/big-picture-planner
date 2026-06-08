@@ -42,7 +42,7 @@ export const DayColumn: React.FC<Props> = ({ date, onEditBlock, onSelectBlock, s
   });
 
   return (
-    <div className={`day-column ${isExpanded ? 'expanded-day' : ''} flex-1 min-w-[120px] border-r border-border-default/25 last:border-r-0 relative flex flex-col z-grid ${isToday ? 'bg-accent-primary/[0.028]' : 'bg-surface-primary'}`}>
+    <div className={`day-column ${isExpanded ? 'expanded-day' : ''} flex-1 min-w-0 border-r border-border-default/25 last:border-r-0 relative flex flex-col z-grid ${isToday ? 'bg-accent-primary/[0.028]' : 'bg-surface-primary'}`}>
       
       {/* Render 15-min snap drop slots */}
       {visibleHours.map(hour => (

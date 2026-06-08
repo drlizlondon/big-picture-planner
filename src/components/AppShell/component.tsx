@@ -65,6 +65,13 @@ export const AppShell: React.FC = () => {
       return false;
     }
   });
+  const [isSidePanelCollapsed, setIsSidePanelCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('planner.sidePanelCollapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [isDraggingBlock, setIsDraggingBlock] = useState(false);
   const [mobileExpandedDate, setMobileExpandedDate] = useState<string | null>(null);
   const [lastScheduledBlockId, setLastScheduledBlockId] = useState<string | null>(null);
@@ -121,6 +128,15 @@ export const AppShell: React.FC = () => {
     setIsSidebarCollapsed(isCollapsed);
     try {
       localStorage.setItem('planner.sidebarCollapsed', String(isCollapsed));
+    } catch {
+      // Keep the in-memory preference if storage is unavailable.
+    }
+  };
+
+  const updateSidePanelCollapsed = (isCollapsed: boolean) => {
+    setIsSidePanelCollapsed(isCollapsed);
+    try {
+      localStorage.setItem('planner.sidePanelCollapsed', String(isCollapsed));
     } catch {
       // Keep the in-memory preference if storage is unavailable.
     }
@@ -298,12 +314,23 @@ export const AppShell: React.FC = () => {
           />
         </main>
         <WeekEdgeDropZone id="next-week" title="Next Week" helper="Drag here or click to view next week" weekOffset={1} isDraggingBlock={isDraggingBlock} onClick={handleNextWeek} />
-        <PlannerSidePanel
-          currentDate={currentDate}
-          activeFilters={activeFilters}
-          onSelectDate={setCurrentDate}
-          onFilterToggle={handleFilterToggle}
-        />
+        {isSidePanelCollapsed ? (
+          <button
+            onClick={() => updateSidePanelCollapsed(false)}
+            className="hidden lg:block w-11 flex-shrink-0 rounded-medium border border-border-default bg-surface-primary shadow-sm text-accent-primary font-bold hover:bg-background transition-colors"
+            title="Show month & filters"
+          >
+            «
+          </button>
+        ) : (
+          <PlannerSidePanel
+            currentDate={currentDate}
+            activeFilters={activeFilters}
+            onSelectDate={setCurrentDate}
+            onFilterToggle={handleFilterToggle}
+            onCollapse={() => updateSidePanelCollapsed(true)}
+          />
+        )}
       </div>
 
       {!isBlockingPanelOpen && (
@@ -466,9 +493,10 @@ interface PlannerSidePanelProps {
   activeFilters: PlannerFilterId[];
   onSelectDate: (date: Date) => void;
   onFilterToggle: (filter: PlannerFilterId) => void;
+  onCollapse: () => void;
 }
 
-const PlannerSidePanel: React.FC<PlannerSidePanelProps> = ({ currentDate, activeFilters, onSelectDate, onFilterToggle }) => {
+const PlannerSidePanel: React.FC<PlannerSidePanelProps> = ({ currentDate, activeFilters, onSelectDate, onFilterToggle, onCollapse }) => {
   const [displayMonth, setDisplayMonth] = useState(() => new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
 
   /* eslint-disable react-hooks/set-state-in-effect -- Keep the side-panel month aligned when the active planner week changes. */
@@ -487,6 +515,16 @@ const PlannerSidePanel: React.FC<PlannerSidePanelProps> = ({ currentDate, active
 
   return (
     <aside className="planner-side-panel hidden lg:flex w-[220px] flex-shrink-0 flex-col gap-3 overflow-y-auto">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onCollapse}
+          className="h-8 w-8 rounded-medium border border-accent-primary/30 bg-surface-primary text-accent-primary shadow-sm hover:bg-accent-primary/5 transition-colors"
+          title="Collapse month & filters"
+        >
+          »
+        </button>
+      </div>
       <section className="rounded-medium border border-border-default bg-surface-primary p-3 shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-2">
           <button

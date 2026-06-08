@@ -121,8 +121,8 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
             {visibleDates.map(day => {
               const isExpanded = expandedDate === day.value;
               return (
-              <div key={day.value} className={`week-day-heading ${isExpanded ? 'expanded-day' : ''} flex-1 min-w-[120px] flex items-center justify-center border-r border-border-default/35 last:border-r-0 ${day.value === today ? 'bg-accent-primary/[0.06]' : ''}`}>
-                <span className={`text-[13px] font-bold ${day.value === today ? 'text-accent-primary' : 'text-text-primary'}`}>{day.label}</span>
+              <div key={day.value} className={`week-day-heading ${isExpanded ? 'expanded-day' : ''} flex-1 min-w-0 flex items-center justify-center border-r border-border-default/35 last:border-r-0 ${day.value === today ? 'bg-accent-primary/[0.06]' : ''}`}>
+                <span className={`text-[13px] font-bold whitespace-nowrap ${day.value === today ? 'text-accent-primary' : 'text-text-primary'}`}>{day.label}</span>
               </div>
               );
             })}
