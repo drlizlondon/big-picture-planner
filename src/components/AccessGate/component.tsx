@@ -10,6 +10,18 @@ interface Props {
 export const AccessGate: React.FC<Props> = ({ children }) => {
   const [access, setAccess] = useState<AccessState>({ status: 'loading' });
 
+  // Demo mode: ?tour=1 or ?demo=1 lets anyone try the planner locally,
+  // with no sign-in and no code. Captured once on mount so it survives
+  // the OnboardingTour stripping the param from the URL afterwards.
+  const [isDemo] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('tour') === '1' || params.get('demo') === '1';
+    } catch {
+      return false;
+    }
+  });
+
   const refresh = async () => {
     const state = await getAccessState();
     setAccess(state);
@@ -20,6 +32,16 @@ export const AccessGate: React.FC<Props> = ({ children }) => {
     const unsub = subscribeToAccessChanges(refresh);
     return unsub;
   }, []);
+
+  // Demo mode — show the app immediately, ungated, with a convert banner.
+  if (isDemo) {
+    return (
+      <>
+        <DemoBanner />
+        {children}
+      </>
+    );
+  }
 
   // Unconfigured (no Supabase) or loading — just show the app
   if (access.status === 'unconfigured' || access.status === 'loading') {
@@ -227,6 +249,29 @@ const CodeEntryScreen: React.FC<{ onRedeemed: () => void }> = ({ onRedeemed }) =
           </button>
         </div>
       </div>
+    </div>
+  );
+};
+
+// ─── Demo Banner ─────────────────────────────────────────────────────────────
+
+const DemoBanner: React.FC = () => {
+  // Leaving demo = reload at the base URL (no ?tour/?demo), which drops the
+  // user onto the normal sign-in / code flow.
+  const exitToSignIn = () => {
+    window.location.href = window.location.pathname;
+  };
+  return (
+    <div className="bg-accent-primary px-4 py-2 flex items-center justify-center gap-3 flex-wrap text-center">
+      <p className="text-[12px] font-bold text-white">
+        👀 You&apos;re in demo mode — try anything you like. Changes save only on this device.
+      </p>
+      <button
+        onClick={exitToSignIn}
+        className="text-[12px] font-bold text-accent-primary bg-white rounded-small px-3 py-1 hover:bg-white/90 transition-colors"
+      >
+        Have a code? Sign in →
+      </button>
     </div>
   );
 };
