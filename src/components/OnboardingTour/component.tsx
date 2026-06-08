@@ -49,9 +49,25 @@ export const OnboardingTour: React.FC = () => {
   const raf = useRef<number>(0);
   const { unscheduled, scheduled } = useBlockCounts();
 
-  // Only show if tour hasn't been completed
+  // Only show if tour hasn't been completed (or if ?tour=1 in URL)
   useEffect(() => {
-    if (!localStorage.getItem(TOUR_KEY)) {
+    const params = new URLSearchParams(window.location.search);
+    const forceTour = params.get('tour') === '1';
+
+    if (forceTour) {
+      // Remove the param from the URL without a reload
+      params.delete('tour');
+      const newSearch = params.toString();
+      window.history.replaceState(
+        {},
+        '',
+        window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash,
+      );
+      // Force restart even for returning users
+      localStorage.removeItem(TOUR_KEY);
+    }
+
+    if (forceTour || !localStorage.getItem(TOUR_KEY)) {
       // Small delay so the app renders first
       const t = setTimeout(() => setStep('add_task'), 800);
       return () => clearTimeout(t);
