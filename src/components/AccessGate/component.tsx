@@ -89,7 +89,7 @@ const SignInScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn: _ }) =
   };
 
   return (
-    <div className="min-h-dvh bg-background flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="text-[13px] font-bold uppercase tracking-widest text-text-secondary mb-2">Big Picture Planner</div>
@@ -180,7 +180,7 @@ const CodeEntryScreen: React.FC<{ onRedeemed: () => void }> = ({ onRedeemed }) =
   };
 
   return (
-    <div className="min-h-dvh bg-background flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="text-[28px] mb-2">&#x1F9E9;</div>
