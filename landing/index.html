@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Big Picture Planner — Your week is a puzzle. Let's fit it all in.</title>
+  <meta name="description" content="Like Tetris, but for your actual life. Drop your tasks into a Life Inbox, then drag them into the week wherever they fit. Free for 4 weeks." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --purple: #5B35F5;
+      --purple-light: #ede9ff;
+      --purple-mid: #c4b5fd;
+      --purple-dark: #4222d4;
+      --text: #0f0f0f;
+      --text-secondary: #555;
+      --text-muted: #888;
+      --border: #e8e8e8;
+      --bg: #ffffff;
+      --bg-soft: #f9f8ff;
+      --radius: 14px;
+      --radius-sm: 8px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* NAV */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-logo { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); text-decoration: none; }
+    .nav-cta { background: var(--purple); color: #fff; font-size: 13px; font-weight: 700; padding: 8px 18px; border-radius: 100px; text-decoration: none; transition: background 0.15s; }
+    .nav-cta:hover { background: var(--purple-dark); }
+
+    /* HERO */
+    .hero { padding: 88px 24px 72px; text-align: center; max-width: 780px; margin: 0 auto; }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--purple-light); color: var(--purple);
+      font-size: 12px; font-weight: 700; padding: 5px 14px;
+      border-radius: 100px; margin-bottom: 28px; letter-spacing: 0.02em;
+    }
+    .hero-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--purple); flex-shrink: 0; }
+
+    h1 {
+      font-size: clamp(38px, 6.5vw, 68px);
+      font-weight: 900;
+      line-height: 1.06;
+      letter-spacing: -0.035em;
+      color: var(--text);
+      margin-bottom: 20px;
+    }
+    h1 em { font-style: normal; color: var(--purple); }
+
+    .hero-sub {
+      font-size: clamp(16px, 2.5vw, 20px);
+      color: var(--text-secondary);
+      line-height: 1.65;
+      max-width: 520px;
+      margin: 0 auto 40px;
+    }
+
+    /* TETRIS METAPHOR PILL */
+    .tetris-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--text); color: #fff;
+      font-size: 13px; font-weight: 700;
+      padding: 8px 16px; border-radius: 100px;
+      margin-bottom: 40px;
+      letter-spacing: -0.01em;
+    }
+
+    /* WAITLIST FORM */
+    .form-wrap { max-width: 420px; margin: 0 auto; }
+
+    .form-row {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .form-row input {
+      width: 100%; height: 52px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 18px;
+      font-size: 16px; font-family: inherit; color: var(--text);
+      background: #fff; outline: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      transition: border-color 0.15s;
+      box-sizing: border-box;
+    }
+    .form-row input:focus { border-color: var(--purple); }
+    .form-row input::placeholder { color: var(--text-muted); }
+    .form-row button {
+      width: 100%; height: 56px;
+      background: var(--purple);
+      color: #fff;
+      font-size: 17px; font-weight: 800; font-family: inherit;
+      border: none; border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      box-shadow: 0 4px 24px rgba(91,53,245,0.35);
+      letter-spacing: -0.01em;
+    }
+    .form-row button:hover { background: var(--purple-dark); transform: translateY(-1px); box-shadow: 0 6px 28px rgba(91,53,245,0.4); }
+    .form-row button:active { transform: translateY(0); }
+    .form-row button:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+
+    .form-note { margin-top: 10px; font-size: 12px; color: var(--text-muted); text-align: center; }
+    .form-note strong { color: var(--purple); }
+
+    .form-success { display: none; background: var(--purple-light); border-radius: var(--radius); padding: 20px 24px; text-align: center; }
+    .form-success.visible { display: block; }
+    .form-success-emoji { font-size: 32px; margin-bottom: 8px; }
+    .form-success h3 { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+    .form-success p { font-size: 14px; color: var(--text-secondary); }
+
+    /* SCREENSHOT */
+    .screenshot-section { background: var(--bg-soft); padding: 16px 24px 0; overflow: hidden; }
+    .screenshot-inner {
+      max-width: 960px; margin: 0 auto;
+      border-radius: var(--radius) var(--radius) 0 0;
+      overflow: hidden;
+      border: 1.5px solid var(--border); border-bottom: none;
+      box-shadow: 0 -4px 40px rgba(91,53,245,0.08);
+    }
+    .screenshot-inner img { width: 100%; display: block; }
+    .screenshot-placeholder {
+      width: 100%; aspect-ratio: 16/9;
+      background: linear-gradient(135deg, #ede9ff 0%, #f0f4ff 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+      color: var(--purple);
+    }
+    .screenshot-placeholder span { font-size: 13px; font-weight: 600; opacity: 0.6; }
+
+    /* HOW IT WORKS */
+    .how-section { padding: 88px 24px; max-width: 860px; margin: 0 auto; }
+    .section-label { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--purple); margin-bottom: 16px; }
+
+    .how-section h2 {
+      font-size: clamp(26px, 4vw, 40px); font-weight: 900;
+      letter-spacing: -0.025em; line-height: 1.12; margin-bottom: 56px;
+      max-width: 580px;
+    }
+
+    .steps { display: flex; flex-direction: column; gap: 0; }
+
+    .step {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 0 24px;
+      padding-bottom: 40px;
+      position: relative;
+    }
+    .step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 23px; top: 48px; bottom: 0;
+      width: 2px;
+      background: var(--border);
+    }
+
+    .step-num {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: var(--purple-light); color: var(--purple);
+      font-size: 16px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; position: relative; z-index: 1;
+    }
+    .step-content { padding-top: 10px; }
+    .step-content h3 { font-size: 18px; font-weight: 800; margin-bottom: 6px; color: var(--text); }
+    .step-content p { font-size: 14px; color: var(--text-secondary); line-height: 1.65; max-width: 480px; }
+
+    /* VS SECTION */
+    .vs-section { background: var(--bg-soft); padding: 88px 24px; }
+    .vs-inner { max-width: 860px; margin: 0 auto; }
+    .vs-inner h2 { font-size: clamp(26px, 4vw, 40px); font-weight: 900; letter-spacing: -0.025em; line-height: 1.12; margin-bottom: 48px; max-width: 560px; }
+
+    .vs-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .vs-table thead th {
+      text-align: left; padding: 10px 16px;
+      font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-muted); border-bottom: 2px solid var(--border);
+    }
+    .vs-table thead th:not(:first-child) { text-align: center; }
+    .vs-table thead th.highlight { color: var(--purple); }
+
+    .vs-table tbody tr:not(:last-child) { border-bottom: 1px solid var(--border); }
+    .vs-table tbody td { padding: 13px 16px; color: var(--text-secondary); vertical-align: middle; }
+    .vs-table tbody td:first-child { font-weight: 600; color: var(--text); }
+    .vs-table tbody td:not(:first-child) { text-align: center; }
+
+    .tick { color: #16a34a; font-size: 17px; }
+    .cross { color: #d1d5db; font-size: 17px; }
+    .partial { color: #f59e0b; font-size: 13px; font-weight: 700; }
+    .bpp-col { background: var(--purple-light); }
+
+    /* PAIN SECTION */
+    .pain-section { padding: 88px 24px; max-width: 860px; margin: 0 auto; }
+    .pain-section h2 { font-size: clamp(26px, 4vw, 40px); font-weight: 900; letter-spacing: -0.025em; line-height: 1.12; margin-bottom: 48px; max-width: 560px; }
+    .pain-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+    .pain-card { background: var(--bg-soft); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 24px; }
+    .pain-icon { font-size: 28px; margin-bottom: 12px; display: block; }
+    .pain-card h3 { font-size: 15px; font-weight: 800; margin-bottom: 6px; color: var(--text); }
+    .pain-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.65; }
+
+    /* DARK FEATURES SECTION */
+    .features-section { background: var(--text); color: #fff; padding: 88px 24px; }
+    .features-inner { max-width: 860px; margin: 0 auto; }
+    .features-section .section-label { color: var(--purple-mid); }
+    .features-section h2 { font-size: clamp(26px, 4vw, 40px); font-weight: 900; letter-spacing: -0.025em; line-height: 1.12; margin-bottom: 48px; max-width: 500px; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; }
+    .feature-item { border-top: 1px solid rgba(255,255,255,0.12); padding-top: 24px; }
+    .feature-num { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; color: var(--purple-mid); margin-bottom: 12px; }
+    .feature-item h3 { font-size: 17px; font-weight: 800; margin-bottom: 8px; color: #fff; }
+    .feature-item p { font-size: 13px; color: rgba(255,255,255,0.55); line-height: 1.65; }
+
+    /* FOUNDER */
+    .founder-section { padding: 88px 24px; max-width: 640px; margin: 0 auto; text-align: center; }
+    .founder-avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--purple-light); margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+    .founder-section blockquote { font-size: clamp(18px, 3vw, 24px); font-weight: 700; line-height: 1.45; letter-spacing: -0.02em; color: var(--text); margin-bottom: 20px; }
+    .founder-name { font-size: 13px; font-weight: 700; color: var(--text-secondary); }
+
+    /* BOTTOM CTA */
+    .cta-section { background: var(--purple); padding: 80px 24px; text-align: center; color: #fff; }
+    .cta-section h2 { font-size: clamp(28px, 5vw, 52px); font-weight: 900; letter-spacing: -0.03em; margin-bottom: 12px; }
+    .cta-section p { font-size: 16px; opacity: 0.8; margin-bottom: 36px; }
+    .cta-section .form-row { box-shadow: 0 4px 32px rgba(0,0,0,0.2); border-color: rgba(255,255,255,0.25); }
+    .cta-section .form-row:focus-within { border-color: rgba(255,255,255,0.8); }
+    .cta-section .form-row input { color: var(--text); }
+    .cta-section .form-row button { background: var(--text); color: #fff; }
+    .cta-section .form-row button:hover { background: #333; }
+    .cta-section .form-note { color: rgba(255,255,255,0.6); }
+    .cta-section .form-note strong { color: #fff; }
+
+    /* FOOTER */
+    footer { padding: 28px 24px; text-align: center; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+    footer a { color: var(--text-muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    .divider { height: 1px; background: var(--border); max-width: 860px; margin: 0 auto; }
+
+    @media (max-width: 600px) {
+      .hero { padding: 56px 20px 48px; }
+      .form-row { border-radius: var(--radius); flex-direction: column; padding: 12px; gap: 8px; }
+      .form-row input { padding: 4px 8px; font-size: 16px; }
+      .form-row button { border-radius: var(--radius-sm); padding: 13px; }
+      .how-section, .pain-section, .founder-section { padding: 64px 20px; }
+      .features-section, .vs-section { padding: 64px 20px; }
+      .cta-section { padding: 64px 20px; }
+      .vs-table { font-size: 12px; }
+      .vs-table thead th, .vs-table tbody td { padding: 10px 10px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a href="/" class="nav-logo">Big Picture Planner</a>
+    <a href="#waitlist" class="nav-cta">Get early access</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-badge">Early access &mdash; 4 weeks free</div>
+    <h1>Your week is a puzzle.<br><em>Let's fit it all in.</em></h1>
+    <p class="hero-sub">
+      You've got school runs, deadlines, appointments, and 12 other things that need to happen this week. Big Picture Planner helps you pick them up and drop them exactly where they fit.
+    </p>
+    <div class="tetris-pill">
+      <span>&#x1F9E9;</span> Think Tetris &mdash; but for your actual life
+    </div>
+
+    <div class="form-wrap" id="waitlist">
+      <div class="form-row">
+        <input type="email" id="hero-email" placeholder="your@email.com" autocomplete="email" />
+        <button type="button" onclick="joinWaitlist('hero-email', 'hero-success')">Join the waitlist</button>
+      </div>
+      <p class="form-note"><strong>First 50 people get 4 weeks completely free.</strong> No card needed.</p>
+      <p style="margin-top:14px;text-align:center;"><a href="/planner/?tour=1" style="font-size:14px;font-weight:600;color:var(--purple);text-decoration:none;opacity:0.85;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.85'">▶ See how it works</a></p>
+      <div class="form-success" id="hero-success">
+        <div class="form-success-emoji">&#x1F389;</div>
+        <h3>You're on the list!</h3>
+        <p>We'll be in touch very soon with your free access link.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCREENSHOT -->
+  <div class="screenshot-section">
+    <div class="screenshot-inner">
+      <img src="app-screenshot.png" alt="Big Picture Planner — to-do list on the left, full week calendar on the right with tasks dragged into place" />
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <section class="how-section">
+    <p class="section-label">How it works</p>
+    <h2>Three steps from overwhelmed to sorted.</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <h3>Dump everything into your Life Inbox</h3>
+          <p>School trip permission slip. Dentist. That report that's due Friday. That call you keep forgetting. Everything goes in here &mdash; no time, no date, just a list of things that need a home.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <h3>See your whole week at a glance</h3>
+          <p>Your fixed commitments are already there. School pickup at 3pm. That meeting Wednesday. Now you can actually see the gaps &mdash; the real, usable gaps &mdash; where things can fit.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <h3>Drag each task into the gap where it fits</h3>
+          <p>Pick up a task from your inbox. Find the slot. Drop it in. Like Tetris &mdash; except when the pieces fit, your week actually works. Move things around until it all makes sense.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- VS SECTION -->
+  <section class="vs-section">
+    <div class="vs-inner">
+      <p class="section-label">Why not just use...</p>
+      <h2>Google Calendar shows what's already there. This helps you fit the rest in.</h2>
+
+      <div style="overflow-x:auto;">
+        <table class="vs-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Google /<br>Apple Cal</th>
+              <th>To-do<br>apps</th>
+              <th>Structured /<br>Sunsama</th>
+              <th class="highlight">Big Picture<br>Planner</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>See your whole week at once</td>
+              <td><span class="tick">&#10003;</span></td>
+              <td><span class="cross">&#10005;</span></td>
+              <td><span class="partial">day only</span></td>
+              <td class="bpp-col"><span class="tick">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Inbox of unscheduled tasks</td>
+              <td><span class="cross">&#10005;</span></td>
+              <td><span class="tick">&#10003;</span></td>
+              <td><span class="partial">some</span></td>
+              <td class="bpp-col"><span class="tick">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Drag tasks into your week</td>
+              <td><span class="cross">&#10005;</span></td>
+              <td><span class="cross">&#10005;</span></td>
+              <td><span class="partial">daily only</span></td>
+              <td class="bpp-col"><span class="tick">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Move things around freely</td>
+              <td><span class="partial">events only</span></td>
+              <td><span class="cross">&#10005;</span></td>
+              <td><span class="partial">limited</span></td>
+              <td class="bpp-col"><span class="tick">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Built for personal life (not work)</td>
+              <td><span class="partial">sort of</span></td>
+              <td><span class="partial">sort of</span></td>
+              <td><span class="cross">&#10005;</span></td>
+              <td class="bpp-col"><span class="tick">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Doesn't feel overwhelming</td>
+              <td><span class="cross">&#10005;</span></td>
+              <td><span class="cross">&#10005;</span></td>
+              <td><span class="partial">maybe</span></td>
+              <td class="bpp-col"><span class="tick">&#10003;</span></td>
+            </tr>
+            <tr>
+              <td>Price</td>
+              <td>Free</td>
+              <td>Free&ndash;£5/mo</td>
+              <td>£15&ndash;25/mo</td>
+              <td class="bpp-col"><strong>Free trial</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHO IT'S FOR -->
+  <section class="pain-section">
+    <p class="section-label">Who it's for</p>
+    <h2>If your brain is always doing Tetris anyway, this helps.</h2>
+    <div class="pain-grid">
+      <div class="pain-card">
+        <span class="pain-icon">&#x1F9E0;</span>
+        <h3>ADHD brains</h3>
+        <p>Out of sight, out of mind. Keeping it all in your head is exhausting. Having one visual place where it all lives &mdash; and moves &mdash; is a genuine relief.</p>
+      </div>
+      <div class="pain-card">
+        <span class="pain-icon">&#x1F3E0;</span>
+        <h3>Household managers</h3>
+        <p>You're running a small operation. Pick-ups, appointments, admin, meals, life. The week needs to actually work &mdash; not just look organised.</p>
+      </div>
+      <div class="pain-card">
+        <span class="pain-icon">&#x1F393;</span>
+        <h3>Students</h3>
+        <p>Lectures, deadlines, part-time work, a social life. You need to see the whole week and fit everything in before the week decides for you.</p>
+      </div>
+      <div class="pain-card">
+        <span class="pain-icon">&#x1F4CB;</span>
+        <h3>People with a lot on</h3>
+        <p>You don't need another app that tells you what you already know. You need one that helps you figure out where it all actually goes.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- DARK FEATURES -->
+  <section class="features-section">
+    <div class="features-inner">
+      <p class="section-label">What's inside</p>
+      <h2>Everything you need.<br>Nothing you don't.</h2>
+      <div class="features-grid">
+        <div class="feature-item">
+          <p class="feature-num">01</p>
+          <h3>Life Inbox</h3>
+          <p>A waiting room for everything that needs a home. Not a to-do list that sits there judging you &mdash; a launchpad for getting things scheduled.</p>
+        </div>
+        <div class="feature-item">
+          <p class="feature-num">02</p>
+          <h3>Full week view</h3>
+          <p>Monday to Sunday, all your commitments, all your gaps. The big picture &mdash; the whole thing &mdash; at a glance. Finally.</p>
+        </div>
+        <div class="feature-item">
+          <p class="feature-num">03</p>
+          <h3>Drag to schedule</h3>
+          <p>Pick up a task. Find the gap. Drop it in. Move it if something changes. The week is yours to rearrange until it actually works.</p>
+        </div>
+        <div class="feature-item">
+          <p class="feature-num">04</p>
+          <h3>Syncs everywhere</h3>
+          <p>Plan on your laptop in the evening. Check on your phone on the school run. Always in sync, always up to date.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOUNDER NOTE -->
+  <section class="founder-section">
+    <div class="founder-avatar">&#x1F44B;</div>
+    <blockquote>
+      "I built this because I needed it. My brain was always doing Tetris with my week &mdash; trying to figure out where everything would fit. I just wanted somewhere to do that out loud."
+    </blockquote>
+    <p class="founder-name">&mdash; Lizzie, founder</p>
+  </section>
+
+  <!-- BOTTOM CTA -->
+  <section class="cta-section">
+    <h2>Ready to fit it all in?</h2>
+    <p>Join the waitlist &mdash; first 50 get 4 weeks completely free.</p>
+    <div class="form-wrap">
+      <div class="form-row">
+        <input type="email" id="footer-email" placeholder="your@email.com" autocomplete="email" />
+        <button type="button" onclick="joinWaitlist('footer-email', 'footer-success')">Get free access</button>
+      </div>
+      <p class="form-note"><strong>No credit card.</strong> Just your email.</p>
+      <div class="form-success" id="footer-success">
+        <div class="form-success-emoji">&#x1F389;</div>
+        <h3>You're on the list!</h3>
+        <p>We'll be in touch very soon with your free access link.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>&copy; 2026 Big Picture Planner &nbsp;&middot;&nbsp; <a href="/planner/">Open the app</a></p>
+  </footer>
+
+  <!-- SUPABASE WAITLIST -->
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const SUPABASE_URL = 'https://ovdrrltrhctwvtngjiaw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92ZHJybHRyaGN0d3Z0bmdqaWF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MTE1ODMsImV4cCI6MjA5NjQ4NzU4M30.8c5_67GeGFIxXb11E9D4wGy5j37yeOD8ULMRDDSjXJs';
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    window.joinWaitlist = async (inputId, successId) => {
+      const input = document.getElementById(inputId);
+      const successEl = document.getElementById(successId);
+      const email = input.value.trim();
+      if (!email || !email.includes('@')) { input.focus(); return; }
+
+      const btn = input.closest('.form-row').querySelector('button');
+      btn.disabled = true;
+      btn.textContent = 'Joining...';
+
+      const { error } = await supabase
+        .from('waitlist')
+        .insert({ email, source: 'landing' });
+
+      if (error && error.code !== '23505') {
+        btn.disabled = false;
+        btn.textContent = 'Try again';
+        return;
+      }
+
+      input.closest('.form-row').style.display = 'none';
+      input.closest('.form-wrap').querySelector('.form-note').style.display = 'none';
+      successEl.classList.add('visible');
+    };
+  </script>
+
+</body>
+</html>

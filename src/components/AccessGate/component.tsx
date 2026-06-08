@@ -167,7 +167,7 @@ const SignInScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn: _ }) =
 
         <p className="mt-4 text-center text-[12px] text-text-muted">
           Don&apos;t have a code yet?{' '}
-          <a href="https://drlizlondon.github.io/bigpictureplanner-landing/" className="text-accent-primary font-bold hover:underline">Join the waitlist</a>
+          <a href="/" className="text-accent-primary font-bold hover:underline">Join the waitlist</a>
         </p>
       </div>
     </div>
@@ -242,7 +242,7 @@ const CodeEntryScreen: React.FC<{ onRedeemed: () => void }> = ({ onRedeemed }) =
         <div className="mt-4 text-center space-y-2">
           <p className="text-[12px] text-text-muted">
             No code yet?{' '}
-            <a href="https://drlizlondon.github.io/bigpictureplanner-landing/" className="text-accent-primary font-bold hover:underline">Join the waitlist</a>
+            <a href="/" className="text-accent-primary font-bold hover:underline">Join the waitlist</a>
           </p>
           <button onClick={() => signOut()} className="text-[12px] text-text-muted hover:text-text-secondary">
             Sign out

@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules/
 dist/
 build/
+_site/
+_site_test/
 dist-ssr
 .env
 .env.*

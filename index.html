@@ -2,15 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>planner-v1</title>
+    <title>Big Picture Planner</title>
     <script>
-      // Restore path encoded by 404.html for GitHub Pages SPA routing
+      // Restore path encoded by the root 404.html for GitHub Pages SPA routing.
+      // The app lives under /planner/, so restore relative to that base.
       (function () {
         var p = new URLSearchParams(window.location.search).get('p');
         if (p) {
-          window.history.replaceState(null, '', '/' + decodeURIComponent(p));
+          window.history.replaceState(null, '', '/planner/' + decodeURIComponent(p));
         }
       })();
     </script>

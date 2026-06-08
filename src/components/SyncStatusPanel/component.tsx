@@ -388,7 +388,7 @@ export const SyncStatusPanel: React.FC = () => {
               Account access
             </a>
             <a
-              href="https://drlizlondon.github.io/bigpictureplanner-landing/feedback.html?src=app"
+              href="/feedback.html?src=app"
               target="_blank"
               rel="noopener noreferrer"
               className="text-[12px] font-semibold text-text-muted hover:text-text-secondary"
