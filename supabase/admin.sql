@@ -50,7 +50,7 @@ create policy "Admins can read waitlist"
 --           'redeemed' → user has signed in and redeemed the code
 create or replace function public.admin_waitlist()
 returns table (
-  position      integer,
+  "position"    integer,
   email         text,
   name          text,
   signed_up_at  timestamptz,
