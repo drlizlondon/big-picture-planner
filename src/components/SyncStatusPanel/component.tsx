@@ -77,7 +77,7 @@ export const SyncStatusPanel: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-12 z-modal w-[min(340px,calc(100vw-24px))] rounded-medium border border-border-default bg-surface-primary p-4 shadow-modal">
+        <div className="fixed right-4 top-[76px] z-modal w-[min(340px,calc(100vw-24px))] rounded-medium border border-border-default bg-surface-primary p-4 shadow-modal">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[14px] font-bold text-text-primary">{sync.label}</div>
