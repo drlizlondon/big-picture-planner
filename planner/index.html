@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Big Picture Planner</title>
+    <script>
+      // Restore path encoded by the root 404.html for GitHub Pages SPA routing.
+      // The app lives under /planner/, so restore relative to that base.
+      (function () {
+        var p = new URLSearchParams(window.location.search).get('p');
+        if (p) {
+          window.history.replaceState(null, '', '/planner/' + decodeURIComponent(p));
+        }
+      })();
+    </script>
+    <script type="module" crossorigin src="/planner/assets/index-DR6RBiej.js"></script>
+    <link rel="stylesheet" crossorigin href="/planner/assets/index-ButT1s2g.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

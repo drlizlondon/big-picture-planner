@@ -2,16 +2,25 @@
 <html>
   <head>
     <meta charset="UTF-8" />
+    <title>Big Picture Planner</title>
     <script>
-      // GitHub Pages SPA redirect: encode the path into the query string
-      // and redirect to the root so index.html handles it.
-      var l = window.location;
-      l.replace(
-        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-        l.pathname.split('/').slice(0, 2).join('/') +
-        '/?p=' + encodeURIComponent(l.pathname.slice(1) + l.search) +
-        (l.hash || '')
-      );
+      // GitHub Pages serves this single root 404.html for every missing path.
+      // For the planner SPA (served under /planner/), encode the requested
+      // route into ?p= and bounce to /planner/ so its index.html can restore
+      // the route. Anything else is a genuinely missing page -> send home.
+      (function () {
+        var l = window.location;
+        var path = l.pathname;
+        var BASE = '/planner/';
+        if (path.indexOf(BASE) === 0) {
+          var rest = path.slice(BASE.length); // path after /planner/
+          l.replace(
+            l.origin + BASE + '?p=' + encodeURIComponent(rest + l.search) + (l.hash || '')
+          );
+          return;
+        }
+        l.replace(l.origin + '/');
+      })();
     </script>
   </head>
   <body></body>

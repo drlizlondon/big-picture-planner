@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Invite console — Big Picture Planner</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --purple: #5B35F5; --purple-light: #ede9ff; --purple-dark: #4222d4;
+      --text: #0f0f0f; --text-secondary: #555; --text-muted: #888;
+      --border: #e8e8e8; --bg: #f7f6fb; --green: #16a34a; --amber: #d97706;
+      --radius: 12px; --radius-sm: 8px;
+    }
+    body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; -webkit-font-smoothing: antialiased; padding: 0; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 32px 20px 80px; }
+    header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    h1 { font-size: 22px; font-weight: 900; letter-spacing: -0.02em; }
+    .sub { font-size: 13px; color: var(--text-muted); margin-bottom: 28px; }
+    .signout { font-size: 12px; color: var(--text-muted); background: none; border: none; cursor: pointer; text-decoration: underline; }
+
+    /* Sign-in card */
+    .gate { max-width: 380px; margin: 80px auto 0; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; box-shadow: 0 4px 24px rgba(0,0,0,0.05); }
+    .gate h2 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+    .gate p { font-size: 13px; color: var(--text-secondary); margin-bottom: 18px; }
+    .gate input { width: 100%; height: 44px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 12px; font-size: 15px; outline: none; margin-bottom: 10px; }
+    .gate input:focus { border-color: var(--purple); }
+    .gate button { width: 100%; height: 44px; background: var(--purple); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 700; cursor: pointer; }
+    .gate button:hover { background: var(--purple-dark); }
+    .gate .google-btn { background: #fff; color: var(--text); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 4px; }
+    .gate .google-btn:hover { background: #f7f6fb; }
+    .gate .divider { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
+    .gate .divider::before, .gate .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .gate .divider span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+    .gate .msg { font-size: 13px; margin-top: 12px; padding: 10px 12px; border-radius: var(--radius-sm); }
+    .gate .msg.ok { background: #ecfdf5; color: var(--green); }
+    .gate .msg.err { background: #fef2f2; color: #dc2626; }
+
+    /* Stats */
+    .stats { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .stat { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; min-width: 120px; }
+    .stat .n { font-size: 24px; font-weight: 900; letter-spacing: -0.02em; }
+    .stat .l { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+
+    /* Table */
+    .panel { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); padding: 12px 14px; border-bottom: 1px solid var(--border); background: #fafafa; }
+    td { padding: 12px 14px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .email { font-weight: 600; }
+    .pos { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .code { font-family: ui-monospace, Menlo, monospace; font-weight: 700; letter-spacing: 0.05em; }
+    .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 100px; }
+    .badge.pending { background: #f1f5f9; color: #64748b; }
+    .badge.invited { background: #fef3c7; color: var(--amber); }
+    .badge.sent { background: var(--purple-light); color: var(--purple); }
+    .badge.redeemed { background: #dcfce7; color: var(--green); }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn { font-size: 12px; font-weight: 700; padding: 6px 11px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: #fff; cursor: pointer; color: var(--text); white-space: nowrap; }
+    .btn:hover { background: #f7f6fb; border-color: var(--purple); color: var(--purple); }
+    .btn.primary { background: var(--purple); color: #fff; border-color: var(--purple); }
+    .btn.primary:hover { background: var(--purple-dark); }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .empty { padding: 48px; text-align: center; color: var(--text-muted); font-size: 14px; }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--text); color: #fff; font-size: 13px; font-weight: 600; padding: 11px 20px; border-radius: 100px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 50; }
+    .toast.show { opacity: 1; }
+    .refresh { font-size: 12px; color: var(--purple); background: none; border: none; cursor: pointer; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- Sign-in gate -->
+    <div id="gate" class="gate" style="display:none;">
+      <h2>Invite console</h2>
+      <p>Admin access only.</p>
+      <button id="gate-google" type="button" class="google-btn">
+        <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden="true" style="flex-shrink:0;">
+          <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"/>
+          <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z"/>
+          <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z"/>
+        </svg>
+        Continue with Google
+      </button>
+      <div class="divider"><span>or</span></div>
+      <input type="email" id="gate-email" placeholder="you@email.com" autocomplete="email" />
+      <button id="gate-btn" type="button">Email me a sign-in link</button>
+      <div id="gate-msg"></div>
+    </div>
+
+    <!-- Console -->
+    <div id="console" style="display:none;">
+      <header>
+        <div>
+          <h1>Invite console</h1>
+        </div>
+        <button class="signout" id="signout">Sign out</button>
+      </header>
+      <p class="sub">
+        Curated invites for the controlled beta. Generate a single-use code, copy the invite email, send it, then mark it sent.
+        <button class="refresh" id="refresh">↻ Refresh</button>
+      </p>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:48px;">#</th>
+              <th>Email</th>
+              <th style="width:120px;">Code</th>
+              <th style="width:110px;">Status</th>
+              <th style="width:280px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="empty" id="empty" style="display:none;">No waitlist signups yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const SUPABASE_URL = 'https://ovdrrltrhctwvtngjiaw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92ZHJybHRyaGN0d3Z0bmdqaWF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MTE1ODMsImV4cCI6MjA5NjQ4NzU4M30.8c5_67GeGFIxXb11E9D4wGy5j37yeOD8ULMRDDSjXJs';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const APP_URL = 'https://bigpictureplanner.app/planner/';
+
+    const $ = (id) => document.getElementById(id);
+    const gate = $('gate'), consoleEl = $('console');
+
+    let toastTimer;
+    function toast(msg) {
+      const t = $('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // ─── Auth ────────────────────────────────────────────────
+    $('gate-google').addEventListener('click', async () => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.href.split('#')[0] }
+      });
+      if (error) {
+        const msg = $('gate-msg');
+        msg.className = 'msg err';
+        msg.textContent = 'Google sign-in failed: ' + error.message;
+      }
+    });
+
+    $('gate-btn').addEventListener('click', async () => {
+      const email = $('gate-email').value.trim();
+      const msg = $('gate-msg');
+      if (!email || !email.includes('@')) { $('gate-email').focus(); return; }
+      $('gate-btn').disabled = true;
+      $('gate-btn').textContent = 'Sending…';
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: window.location.href.split('#')[0] }
+      });
+      $('gate-btn').disabled = false;
+      $('gate-btn').textContent = 'Email me a sign-in link';
+      if (error) {
+        msg.className = 'msg err';
+        msg.textContent = 'Could not send link: ' + error.message;
+      } else {
+        msg.className = 'msg ok';
+        msg.textContent = 'Check your inbox for the sign-in link.';
+      }
+    });
+
+    $('signout').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      location.reload();
+    });
+
+    $('refresh').addEventListener('click', loadWaitlist);
+
+    // ─── Boot ────────────────────────────────────────────────
+    async function boot() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        gate.style.display = 'block';
+        return;
+      }
+      // Signed in — try loading. The RPC enforces admin server-side.
+      await loadWaitlist();
+    }
+
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) { gate.style.display = 'none'; loadWaitlist(); }
+    });
+
+    // ─── Load + render ───────────────────────────────────────
+    async function loadWaitlist() {
+      const { data, error } = await supabase.rpc('admin_waitlist');
+      if (error) {
+        // Not an admin, or RPC missing
+        gate.style.display = 'block';
+        consoleEl.style.display = 'none';
+        const msg = $('gate-msg');
+        msg.className = 'msg err';
+        msg.textContent = error.message.includes('not authorized')
+          ? 'This account is not an admin.'
+          : ('Could not load: ' + error.message);
+        return;
+      }
+      gate.style.display = 'none';
+      consoleEl.style.display = 'block';
+      render(data || []);
+    }
+
+    function render(rows) {
+      const tbody = $('rows');
+      const empty = $('empty');
+      tbody.innerHTML = '';
+      empty.style.display = rows.length ? 'none' : 'block';
+
+      // Stats
+      const counts = { total: rows.length, pending: 0, invited: 0, redeemed: 0 };
+      rows.forEach(r => {
+        if (r.status === 'redeemed') counts.redeemed++;
+        else if (r.status === 'invited') counts.invited++;
+        else counts.pending++;
+      });
+      $('stats').innerHTML = `
+        <div class="stat"><div class="n">${counts.total}</div><div class="l">On waitlist</div></div>
+        <div class="stat"><div class="n">${counts.pending}</div><div class="l">Not invited</div></div>
+        <div class="stat"><div class="n">${counts.invited}</div><div class="l">Invited</div></div>
+        <div class="stat"><div class="n">${counts.redeemed}</div><div class="l">Redeemed</div></div>
+      `;
+
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const statusBadge = badgeFor(r);
+        const codeCell = r.code ? `<span class="code">${r.code}</span>` : '<span style="color:#bbb">—</span>';
+
+        let actions = '';
+        if (r.status === 'redeemed') {
+          actions = `<span style="color:var(--text-muted);font-size:12px;">Active ✓</span>`;
+        } else if (r.code) {
+          actions = `
+            <button class="btn primary" data-act="copy" data-email="${r.email}" data-code="${r.code}" data-name="${r.name || ''}">Copy invite</button>
+            <button class="btn" data-act="sent" data-email="${r.email}">${r.code_sent_at ? 'Re-mark sent' : 'Mark sent'}</button>
+            <button class="btn" data-act="copycode" data-code="${r.code}">Copy code</button>
+          `;
+        } else {
+          actions = `<button class="btn primary" data-act="gen" data-email="${r.email}">Generate code</button>`;
+        }
+
+        tr.innerHTML = `
+          <td class="pos">${r.position ?? ''}</td>
+          <td><div class="email">${r.email}</div>${r.name ? `<div style="color:var(--text-muted);font-size:12px;">${r.name}</div>` : ''}</td>
+          <td>${codeCell}</td>
+          <td>${statusBadge}</td>
+          <td><div class="actions">${actions}</div></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('button[data-act]').forEach(btn => {
+        btn.addEventListener('click', () => handleAction(btn));
+      });
+    }
+
+    function badgeFor(r) {
+      if (r.status === 'redeemed') return '<span class="badge redeemed">Redeemed</span>';
+      if (r.status === 'invited') {
+        return r.code_sent_at
+          ? '<span class="badge sent">Sent</span>'
+          : '<span class="badge invited">Code ready</span>';
+      }
+      return '<span class="badge pending">Not invited</span>';
+    }
+
+    // ─── Actions ─────────────────────────────────────────────
+    async function handleAction(btn) {
+      const act = btn.dataset.act;
+      if (act === 'gen') {
+        btn.disabled = true; btn.textContent = 'Generating…';
+        const { data, error } = await supabase.rpc('admin_generate_code', { p_email: btn.dataset.email });
+        if (error) { toast('Error: ' + error.message); btn.disabled = false; btn.textContent = 'Generate code'; return; }
+        toast('Code generated: ' + data);
+        await loadWaitlist();
+      } else if (act === 'sent') {
+        const { error } = await supabase.rpc('admin_mark_sent', { p_email: btn.dataset.email });
+        if (error) { toast('Error: ' + error.message); return; }
+        toast('Marked as sent');
+        await loadWaitlist();
+      } else if (act === 'copycode') {
+        await navigator.clipboard.writeText(btn.dataset.code);
+        toast('Code copied');
+      } else if (act === 'copy') {
+        const body = inviteEmail(btn.dataset.code, btn.dataset.name, btn.dataset.email);
+        await navigator.clipboard.writeText(body);
+        toast('Invite email copied — paste into Gmail');
+      }
+    }
+
+    // ─── Invite email template ───────────────────────────────
+    function inviteEmail(code, name, email) {
+      const hi = name ? `Hi ${name},` : 'Hi,';
+      return `${hi}
+
+You're in 🎉 — here's your early access to Big Picture Planner.
+
+Big Picture Planner helps you fit everything you need to do into your actual week. Like Tetris, but for your life: drop tasks into your Life Inbox, then drag them into the week wherever they fit.
+
+Getting started takes 2 minutes:
+
+1. Open the planner:
+   ${APP_URL}
+
+2. Sign in with THIS email address (${email}) — use "Continue with Google" or the email sign-in link.
+
+3. When asked for your access code, enter:
+
+   ${code}
+
+That starts your free 28-day trial. No card needed.
+
+This code is unique to you and can only be used once, so please don't share it.
+
+Want to see how it works first? Here's a 30-second guided demo:
+${APP_URL}?tour=1
+
+Reply to this email any time — I read every message and would love your feedback.
+
+Liz
+Big Picture Planner`;
+    }
+
+    boot();
+  </script>
+</body>
+</html>
