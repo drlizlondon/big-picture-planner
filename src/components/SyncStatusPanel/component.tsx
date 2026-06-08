@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSyncStatus } from '../../hooks/useSyncStatus';
 import { markImportDeviceOnlyForCurrentUser, markImportLaterForCurrentUser, queueLocalImportForCurrentUser, signOut, syncPendingChanges } from '../../services/syncService';
 import { connectGoogleCalendar, sendMagicLink, signInWithGoogle } from '../../services/supabaseClient';
@@ -152,8 +153,10 @@ export const SyncStatusPanel: React.FC = () => {
         {sync.isConfigured && !sync.isLoggedIn ? 'Sign in to sync' : sync.label}
       </button>
 
-      {isOpen && (
-        <div className="fixed right-4 top-[76px] z-modal w-[min(340px,calc(100vw-24px))] rounded-medium border border-border-default bg-surface-primary p-4 shadow-modal">
+      {isOpen && createPortal(
+        <>
+          <div className="fixed inset-0 z-modal" onClick={() => setIsOpen(false)} />
+          <div className="fixed right-4 top-[76px] z-modal w-[min(340px,calc(100vw-24px))] rounded-medium border border-border-default bg-surface-primary p-4 shadow-modal">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="text-[14px] font-bold text-text-primary">{sync.label}</div>
@@ -393,7 +396,9 @@ export const SyncStatusPanel: React.FC = () => {
               Share feedback →
             </a>
           </div>
-        </div>
+          </div>
+        </>,
+        document.body
       )}
     </div>
   );
