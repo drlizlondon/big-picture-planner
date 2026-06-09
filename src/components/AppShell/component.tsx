@@ -153,6 +153,28 @@ export const AppShell: React.FC = () => {
   const isBlockingPanelOpen = isAddModalOpen || isBlockEditorOpen || isPlannerSetupOpen;
 
   useEffect(() => {
+    // Flip the visible week to follow a block that moved out of it
+    // (e.g. arrowing from Sunday into next Monday).
+    const ensureWeekVisible = (dateStr: string) => {
+      const weekStart = formatDate(getStartOfWeek(currentDate));
+      const weekEnd = formatDate(addDays(getStartOfWeek(currentDate), 6));
+      if (dateStr < weekStart || dateStr > weekEnd) {
+        setCurrentDate(new Date(`${dateStr}T12:00:00`));
+      }
+    };
+
+    // After a move, scroll the selected block into view so a time change that
+    // pushes it past the visible area brings the calendar to it.
+    const revealSelectedBlock = () => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          document
+            .querySelector('.scheduled-block-selected')
+            ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+        });
+      });
+    };
+
     const handleKeyDown = async (event: KeyboardEvent) => {
       if (!selectedBlock || isBlockingPanelOpen) return;
       if (isTypingTarget(event.target)) return;
@@ -168,17 +190,21 @@ export const AppShell: React.FC = () => {
 
       keyboardQueueRef.current = keyboardQueueRef.current.catch(() => undefined).then(async () => {
         if (key === 'ArrowLeft' || key === 'ArrowRight') {
-          await moveBlockByDays(blockId, key === 'ArrowLeft' ? -1 : 1);
+          const newDate = await moveBlockByDays(blockId, key === 'ArrowLeft' ? -1 : 1);
+          if (newDate) ensureWeekVisible(newDate);
+          revealSelectedBlock();
           return;
         }
 
         if (key === 'ArrowUp' || key === 'ArrowDown') {
           await moveBlockByMinutes(blockId, key === 'ArrowUp' ? -15 : 15);
+          revealSelectedBlock();
           return;
         }
 
         try {
           await resizeBlockDuration(blockId, key === '-' || key === '_' ? -15 : 15);
+          revealSelectedBlock();
         } catch {
           // Keep the current duration if the new end time would leave the day.
         }
@@ -187,7 +213,8 @@ export const AppShell: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isBlockingPanelOpen, selectedBlock]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBlockingPanelOpen, selectedBlock, currentDate]);
 
   const clearWeekSwitchTimer = () => {
     if (weekSwitchTimer.current !== null) {

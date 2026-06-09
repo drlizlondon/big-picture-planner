@@ -181,14 +181,15 @@ export const moveBlockToWeek = async (id: string, date: string, startTime: strin
   }
 };
 
-export const moveBlockByDays = async (id: string, days: number): Promise<void> => {
+export const moveBlockByDays = async (id: string, days: number): Promise<string | undefined> => {
   const block = await db.blocks.get(id);
-  if (!block?.date || !block.startTime) return;
+  if (!block?.date || !block.startTime) return undefined;
 
   const nextDate = addDays(new Date(`${block.date}T12:00:00`), days);
   const date = formatDate(nextDate);
 
   await moveBlockToWeek(id, date, block.startTime);
+  return date;
 };
 
 export const moveBlockByMinutes = async (id: string, minutes: number): Promise<void> => {
