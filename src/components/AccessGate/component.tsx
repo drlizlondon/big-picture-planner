@@ -169,6 +169,7 @@ const SignInScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn: _ }) =
           Don&apos;t have a code yet?{' '}
           <a href="/" className="text-accent-primary font-bold hover:underline">Join the waitlist</a>
         </p>
+        <BetaNote />
       </div>
     </div>
   );
@@ -206,7 +207,7 @@ const CodeEntryScreen: React.FC<{ onRedeemed: () => void }> = ({ onRedeemed }) =
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="text-[28px] mb-2">&#x1F9E9;</div>
-          <h1 className="text-[28px] font-bold text-text-primary leading-tight">Enter your access code</h1>
+          <h1 className="text-[28px] font-bold text-text-primary leading-tight">Enter your Founder Access code</h1>
           <p className="mt-2 text-[14px] text-text-secondary">
             {userEmail ? `Signed in as ${userEmail}` : 'Check your invitation email for your code.'}
           </p>
@@ -230,7 +231,7 @@ const CodeEntryScreen: React.FC<{ onRedeemed: () => void }> = ({ onRedeemed }) =
               disabled={isSubmitting || code.trim().length < 6}
               className="h-11 w-full rounded-small bg-accent-primary text-[14px] font-bold text-white disabled:opacity-60"
             >
-              {isSubmitting ? 'Checking...' : 'Redeem code & start free trial'}
+              {isSubmitting ? 'Checking...' : 'Unlock Founding Access'}
             </button>
           </form>
 
@@ -238,6 +239,8 @@ const CodeEntryScreen: React.FC<{ onRedeemed: () => void }> = ({ onRedeemed }) =
             <p className="mt-3 text-[13px] font-semibold text-semantic-error text-center">{error}</p>
           )}
         </div>
+
+        <BetaNote />
 
         <div className="mt-4 text-center space-y-2">
           <p className="text-[12px] text-text-muted">
@@ -253,6 +256,14 @@ const CodeEntryScreen: React.FC<{ onRedeemed: () => void }> = ({ onRedeemed }) =
   );
 };
 
+// ─── Beta note (honest expectation setting) ─────────────────────────────────────
+
+const BetaNote: React.FC = () => (
+  <p className="mt-4 text-center text-[12px] leading-5 text-text-muted">
+    This is early. There may be rough edges. Founder feedback directly shapes what gets built next.
+  </p>
+);
+
 // ─── Demo Banner ─────────────────────────────────────────────────────────────
 
 const DemoBanner: React.FC = () => {
@@ -264,13 +275,13 @@ const DemoBanner: React.FC = () => {
   return (
     <div className="bg-accent-primary px-4 py-2 flex items-center justify-center gap-3 flex-wrap text-center">
       <p className="text-[12px] font-bold text-white">
-        👀 You&apos;re in demo mode — try anything you like. Changes save only on this device.
+        👀 You&apos;re in demo mode. Try anything you like. Changes save only on this device.
       </p>
       <button
         onClick={exitToSignIn}
         className="text-[12px] font-bold text-accent-primary bg-white rounded-small px-3 py-1 hover:bg-white/90 transition-colors"
       >
-        Have a code? Sign in →
+        Have a code? Sign in
       </button>
     </div>
   );
@@ -278,13 +289,11 @@ const DemoBanner: React.FC = () => {
 
 // ─── Trial Banner ──────────────────────────────────────────────────────────────
 
-const TrialBanner: React.FC<{ daysRemaining: number }> = ({ daysRemaining }) => (
+const TrialBanner: React.FC<{ daysRemaining: number }> = ({ daysRemaining: _ }) => (
   <div className="bg-accent-primary px-4 py-2 text-center">
     <p className="text-[12px] font-bold text-white">
-      {daysRemaining === 0
-        ? 'Your free trial ends today.'
-        : `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left in your free trial.`}
-      {' '}<a href="mailto:hello@bigpictureplanner.app" className="underline">Get in touch to keep access.</a>
+      You&apos;re a Founder Beta member. Thank you for helping shape Big Picture Planner.
+      {' '}<a href="/feedback.html?src=app" className="underline">Share feedback</a>
     </p>
   </div>
 );
@@ -296,7 +305,7 @@ const RefundWindowBanner: React.FC<{ endsAt: string }> = ({ endsAt }) => {
   return (
     <div className="bg-green-600 px-4 py-2 text-center">
       <p className="text-[12px] font-bold text-white">
-        7-day money-back guarantee — {days} day{days === 1 ? '' : 's'} remaining.{' '}
+        14-day no-questions refund. {days} day{days === 1 ? '' : 's'} remaining.{' '}
         <a href="mailto:hello@bigpictureplanner.app?subject=Refund request" className="underline">
           Request a refund
         </a>
@@ -310,16 +319,16 @@ const RefundWindowBanner: React.FC<{ endsAt: string }> = ({ endsAt }) => {
 const TrialExpiredScreen: React.FC = () => (
   <div className="min-h-dvh bg-background flex items-center justify-center p-4">
     <div className="w-full max-w-sm text-center">
-      <div className="text-[40px] mb-4">&#x23F0;</div>
-      <h1 className="text-[28px] font-bold text-text-primary mb-3">Your free trial has ended</h1>
+      <div className="text-[40px] mb-4">&#x2728;</div>
+      <h1 className="text-[28px] font-bold text-text-primary mb-3">Your access needs renewing</h1>
       <p className="text-[15px] text-text-secondary leading-relaxed mb-6">
-        Your 28-day free trial has ended. Get in touch and we&apos;ll sort you out with a founder price.
+        Get in touch and we&apos;ll sort out your Founding Access. £40 one-off founder price, with a 14-day no-questions refund.
       </p>
       <a
-        href="mailto:hello@bigpictureplanner.app?subject=I want to keep my Big Picture Planner"
+        href="mailto:hello@bigpictureplanner.app?subject=Founding Access"
         className="inline-flex h-11 items-center justify-center rounded-small bg-accent-primary px-6 text-[14px] font-bold text-white"
       >
-        Get in touch to continue &rarr;
+        Get in touch to continue
       </a>
       <div className="mt-4">
         <button onClick={() => signOut()} className="text-[12px] text-text-muted hover:text-text-secondary">

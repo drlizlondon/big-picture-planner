@@ -326,7 +326,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
               className="text-[11px] text-text-muted hover:text-text-secondary transition-colors"
               title="You can replay this any time from Settings"
             >
-              Skip — replay later in Settings
+              Skip, you can replay this any time from Settings
             </button>
             {manualNext && (
               <button

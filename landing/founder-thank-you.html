@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>You're in — Big Picture Planner</title>
+  <meta name="robots" content="noindex" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --purple:#5B35F5; --purple-light:#ede9ff; --text:#0f0f0f; --text-secondary:#555; --text-muted:#888; --border:#e8e8e8; --radius:14px; }
+    body { font-family:'Inter',system-ui,sans-serif; background:#f9f8ff; color:var(--text); line-height:1.6; -webkit-font-smoothing:antialiased; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+    .card { background:#fff; border:1px solid var(--border); border-radius:20px; box-shadow:0 12px 48px rgba(91,53,245,0.10); max-width:460px; width:100%; padding:40px 32px; text-align:center; }
+    .emoji { font-size:44px; margin-bottom:12px; }
+    h1 { font-size:26px; font-weight:900; letter-spacing:-0.02em; margin-bottom:12px; }
+    p { font-size:15px; color:var(--text-secondary); margin-bottom:14px; }
+    .refund { display:inline-block; background:var(--purple-light); color:var(--purple); font-size:13px; font-weight:700; padding:8px 16px; border-radius:100px; margin:8px 0 20px; }
+    .btn { display:inline-block; background:var(--purple); color:#fff; font-size:15px; font-weight:800; padding:14px 28px; border-radius:var(--radius); text-decoration:none; }
+    .links { margin-top:20px; font-size:13px; color:var(--text-muted); }
+    .links a { color:var(--purple); font-weight:700; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="emoji">&#127881;</div>
+    <h1>You're in. Thank you for becoming a founding member of Big Picture Planner.</h1>
+    <p>We'll send your access details shortly. If you do not receive them, contact us using the feedback link.</p>
+    <span class="refund">Your Founding Access includes a 14-day no-questions refund.</span>
+    <p style="font-size:13px;color:var(--text-muted);">This is an early founder beta. Access is fulfilled by hand right now, so your code may take a short while to arrive.</p>
+    <div class="links">
+      <a href="/">Back to home</a> &nbsp;&middot;&nbsp; <a href="/feedback.html?src=founder-thankyou">Send feedback</a> &nbsp;&middot;&nbsp; <a href="/planner/?tour=1">Try the demo</a>
+    </div>
+  </div>
+</body>
+</html>

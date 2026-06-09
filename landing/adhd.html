@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Big Picture Planner — Your brain doesn't have to hold it all anymore</title>
-  <meta name="description" content="For people who can't switch off. See everything you need to do this week, drag it into place, and stop keeping it all in your head. Free for 4 weeks." />
+  <meta name="description" content="For people who can't switch off. See everything you need to do this week, drag it into place, and stop keeping it all in your head. Try the demo free, then join the waitlist for Founding Access." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -172,20 +172,31 @@
 
   <!-- HERO -->
   <section class="hero">
-    <div class="hero-badge">&#x1F9E0; For people who can&apos;t switch off &mdash; 4 weeks free</div>
+    <div class="hero-badge">Founder Beta, early access</div>
     <h1>Everything you need to do.<br /><em>Fitted into your actual week.</em></h1>
     <p class="hero-sub">
       List everything. See the whole week. Drag each task into a real gap &mdash; like Tetris, but for your life. When the pieces fit, things actually get done.
     </p>
     <p class="hero-note">No rigid schedules. No guilt. Just your week, with everything in it.</p>
 
+    <div style="margin-bottom:22px;text-align:center;">
+      <a href="/planner/?tour=1" style="display:inline-flex;align-items:center;gap:10px;background:var(--purple);color:#fff;font-size:18px;font-weight:800;padding:16px 32px;border-radius:14px;text-decoration:none;box-shadow:0 8px 28px rgba(91,53,245,0.35);">&#9654; Try the demo</a>
+      <p style="margin-top:10px;font-size:13px;color:var(--text-muted);">Free. No signup. See how it works in 60 seconds.</p>
+    </div>
     <div class="form-wrap" id="waitlist">
       <div class="form-row">
         <input type="email" id="hero-email" placeholder="your@email.com" autocomplete="email" />
         <button type="button" onclick="joinWaitlist('hero-email','hero-success')">Join the waitlist</button>
       </div>
-      <p class="form-note"><strong>First 50 get 4 weeks completely free.</strong> No card needed.</p>
-      <p style="margin-top:16px;text-align:center;"><a href="/planner/?tour=1" style="display:inline-flex;align-items:center;gap:8px;border:2px solid var(--purple);color:var(--purple);font-size:15px;font-weight:800;padding:12px 24px;border-radius:12px;text-decoration:none;transition:background .15s,color .15s;" onmouseover="this.style.background=&#39;var(--purple)&#39;;this.style.color=&#39;#fff&#39;" onmouseout="this.style.background=&#39;transparent&#39;;this.style.color=&#39;var(--purple)&#39;">&#9654; Try the live demo</a></p>
+      <input data-field="use_case" type="text" placeholder="What do you most want help planning?" style="width:100%;height:46px;border:1.5px solid var(--border);border-radius:10px;padding:0 14px;font-size:15px;margin-top:10px;outline:none;" />
+      <input data-field="current_method" type="text" placeholder="How do you currently plan your week?" style="width:100%;height:46px;border:1.5px solid var(--border);border-radius:10px;padding:0 14px;font-size:15px;margin-top:10px;outline:none;" />
+      <select data-field="founder_interest" style="width:100%;height:46px;border:1.5px solid var(--border);border-radius:10px;padding:0 12px;font-size:15px;margin-top:10px;outline:none;color:var(--text-secondary);background:#fff;">
+        <option value="">Would you consider £40 Founding Access if the demo feels useful?</option>
+        <option value="yes">Yes</option>
+        <option value="maybe">Maybe</option>
+        <option value="not_yet">Not yet</option>
+      </select>
+      <p class="form-note" style="margin-top:12px;">Try the demo free. If it clicks, join the waitlist. Selected early users can unlock Founding Access for £40, with a 14-day no-questions refund.</p>
       <div class="form-success" id="hero-success">
         <h3>&#x1F389; You&apos;re on the list!</h3>
         <p>We&apos;ll send your access code very soon. Watch your inbox.</p>
@@ -353,15 +364,34 @@
   </section>
 
   <!-- CTA -->
+  <!-- FOUNDER ACCESS -->
+  <section style="background:#f9f8ff;border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:72px 24px;">
+    <div style="max-width:600px;margin:0 auto;text-align:center;">
+      <div class="section-label" style="color:var(--purple);font-size:11px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:14px;">Founding Access</div>
+      <h2 style="font-size:clamp(26px,4.5vw,38px);font-weight:900;letter-spacing:-0.02em;margin-bottom:16px;">Become a founding member</h2>
+      <p style="font-size:16px;color:var(--text-secondary);margin-bottom:24px;">Big Picture Planner is opening in small founder batches. Try the demo first. If it feels useful, join the waitlist and selected early users will be invited to unlock Founding Access.</p>
+      <ul style="list-style:none;text-align:left;max-width:380px;margin:0 auto 28px;display:flex;flex-direction:column;gap:12px;">
+        <li style="display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--text);"><span style="color:var(--purple);font-weight:900;">&#10003;</span> £40 one-off founder price</li>
+        <li style="display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--text);"><span style="color:var(--purple);font-weight:900;">&#10003;</span> Limited to the first 100 founder members</li>
+        <li style="display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--text);"><span style="color:var(--purple);font-weight:900;">&#10003;</span> 14-day no-questions refund</li>
+        <li style="display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--text);"><span style="color:var(--purple);font-weight:900;">&#10003;</span> Early access to the planner</li>
+        <li style="display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--text);"><span style="color:var(--purple);font-weight:900;">&#10003;</span> Founder updates and priority feedback</li>
+        <li style="display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--text);"><span style="color:var(--purple);font-weight:900;">&#10003;</span> Help shape what gets built next</li>
+      </ul>
+      <button type="button" onclick="openFoundingAccess()" style="background:var(--purple);color:#fff;font-size:16px;font-weight:800;padding:15px 34px;border:none;border-radius:14px;cursor:pointer;box-shadow:0 8px 28px rgba(91,53,245,0.30);">Get Founding Access</button>
+      <p style="margin-top:18px;font-size:13px;color:var(--text-muted);max-width:440px;margin-left:auto;margin-right:auto;">This is an early beta. There may be rough edges, but founder members help shape the product and get early access before public launch.</p>
+    </div>
+  </section>
+
   <section class="cta-section">
     <h2>Give your brain a break.</h2>
-    <p>Join the waitlist &mdash; first 50 get 4 weeks completely free. No card needed.</p>
+    <p>Try the demo free. If it clicks, join the waitlist and selected early users can unlock Founding Access.</p>
     <div class="form-wrap">
       <div class="form-row">
         <input type="email" id="footer-email" placeholder="your@email.com" autocomplete="email" />
-        <button type="button" onclick="joinWaitlist('footer-email','footer-success')">Get free access</button>
+        <button type="button" onclick="joinWaitlist('footer-email','footer-success')">Join the waitlist</button>
       </div>
-      <p class="form-note"><strong>No credit card.</strong> Just your email.</p>
+      <p class="form-note">No payment to join the waitlist. Founding Access is &pound;40 one-off, with a 14-day no-questions refund.</p>
       <div class="form-success" id="footer-success">
         <h3>&#x1F389; You&apos;re on the list!</h3>
         <p>We&apos;ll be in touch very soon.</p>
@@ -385,16 +415,31 @@
     );
     window.joinWaitlist = async (inputId, successId) => {
       const input = document.getElementById(inputId);
+      const successEl = document.getElementById(successId);
       const email = input.value.trim();
       if (!email || !email.includes('@')) { input.focus(); return; }
+
+      const wrap = input.closest('.form-wrap');
+      const fieldVal = (name) => { const el = wrap.querySelector('[data-field="' + name + '"]'); return el && el.value ? el.value : null; };
+      const row = { email, source: 'landing' };
+      ['use_case', 'current_method', 'founder_interest'].forEach((n) => { const v = fieldVal(n); if (v) row[n] = v; });
+
       const btn = input.closest('.form-row').querySelector('button');
-      btn.disabled = true; btn.textContent = 'Joining...';
-      const { error } = await supabase.from('waitlist').insert({ email, source: 'busy-minds-landing' });
-      if (error && error.code !== '23505') { btn.disabled = false; btn.textContent = 'Try again'; return; }
-      input.closest('.form-row').style.display = 'none';
-      input.closest('.form-wrap').querySelector('.form-note').style.display = 'none';
-      document.getElementById(successId).classList.add('visible');
+      btn.disabled = true;
+      btn.textContent = 'Joining...';
+
+      const { error } = await supabase.from('waitlist').insert(row);
+
+      if (error && error.code !== '23505') {
+        btn.disabled = false;
+        btn.textContent = 'Try again';
+        return;
+      }
+
+      wrap.querySelectorAll(':scope > *:not(.form-success)').forEach((el) => { el.style.display = 'none'; });
+      successEl.classList.add('visible');
     };
   </script>
+  <script src="founder.js"></script>
 </body>
 </html>
