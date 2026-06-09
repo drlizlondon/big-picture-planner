@@ -103,3 +103,46 @@ end;
 $$;
 
 grant execute on function public.admin_metrics() to authenticated;
+
+-- ─── 5. Refund window: 7 days -> 14 days ──────────────────────
+-- Founding Access includes a 14-day no-questions refund. This updates the
+-- admin helper you run after a £40 payment so the in-app refund banner and
+-- the offer match.
+create or replace function public.grant_paid_access(
+  p_email             text,
+  p_stripe_payment_id text default null
+)
+returns text
+language plpgsql security definer
+as $$
+declare
+  v_user_id uuid;
+begin
+  select id into v_user_id from auth.users where email = lower(trim(p_email));
+  if v_user_id is null then
+    return 'Error: no user found with email ' || p_email;
+  end if;
+
+  insert into public.user_access (
+    user_id, trial_ends_at, is_paid, paid_at, refund_window_ends_at,
+    stripe_payment_id, granted_by_admin
+  )
+  values (
+    v_user_id,
+    now() + interval '100 years',
+    true,
+    now(),
+    now() + interval '14 days',
+    p_stripe_payment_id,
+    true
+  )
+  on conflict (user_id) do update set
+    is_paid               = true,
+    paid_at               = now(),
+    refund_window_ends_at = now() + interval '14 days',
+    stripe_payment_id     = p_stripe_payment_id,
+    trial_ends_at         = now() + interval '100 years';
+
+  return 'Paid access granted to ' || p_email || ' (refund window closes ' || (now() + interval '14 days')::date::text || ')';
+end;
+$$;
