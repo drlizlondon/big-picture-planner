@@ -379,7 +379,10 @@ export const AppShell: React.FC = () => {
         blockId={editingBlockId}
       />
       <PlannerSetupPanel isOpen={isPlannerSetupOpen} onClose={() => setIsPlannerSetupOpen(false)} />
-      <OnboardingTour />
+      <OnboardingTour
+        onOpenAddModal={() => setIsAddModalOpen(true)}
+        onCloseAddModal={() => setIsAddModalOpen(false)}
+      />
     </div>
     </DndContext>
   );

@@ -206,20 +206,23 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
                 void handleQuickSave();
               }}
             >
-              <label className="text-[12px] font-bold uppercase text-text-primary tracking-[0.04em]" htmlFor="quick-add-title">Quick add</label>
-              <input
-                ref={quickTitleRef}
-                id="quick-add-title"
-                value={quickTitle}
-                onChange={(event) => setQuickTitle(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter') return;
-                  event.preventDefault();
-                  void handleQuickSave();
-                }}
-                className="h-[44px] rounded-small border border-border-default bg-white px-3 text-[16px] outline-none focus:border-accent-primary"
-                placeholder="What do you need to plan?"
-              />
+              <div data-tour="quick-add-field" className="flex flex-col gap-3">
+                <label className="text-[12px] font-bold uppercase text-text-primary tracking-[0.04em]" htmlFor="quick-add-title">Quick add</label>
+                <input
+                  ref={quickTitleRef}
+                  data-tour="quick-add-input"
+                  id="quick-add-title"
+                  value={quickTitle}
+                  onChange={(event) => setQuickTitle(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter') return;
+                    event.preventDefault();
+                    void handleQuickSave();
+                  }}
+                  className="h-[44px] rounded-small border border-border-default bg-white px-3 text-[16px] outline-none focus:border-accent-primary"
+                  placeholder="Type anything you need to get done..."
+                />
+              </div>
               <DurationSelector value={quickDuration} onChange={setQuickDuration} label="Duration" compact />
               <button
                 type="submit"

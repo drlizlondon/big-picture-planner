@@ -42,7 +42,14 @@ const useBlockCounts = () => {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export const OnboardingTour: React.FC = () => {
+interface OnboardingTourProps {
+  /** Open the "Add to Planner" modal so Step 1 can spotlight its input. */
+  onOpenAddModal?: () => void;
+  /** Close the modal when leaving Step 1 (advance / skip / finish). */
+  onCloseAddModal?: () => void;
+}
+
+export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, onCloseAddModal }) => {
   const [step, setStep] = useState<TourStep | null>(null);
   const [rect, setRect] = useState<SpotlightRect | null>(null);
   const [visible, setVisible] = useState(false);
@@ -74,6 +81,17 @@ export const OnboardingTour: React.FC = () => {
     }
   }, []);
 
+  // Step 1 plays out inside the "Add to Planner" modal: open it when Step 1
+  // starts, close it once we move on (or the tour ends).
+  useEffect(() => {
+    if (step === 'add_task') {
+      onOpenAddModal?.();
+    } else {
+      onCloseAddModal?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
   // Advance step 1 → 2 when first task is added
   useEffect(() => {
     if (step === 'add_task' && unscheduled > 0) {
@@ -101,9 +119,15 @@ export const OnboardingTour: React.FC = () => {
   useLayoutEffect(() => {
     if (!step || step === 'complete') { setRect(null); return; }
 
-    const selector = STEP_SELECTOR[step];
+    const selectors = STEP_SELECTORS[step];
     const measure = () => {
-      const el = selector ? document.querySelector<HTMLElement>(selector) : null;
+      // Try each selector in order — Step 1 prefers the modal input field but
+      // falls back to the "+ Add to Planner" button until the modal mounts.
+      let el: HTMLElement | null = null;
+      for (const sel of selectors) {
+        el = document.querySelector<HTMLElement>(sel);
+        if (el) break;
+      }
       if (el) {
         const r = el.getBoundingClientRect();
         setRect({ top: r.top - PAD, left: r.left - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2 });
@@ -116,11 +140,13 @@ export const OnboardingTour: React.FC = () => {
 
   const dismiss = () => {
     localStorage.setItem(TOUR_KEY, '1');
+    onCloseAddModal?.();
     setVisible(false);
     setTimeout(() => setStep(null), 300);
   };
 
   const complete = () => {
+    onCloseAddModal?.();
     setStep('complete');
     setVisible(false);
     localStorage.setItem(TOUR_KEY, '1');
@@ -130,6 +156,9 @@ export const OnboardingTour: React.FC = () => {
 
   const config = STEP_CONFIG[step];
   const tooltipPos = rect ? getTooltipPosition(step, rect) : null;
+  // Step 1 sits over a modal — capture clicks on the dim so the modal can't be
+  // dismissed by mis-clicks. Other steps stay click-through for drag/select.
+  const panelPE: React.CSSProperties['pointerEvents'] = step === 'add_task' ? 'auto' : 'none';
 
   return (
     <div
@@ -137,27 +166,47 @@ export const OnboardingTour: React.FC = () => {
       style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.25s ease' }}
       aria-live="polite"
     >
-      {/* Dark overlay — 4 panels around the spotlight */}
+      {/* Dark overlay — 4 panels around the spotlight.
+          During Step 1 the panels capture clicks so tapping the dimmed area
+          can't accidentally close the modal behind them; the input itself sits
+          in the (uncovered) cutout and stays fully interactive. */}
       {rect && (
         <>
           {/* Top */}
-          <div className="absolute bg-black/40 left-0 right-0 top-0" style={{ height: Math.max(0, rect.top) }} />
+          <div className="absolute bg-black/40 left-0 right-0 top-0" style={{ height: Math.max(0, rect.top), pointerEvents: panelPE }} />
           {/* Bottom */}
-          <div className="absolute bg-black/40 left-0 right-0 bottom-0" style={{ top: rect.top + rect.height }} />
+          <div className="absolute bg-black/40 left-0 right-0 bottom-0" style={{ top: rect.top + rect.height, pointerEvents: panelPE }} />
           {/* Left */}
-          <div className="absolute bg-black/40" style={{ top: rect.top, height: rect.height, left: 0, width: Math.max(0, rect.left) }} />
+          <div className="absolute bg-black/40" style={{ top: rect.top, height: rect.height, left: 0, width: Math.max(0, rect.left), pointerEvents: panelPE }} />
           {/* Right */}
-          <div className="absolute bg-black/40" style={{ top: rect.top, height: rect.height, left: rect.left + rect.width, right: 0 }} />
+          <div className="absolute bg-black/40" style={{ top: rect.top, height: rect.height, left: rect.left + rect.width, right: 0, pointerEvents: panelPE }} />
           {/* Spotlight ring */}
           <div
             className="absolute rounded-large"
             style={{
               top: rect.top, left: rect.left,
               width: rect.width, height: rect.height,
-              boxShadow: '0 0 0 3px #7C5CFC, 0 0 0 6px rgba(124,92,252,0.25)',
+              boxShadow: step === 'add_task'
+                ? '0 0 0 3px #7C5CFC, 0 0 0 7px rgba(124,92,252,0.30), 0 0 28px 4px rgba(124,92,252,0.35)'
+                : '0 0 0 3px #7C5CFC, 0 0 0 6px rgba(124,92,252,0.25)',
               pointerEvents: 'none',
             }}
           />
+          {/* "Start here" pill above the input (Step 1 only) */}
+          {step === 'add_task' && (
+            <div
+              className="absolute flex flex-col items-center"
+              style={{ top: rect.top - 30, left: rect.left + rect.width / 2, transform: 'translateX(-50%)' }}
+            >
+              <span className="rounded-full bg-accent-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow-sm whitespace-nowrap">
+                Start here
+              </span>
+              <span
+                className="w-0 h-0"
+                style={{ borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '6px solid #7C5CFC' }}
+              />
+            </div>
+          )}
         </>
       )}
 
@@ -229,17 +278,17 @@ export const OnboardingTour: React.FC = () => {
 
 // ─── Step config ──────────────────────────────────────────────────────────────
 
-const STEP_SELECTOR: Record<TourStep, string | null> = {
-  add_task:  '[data-tour="add-button"]',
-  find_slot: '[data-tour="ready-to-schedule"]',
-  move_it:   '[data-tour="week-grid"]',
-  complete:  null,
+const STEP_SELECTORS: Record<TourStep, string[]> = {
+  add_task:  ['[data-tour="quick-add-field"]', '[data-tour="add-button"]'],
+  find_slot: ['[data-tour="ready-to-schedule"]'],
+  move_it:   ['[data-tour="week-grid"]'],
+  complete:  [],
 };
 
 const STEP_CONFIG: Record<Exclude<TourStep, 'complete'>, { title: string; body: string }> = {
   add_task: {
-    title: 'Step 1 — Add something to your week',
-    body: 'Start by typing anything you need to get done — a food shop, an appointment, that email. Just get it out of your head.',
+    title: 'Start here — add your first task',
+    body: 'Type anything you need to get done — a food shop, an appointment, that email. Press Enter to add it.',
   },
   find_slot: {
     title: 'Step 2 — Find it a slot',
@@ -260,6 +309,30 @@ const TOOLTIP_GAP = 12;
 
 const getTooltipPosition = (step: TourStep, r: SpotlightRect): TooltipPos => {
   const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const noArrow: React.CSSProperties = {};
+
+  // Step 1: the input sits inside a centred modal. Never cover it — place the
+  // card beside the modal (right, then left), and fall back to a bottom sheet
+  // when there isn't room either side (mobile / narrow).
+  if (step === 'add_task') {
+    const rightLeft = r.left + r.width + 24;
+    const leftLeft = r.left - TOOLTIP_W - 24;
+    if (rightLeft + TOOLTIP_W <= vw - 12) {
+      const top = Math.max(12, Math.min(r.top - 4, vh - 180));
+      return { top, left: rightLeft, arrowStyle: noArrow };
+    }
+    if (leftLeft >= 12) {
+      const top = Math.max(12, Math.min(r.top - 4, vh - 180));
+      return { top, left: leftLeft, arrowStyle: noArrow };
+    }
+    // Bottom sheet
+    return {
+      top: vh - 188,
+      left: Math.max(12, (vw - TOOLTIP_W) / 2),
+      arrowStyle: noArrow,
+    };
+  }
 
   // Default: tooltip below target, centred
   let top = r.top + r.height + TOOLTIP_GAP;
@@ -274,7 +347,7 @@ const getTooltipPosition = (step: TourStep, r: SpotlightRect): TooltipPos => {
   // Clamp to viewport
   left = Math.max(12, Math.min(left, vw - TOOLTIP_W - 12));
 
-  const arrowStyle: React.CSSProperties = step === 'move_it' ? {} : {
+  const arrowStyle: React.CSSProperties = step === 'move_it' ? noArrow : {
     borderLeft: '7px solid transparent',
     borderRight: '7px solid transparent',
     borderBottom: '7px solid white',
