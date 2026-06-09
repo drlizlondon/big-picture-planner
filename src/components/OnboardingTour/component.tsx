@@ -12,13 +12,25 @@
  *
  * Principle: at every step the spotlight cuts out ONLY the element the user
  * should touch next; that element keeps full colour/opacity and stays
- * interactive, while everything else is dimmed. Instruction cards are always
- * placed clear of the active element.
+ * interactive, while everything else is dimmed. The instruction card anchors
+ * to the target with an arrow and never covers it.
  *
- * Persisted in localStorage so it shows once. Re-trigger with ?tour=1.
+ * Mobile-first positioning:
+ *   - Measures the target every frame via getBoundingClientRect(), so it stays
+ *     correct after scroll, resize, orientation change, browser-chrome show/hide,
+ *     keyboard open/close, modal animation and dynamic content.
+ *   - Uses window.visualViewport (with fallbacks) for the true visible area, so
+ *     the card stays above the mobile keyboard / browser UI.
+ *   - Clamps the spotlight and the card to the visible viewport and to iOS
+ *     safe-area insets.
+ *   - Card: max-width min(90vw, 360px), max-height 35dvh (35vh fallback),
+ *     internal scroll, primary button pinned in a footer that is always visible.
+ *
+ * Persisted in localStorage so it shows once. Re-trigger with ?tour=1 or the
+ * `planner:start-tour` event.
  */
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 
@@ -38,10 +50,148 @@ const ORDER: Exclude<TourStep, 'complete'>[] = [
   'open_input', 'type', 'add_ready', 'show_ready', 'place_block', 'arrows', 'drag',
 ];
 
-interface SpotlightRect { top: number; left: number; width: number; height: number; }
+type Placement = 'below' | 'above' | 'right' | 'left' | 'sheet';
 
-const PAD = 8;
-const CARD_W = 280;
+interface Rect { top: number; left: number; width: number; height: number; }
+interface Layout {
+  spot: Rect | null;
+  card: { top: number; left: number; width: number; height: number };
+  placement: Placement;
+  arrowX: number | null; // px from card left edge (below/above)
+  arrowY: number | null; // px from card top edge (left/right)
+}
+
+const PAD = 10;     // spotlight padding around the target (8–12px)
+const GAP = 12;     // gap between target and card
+const MARGIN = 12;  // min gap from viewport / safe-area edge
+const ARROW = 8;
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(v, hi));
+
+const readInset = (name: string): number => {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    const n = parseFloat(v);
+    return Number.isNaN(n) ? 0 : n;
+  } catch {
+    return 0;
+  }
+};
+
+const findTarget = (selectors: string[]): HTMLElement | null => {
+  for (const s of selectors) {
+    const el = document.querySelector<HTMLElement>(s);
+    if (el) return el;
+  }
+  return null;
+};
+
+// ─── Layout computation (the heart of the responsive behaviour) ───────────────
+
+const computeLayout = (selectors: string[], measuredCardH: number | undefined): Layout => {
+  const vv = window.visualViewport;
+  const vw = vv?.width ?? window.innerWidth;
+  const vh = vv?.height ?? window.innerHeight;
+  const vLeft = vv?.offsetLeft ?? 0;
+  const vTop = vv?.offsetTop ?? 0;
+
+  // iOS safe-area insets
+  const sat = readInset('--bpp-sat');
+  const sab = readInset('--bpp-sab');
+  const sal = readInset('--bpp-sal');
+  const sar = readInset('--bpp-sar');
+
+  // Visible region (in layout-viewport coords, matching position:fixed)
+  const visL = vLeft + sal;
+  const visT = vTop + sat;
+  const visR = vLeft + vw - sar;
+  const visB = vTop + vh - sab;
+
+  const cardW = Math.round(Math.min(360, vw * 0.9, vw - 2 * MARGIN));
+  const cardH = Math.min(measuredCardH || 220, Math.round(vh * 0.35));
+
+  const minL = visL + MARGIN;
+  const maxL = Math.max(minL, visR - cardW - MARGIN);
+  const minT = visT + MARGIN;
+  const maxT = Math.max(minT, visB - cardH - MARGIN);
+  const clampL = (x: number) => clamp(x, minL, maxL);
+  const clampT = (y: number) => clamp(y, minT, maxT);
+
+  const el = findTarget(selectors);
+
+  if (!el) {
+    // No target yet (e.g. arrow controls hidden on mobile) — show the card as a
+    // bottom sheet so manual-advance steps are never stuck.
+    return {
+      spot: null,
+      card: { top: clampT(maxT), left: clampL((visL + visR - cardW) / 2), width: cardW, height: cardH },
+      placement: 'sheet', arrowX: null, arrowY: null,
+    };
+  }
+
+  const b = el.getBoundingClientRect();
+
+  // Spotlight: pad, then clamp to the visible region so it never draws off-screen
+  const sLeft = Math.max(visL, b.left - PAD);
+  const sTop = Math.max(visT, b.top - PAD);
+  const sRight = Math.min(visR, b.right + PAD);
+  const sBottom = Math.min(visB, b.bottom + PAD);
+  const spot: Rect | null = (sRight > sLeft && sBottom > sTop)
+    ? { top: sTop, left: sLeft, width: sRight - sLeft, height: sBottom - sTop }
+    : null;
+
+  const cx = (b.left + b.right) / 2;
+  const cy = (b.top + b.bottom) / 2;
+  const spaceBelow = visB - b.bottom - GAP;
+  const spaceAbove = b.top - visT - GAP;
+  const spaceRight = visR - b.right - GAP;
+  const spaceLeft = b.left - visL - GAP;
+
+  let placement: Placement;
+  let top: number;
+  let left: number;
+  let arrowX: number | null = null;
+  let arrowY: number | null = null;
+
+  if (spaceBelow >= cardH) {
+    placement = 'below';
+    top = b.bottom + GAP;
+    left = clampL(cx - cardW / 2);
+    arrowX = clamp(cx - left, 18, cardW - 18);
+  } else if (spaceAbove >= cardH) {
+    placement = 'above';
+    top = b.top - GAP - cardH;
+    left = clampL(cx - cardW / 2);
+    arrowX = clamp(cx - left, 18, cardW - 18);
+  } else if (spaceRight >= cardW) {
+    placement = 'right';
+    left = b.right + GAP;
+    top = clampT(cy - cardH / 2);
+    arrowY = clamp(cy - top, 18, cardH - 18);
+  } else if (spaceLeft >= cardW) {
+    placement = 'left';
+    left = b.left - GAP - cardW;
+    top = clampT(cy - cardH / 2);
+    arrowY = clamp(cy - top, 18, cardH - 18);
+  } else {
+    // Not enough room anywhere: bottom (or top) sheet, opposite the target.
+    placement = 'sheet';
+    left = clampL(cx - cardW / 2);
+    const targetInTopHalf = cy < (visT + visB) / 2;
+    top = targetInTopHalf ? maxT : minT;
+  }
+
+  top = clampT(top);
+  left = clampL(left);
+
+  return { spot, card: { top, left, width: cardW, height: cardH }, placement, arrowX, arrowY };
+};
+
+const layoutSig = (l: Layout): string => {
+  const r = (n: number) => Math.round(n);
+  const s = l.spot ? `${r(l.spot.top)},${r(l.spot.left)},${r(l.spot.width)},${r(l.spot.height)}` : 'x';
+  return `${l.placement}|${r(l.card.top)},${r(l.card.left)},${l.card.width},${r(l.card.height)}|${s}|${l.arrowX ?? 'x'}|${l.arrowY ?? 'x'}`;
+};
 
 // ─── Hook: watch block counts ────────────────────────────────────────────────
 
@@ -60,21 +210,19 @@ const useBlockCounts = () => {
 // ─── Main component ──────────────────────────────────────────────────────────
 
 interface OnboardingTourProps {
-  /** Open the "Add to Planner" modal (used to re-open if it's mis-closed). */
   onOpenAddModal?: () => void;
-  /** Close the modal (used when moving past the modal-based steps). */
   onCloseAddModal?: () => void;
 }
 
 export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, onCloseAddModal }) => {
   const [step, setStep] = useState<TourStep | null>(null);
-  const [rect, setRect] = useState<SpotlightRect | null>(null);
+  const [layout, setLayout] = useState<Layout | null>(null);
   const [visible, setVisible] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [inputHasText, setInputHasText] = useState(false);
   const raf = useRef<number>(0);
-  // Baseline counts captured when the tour starts, so step transitions fire on
-  // a genuine increase (robust even if the planner already has items).
+  const cardRef = useRef<HTMLDivElement>(null);
+  const sigRef = useRef<string>('');
   const baseUnsched = useRef<number | null>(null);
   const baseSched = useRef<number | null>(null);
   const { unscheduled, scheduled } = useBlockCounts();
@@ -90,24 +238,19 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
     }
   }, [step, unscheduled, scheduled]);
 
-  // Start the tour (first visit, or forced via ?tour=1 / ?demo=1)
+  // Start the tour (first visit, or forced via ?tour=1)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const forceTour = params.get('tour') === '1';
-
     if (forceTour) {
       params.delete('tour');
       const newSearch = params.toString();
-      window.history.replaceState(
-        {}, '',
-        window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash,
-      );
+      window.history.replaceState({}, '',
+        window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash);
       localStorage.removeItem(TOUR_KEY);
     }
-
     if (forceTour || !localStorage.getItem(TOUR_KEY)) {
       const t = setTimeout(() => {
-        // If the modal is somehow already open, skip straight to typing.
         const inputOpen = !!document.querySelector('[data-tour="quick-add-input"]');
         setStep(inputOpen ? 'type' : 'open_input');
       }, 800);
@@ -115,8 +258,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
     }
   }, []);
 
-  // Allow the tour to be replayed on demand (Settings → Replay walkthrough,
-  // empty-state prompts, etc.) without a page reload.
+  // Replay on demand (Settings, empty-state prompts) without a reload
   useEffect(() => {
     const onStart = () => {
       localStorage.removeItem(TOUR_KEY);
@@ -138,24 +280,18 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
     return () => window.clearInterval(id);
   }, [step]);
 
-  // Step 1 → 2: the user opened the modal
   useEffect(() => {
     if (step === 'open_input' && modalOpen) setStep('type');
   }, [step, modalOpen]);
 
-  // Keep the modal open during the modal-based steps; focus the input on Step 2
   useEffect(() => {
-    if ((step === 'type' || step === 'add_ready') && !modalOpen) {
-      onOpenAddModal?.();
-    }
+    if ((step === 'type' || step === 'add_ready') && !modalOpen) onOpenAddModal?.();
     if (step === 'type' && modalOpen) {
       document.querySelector<HTMLInputElement>('[data-tour="quick-add-input"]')?.focus();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, modalOpen]);
 
-  // Step 3 → 4: a Ready item was created — close the modal to reveal it.
-  // Also handles the user pressing Enter during Step 2 (adds without clicking).
   useEffect(() => {
     if ((step === 'add_ready' || step === 'type') &&
         baseUnsched.current !== null && unscheduled > baseUnsched.current) {
@@ -165,7 +301,6 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, unscheduled]);
 
-  // Step 4 → 5: the item was placed onto the week (became a block)
   useEffect(() => {
     if (step === 'show_ready' &&
         baseSched.current !== null && scheduled > baseSched.current) {
@@ -182,25 +317,43 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
     }
   }, [step]);
 
-  // Track the active element's position every frame
-  useLayoutEffect(() => {
-    if (!step || step === 'complete') { setRect(null); return; }
-    const selectors = STEP_SELECTORS[step];
-    const measure = () => {
-      let el: HTMLElement | null = null;
-      for (const sel of selectors) {
-        el = document.querySelector<HTMLElement>(sel);
-        if (el) break;
-      }
+  // Scroll the target into view within its scroll container (window, modal,
+  // sheet, drawer) once the step settles, so the spotlight wraps a fully
+  // visible element.
+  useEffect(() => {
+    if (!step || step === 'complete') return;
+    let cancelled = false;
+    const scrollToTarget = () => {
+      if (cancelled) return;
+      const el = findTarget(STEP_SELECTORS[step]);
       if (el) {
-        const r = el.getBoundingClientRect();
-        setRect({ top: r.top - PAD, left: r.left - PAD, width: r.width + PAD * 2, height: r.height + PAD * 2 });
-      } else {
-        setRect(null);
+        try {
+          el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+        } catch {
+          el.scrollIntoView();
+        }
       }
-      raf.current = requestAnimationFrame(measure);
     };
-    raf.current = requestAnimationFrame(measure);
+    // Wait for modal/sheet open + layout to settle, then scroll.
+    const t1 = setTimeout(scrollToTarget, 280);
+    const t2 = setTimeout(scrollToTarget, 650);
+    return () => { cancelled = true; clearTimeout(t1); clearTimeout(t2); };
+  }, [step]);
+
+  // Continuously recompute layout: handles scroll, resize, orientation change,
+  // browser-chrome show/hide, keyboard open/close, modal animation, etc.
+  useEffect(() => {
+    if (!step || step === 'complete') { setLayout(null); sigRef.current = ''; return; }
+    const tick = () => {
+      const next = computeLayout(STEP_SELECTORS[step], cardRef.current?.offsetHeight);
+      const sig = layoutSig(next);
+      if (sig !== sigRef.current) {
+        sigRef.current = sig;
+        setLayout(next);
+      }
+      raf.current = requestAnimationFrame(tick);
+    };
+    raf.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf.current);
   }, [step]);
 
@@ -210,30 +363,25 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
     setVisible(false);
     setTimeout(() => setStep(null), 300);
   };
-
   const finish = () => {
     onCloseAddModal?.();
     localStorage.setItem(TOUR_KEY, '1');
     setVisible(false);
     setTimeout(() => setStep('complete'), 300);
   };
-
   const goNext = () => {
     const i = ORDER.indexOf(step as Exclude<TourStep, 'complete'>);
     if (i >= 0 && i < ORDER.length - 1) setStep(ORDER[i + 1]);
     else finish();
   };
 
-  if (!step || step === 'complete') return null;
+  if (!step || step === 'complete' || !layout) return null;
 
   const config = STEP_CONFIG[step];
-  const cardPos = getCardPos(step, rect);
-  // Capture clicks on the dim only while a modal is open underneath, so a
-  // mis-click can't dismiss it. Other steps stay click-through for drag/select.
+  const { spot, card, placement, arrowX, arrowY } = layout;
   const panelPE: React.CSSProperties['pointerEvents'] =
     step === 'type' || step === 'add_ready' ? 'auto' : 'none';
 
-  // Which steps get a manual button (others auto-advance)
   const manualNext =
     step === 'type' ? { label: 'Next', disabled: !inputHasText, onClick: goNext } :
     step === 'place_block' ? { label: 'Next', disabled: false, onClick: goNext } :
@@ -249,20 +397,18 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
       style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.25s ease' }}
       aria-live="polite"
     >
-      {/* Dimming + spotlight cutout (only when we have a target) */}
-      {rect && (
+      {/* Dimming + spotlight cutout */}
+      {spot ? (
         <>
-          <div className="absolute bg-black/45 left-0 right-0 top-0" style={{ height: Math.max(0, rect.top), pointerEvents: panelPE }} />
-          <div className="absolute bg-black/45 left-0 right-0 bottom-0" style={{ top: rect.top + rect.height, pointerEvents: panelPE }} />
-          <div className="absolute bg-black/45" style={{ top: rect.top, height: rect.height, left: 0, width: Math.max(0, rect.left), pointerEvents: panelPE }} />
-          <div className="absolute bg-black/45" style={{ top: rect.top, height: rect.height, left: rect.left + rect.width, right: 0, pointerEvents: panelPE }} />
+          <div className="absolute bg-black/45 left-0 right-0 top-0" style={{ height: Math.max(0, spot.top), pointerEvents: panelPE }} />
+          <div className="absolute bg-black/45 left-0 right-0 bottom-0" style={{ top: spot.top + spot.height, pointerEvents: panelPE }} />
+          <div className="absolute bg-black/45" style={{ top: spot.top, height: spot.height, left: 0, width: Math.max(0, spot.left), pointerEvents: panelPE }} />
+          <div className="absolute bg-black/45" style={{ top: spot.top, height: spot.height, left: spot.left + spot.width, right: 0, pointerEvents: panelPE }} />
 
-          {/* Spotlight ring (pulses on the arrows step, glows on block steps) */}
           <div
             className={`absolute rounded-large ${step === 'arrows' ? 'animate-pulse' : ''}`}
             style={{
-              top: rect.top, left: rect.left,
-              width: rect.width, height: rect.height,
+              top: spot.top, left: spot.left, width: spot.width, height: spot.height,
               boxShadow: lifted
                 ? '0 0 0 3px #7C5CFC, 0 0 0 7px rgba(124,92,252,0.30), 0 14px 40px 4px rgba(124,92,252,0.45)'
                 : '0 0 0 3px #7C5CFC, 0 0 0 7px rgba(124,92,252,0.28), 0 0 26px 4px rgba(124,92,252,0.30)',
@@ -270,41 +416,40 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
             }}
           />
 
-          {/* Inline "Start here" pill above the input on the typing step */}
           {step === 'type' && (
-            <InlinePill text="Start here" top={rect.top - 30} left={rect.left + rect.width / 2} />
+            <InlinePill text="Start here" cx={spot.left + spot.width / 2} top={spot.top - 30} />
           )}
-          {/* Inline drag hint on the block for the drag step */}
           {step === 'drag' && (
-            <InlinePill text="Click, hold and drag" top={rect.top - 30} left={rect.left + rect.width / 2} />
+            <InlinePill text="Click, hold and drag" cx={spot.left + spot.width / 2} top={spot.top - 30} />
           )}
         </>
+      ) : (
+        <div className="absolute inset-0 bg-black/45" style={{ pointerEvents: panelPE }} />
+      )}
+
+      {/* Arrow connecting card to target */}
+      {placement !== 'sheet' && (
+        <CardArrow placement={placement} card={card} arrowX={arrowX} arrowY={arrowY} />
       )}
 
       {/* Instruction card */}
       <div
-        className="pointer-events-auto absolute"
-        style={{ top: cardPos.top, left: cardPos.left, width: CARD_W }}
+        ref={cardRef}
+        className="tour-card pointer-events-auto fixed flex flex-col bg-white rounded-large shadow-modal border border-border-default overflow-hidden"
+        style={{ top: card.top, left: card.left, width: card.width }}
       >
-        <div className="bg-white rounded-large shadow-modal border border-border-default p-4">
+        <div className="tour-card__body overflow-y-auto px-4 pt-4 pb-2">
           {/* Progress dots */}
           <div className="flex gap-1 mb-3">
             {ORDER.map((s) => (
-              <div
-                key={s}
-                className="h-1.5 rounded-full transition-all"
-                style={{
-                  width: s === step ? 18 : 6,
-                  background: s === step ? '#7C5CFC' : '#E2E8F0',
-                }}
-              />
+              <div key={s} className="h-1.5 rounded-full transition-all"
+                style={{ width: s === step ? 18 : 6, background: s === step ? '#7C5CFC' : '#E2E8F0' }} />
             ))}
           </div>
 
           <div className="text-[13px] font-bold text-text-primary mb-1">{config.title}</div>
           <p className="text-[12px] text-text-secondary leading-relaxed">{config.body}</p>
 
-          {/* Arrow-key chips on the arrows step */}
           {step === 'arrows' && (
             <div className="flex flex-wrap gap-1.5 mt-3">
               {[
@@ -319,44 +464,82 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
               ))}
             </div>
           )}
+        </div>
 
-          <div className="mt-3 flex items-center justify-between">
+        {/* Footer — always visible, clears the home indicator / browser chrome */}
+        <div
+          className="flex items-center justify-between gap-2 px-4 py-3 border-t border-border-default/60 bg-white"
+          style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 0px))' }}
+        >
+          <button
+            onClick={dismiss}
+            className="text-[11px] text-text-muted hover:text-text-secondary transition-colors text-left"
+            title="You can replay this any time from Settings"
+          >
+            Skip, replay in Settings
+          </button>
+          {manualNext && (
             <button
-              onClick={dismiss}
-              className="text-[11px] text-text-muted hover:text-text-secondary transition-colors"
-              title="You can replay this any time from Settings"
+              onClick={manualNext.onClick}
+              disabled={manualNext.disabled}
+              className="h-9 px-4 flex-shrink-0 bg-accent-primary hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed text-white text-[12px] font-bold rounded-small transition-colors"
             >
-              Skip, you can replay this any time from Settings
+              {manualNext.label} →
             </button>
-            {manualNext && (
-              <button
-                onClick={manualNext.onClick}
-                disabled={manualNext.disabled}
-                className="h-8 px-4 bg-accent-primary hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed text-white text-[12px] font-bold rounded-small transition-colors"
-              >
-                {manualNext.label} →
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-// ─── Inline pill ──────────────────────────────────────────────────────────────
+// ─── Card arrow ───────────────────────────────────────────────────────────────
 
-const InlinePill: React.FC<{ text: string; top: number; left: number }> = ({ text, top, left }) => (
-  <div className="absolute flex flex-col items-center" style={{ top, left, transform: 'translateX(-50%)' }}>
-    <span className="rounded-full bg-accent-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow-sm whitespace-nowrap">
-      {text}
-    </span>
-    <span
-      className="w-0 h-0"
-      style={{ borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '6px solid #7C5CFC' }}
-    />
-  </div>
-);
+const CardArrow: React.FC<{
+  placement: Placement;
+  card: { top: number; left: number; width: number; height: number };
+  arrowX: number | null;
+  arrowY: number | null;
+}> = ({ placement, card, arrowX, arrowY }) => {
+  const base: React.CSSProperties = { position: 'fixed', width: 0, height: 0, pointerEvents: 'none' };
+  if (placement === 'below' && arrowX != null) {
+    return <div style={{ ...base, top: card.top - ARROW, left: card.left + arrowX - ARROW,
+      borderLeft: `${ARROW}px solid transparent`, borderRight: `${ARROW}px solid transparent`,
+      borderBottom: `${ARROW}px solid white`, filter: 'drop-shadow(0 -1px 0 rgba(0,0,0,0.06))' }} />;
+  }
+  if (placement === 'above' && arrowX != null) {
+    return <div style={{ ...base, top: card.top + card.height, left: card.left + arrowX - ARROW,
+      borderLeft: `${ARROW}px solid transparent`, borderRight: `${ARROW}px solid transparent`,
+      borderTop: `${ARROW}px solid white`, filter: 'drop-shadow(0 1px 0 rgba(0,0,0,0.06))' }} />;
+  }
+  if (placement === 'right' && arrowY != null) {
+    return <div style={{ ...base, top: card.top + arrowY - ARROW, left: card.left - ARROW,
+      borderTop: `${ARROW}px solid transparent`, borderBottom: `${ARROW}px solid transparent`,
+      borderRight: `${ARROW}px solid white`, filter: 'drop-shadow(-1px 0 0 rgba(0,0,0,0.06))' }} />;
+  }
+  if (placement === 'left' && arrowY != null) {
+    return <div style={{ ...base, top: card.top + arrowY - ARROW, left: card.left + card.width,
+      borderTop: `${ARROW}px solid transparent`, borderBottom: `${ARROW}px solid transparent`,
+      borderLeft: `${ARROW}px solid white`, filter: 'drop-shadow(1px 0 0 rgba(0,0,0,0.06))' }} />;
+  }
+  return null;
+};
+
+// ─── Inline pill (anchored to the spotlight, clamped on-screen) ────────────────
+
+const InlinePill: React.FC<{ text: string; cx: number; top: number }> = ({ text, cx, top }) => {
+  const vw = window.visualViewport?.width ?? window.innerWidth;
+  const left = clamp(cx, 72, vw - 72);
+  const clampedTop = Math.max((window.visualViewport?.offsetTop ?? 0) + 6, top);
+  return (
+    <div className="fixed flex flex-col items-center pointer-events-none" style={{ top: clampedTop, left, transform: 'translateX(-50%)' }}>
+      <span className="rounded-full bg-accent-primary px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow-sm whitespace-nowrap max-w-[80vw] truncate">
+        {text}
+      </span>
+      <span className="w-0 h-0" style={{ borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '6px solid #7C5CFC' }} />
+    </div>
+  );
+};
 
 // ─── Step config ──────────────────────────────────────────────────────────────
 
@@ -382,7 +565,7 @@ const STEP_CONFIG: Record<Exclude<TourStep, 'complete'>, { title: string; body: 
   },
   add_ready: {
     title: 'Send it to Ready',
-    body: 'This drops your item into the Ready list — where it waits until you place it on your week. Click to add it.',
+    body: 'This drops your item into the Ready list, where it waits until you place it on your week. Click to add it.',
   },
   show_ready: {
     title: 'Your item is waiting here',
@@ -390,7 +573,7 @@ const STEP_CONFIG: Record<Exclude<TourStep, 'complete'>, { title: string; body: 
   },
   place_block: {
     title: 'Move your block into place',
-    body: 'You can move a block in two ways. Click the block and use the arrows for precise changes, or click, hold and drag it directly into the right place.',
+    body: 'You can move a block in two ways. Tap the block and use the arrows for precise changes, or press, hold and drag it directly into the right place.',
   },
   arrows: {
     title: 'Precise: use the arrows',
@@ -400,52 +583,4 @@ const STEP_CONFIG: Record<Exclude<TourStep, 'complete'>, { title: string; body: 
     title: 'Fast: drag it',
     body: 'You can also drag the block straight onto the week. This is fastest when you already know where it belongs.',
   },
-};
-
-// ─── Card positioning ─────────────────────────────────────────────────────────
-// Cards are always placed clear of the active element.
-
-const getCardPos = (step: TourStep, r: SpotlightRect | null): { top: number; left: number } => {
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const clampL = (l: number) => Math.max(12, Math.min(l, vw - CARD_W - 12));
-  const clampT = (t: number) => Math.max(12, Math.min(t, vh - 190));
-  const bottomSheet = { top: vh - 196, left: clampL((vw - CARD_W) / 2) };
-
-  if (!r) return bottomSheet;
-
-  switch (step) {
-    case 'open_input':
-      // Below the button
-      return { top: clampT(r.top + r.height + 12), left: clampL(r.left) };
-
-    case 'type':
-    case 'add_ready': {
-      // Beside the modal (right, then left), else bottom sheet
-      const right = r.left + r.width + 24;
-      if (right + CARD_W <= vw - 12) return { top: clampT(r.top - 4), left: right };
-      const left = r.left - CARD_W - 24;
-      if (left >= 12) return { top: clampT(r.top - 4), left };
-      return bottomSheet;
-    }
-
-    case 'show_ready': {
-      // To the right of the ready item, else below it
-      const right = r.left + r.width + 16;
-      if (right + CARD_W <= vw - 12) return { top: clampT(r.top - 4), left: right };
-      return { top: clampT(r.top + r.height + 12), left: clampL(r.left) };
-    }
-
-    case 'arrows':
-      // Above the controls footer so it doesn't cover them
-      return { top: clampT(r.top - 172), left: clampL(r.left + r.width / 2 - CARD_W / 2) };
-
-    case 'place_block':
-    case 'drag':
-      // Pin to the far left so the card never covers the calendar grid/block
-      return { top: clampT(100), left: 12 };
-
-    default:
-      return { top: clampT(r.top + r.height + 12), left: clampL(r.left) };
-  }
 };

@@ -359,3 +359,16 @@ body {
     min-width: calc((100vw - 46px) / 7);
   }
 }
+
+/* ─── Onboarding tour: safe-area insets + mobile card sizing ─── */
+:root {
+  --bpp-sat: env(safe-area-inset-top, 0px);
+  --bpp-sab: env(safe-area-inset-bottom, 0px);
+  --bpp-sal: env(safe-area-inset-left, 0px);
+  --bpp-sar: env(safe-area-inset-right, 0px);
+}
+.tour-card {
+  max-height: 35vh;      /* fallback for browsers without dvh */
+  max-height: 35dvh;
+}
+.tour-card__body { overscroll-behavior: contain; }
