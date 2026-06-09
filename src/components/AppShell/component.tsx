@@ -163,6 +163,15 @@ export const AppShell: React.FC = () => {
       }
     };
 
+    // Ask the week grid to widen its visible hour range so a block that moved
+    // above/below the current window comes back into view.
+    const ensureTimeVisible = (span?: { startMin: number; endMin: number }) => {
+      if (!span) return;
+      window.dispatchEvent(new CustomEvent('planner:ensure-time-visible', {
+        detail: { startHour: Math.floor(span.startMin / 60), endHour: Math.ceil(span.endMin / 60) },
+      }));
+    };
+
     // After a move, scroll the selected block into view so a time change that
     // pushes it past the visible area brings the calendar to it.
     const revealSelectedBlock = () => {
@@ -197,13 +206,15 @@ export const AppShell: React.FC = () => {
         }
 
         if (key === 'ArrowUp' || key === 'ArrowDown') {
-          await moveBlockByMinutes(blockId, key === 'ArrowUp' ? -15 : 15);
+          const span = await moveBlockByMinutes(blockId, key === 'ArrowUp' ? -15 : 15);
+          ensureTimeVisible(span);
           revealSelectedBlock();
           return;
         }
 
         try {
-          await resizeBlockDuration(blockId, key === '-' || key === '_' ? -15 : 15);
+          const span = await resizeBlockDuration(blockId, key === '-' || key === '_' ? -15 : 15);
+          ensureTimeVisible(span);
           revealSelectedBlock();
         } catch {
           // Keep the current duration if the new end time would leave the day.

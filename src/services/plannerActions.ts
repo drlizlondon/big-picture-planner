@@ -192,24 +192,30 @@ export const moveBlockByDays = async (id: string, days: number): Promise<string 
   return date;
 };
 
-export const moveBlockByMinutes = async (id: string, minutes: number): Promise<void> => {
+/** Minute span (from midnight) a block occupies after a move/resize. */
+export interface BlockTimeSpan { startMin: number; endMin: number; }
+
+export const moveBlockByMinutes = async (id: string, minutes: number): Promise<BlockTimeSpan | undefined> => {
   const block = await db.blocks.get(id);
-  if (!block?.date || !block.startTime) return;
+  if (!block?.date || !block.startTime) return undefined;
 
   const currentStart = timeToMinutes(block.startTime);
   const nextStart = Math.max(0, Math.min(24 * 60 - block.durationMinutes, currentStart + minutes));
   await moveBlockToWeek(id, block.date, minutesToTime(nextStart));
+  return { startMin: nextStart, endMin: nextStart + block.durationMinutes };
 };
 
-export const resizeBlockDuration = async (id: string, minutes: number): Promise<void> => {
+export const resizeBlockDuration = async (id: string, minutes: number): Promise<BlockTimeSpan | undefined> => {
   const block = await db.blocks.get(id);
-  if (!block?.startTime) return;
+  if (!block?.startTime) return undefined;
 
   const nextDuration = Math.max(15, block.durationMinutes + minutes);
   await updateBlock(id, {
     durationMinutes: nextDuration,
     endTime: calculateEndTime(block.startTime, nextDuration),
   });
+  const startMin = timeToMinutes(block.startTime);
+  return { startMin, endMin: startMin + nextDuration };
 };
 
 export const moveBlockToSchedule = async (id: string): Promise<void> => {

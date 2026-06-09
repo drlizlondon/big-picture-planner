@@ -52,6 +52,26 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
   const fitHourHeight = Math.max(isMobile ? 22 : 32, (boardHeight - (isMobile ? 56 : 112)) / Math.max(1, visibleHours.length));
   const hourHeight = fitHourHeight * (isMobile ? 1 : ZOOM_SCALE[zoomMode]);
 
+  // When a block is moved past the visible window (via arrow keys), widen the
+  // range so it comes back into view. Desktop only — mobile derives its range
+  // from board height rather than the preset.
+  useEffect(() => {
+    if (isMobile) return;
+    const onEnsure = (e: Event) => {
+      const detail = (e as CustomEvent<{ startHour: number; endHour: number }>).detail;
+      if (!detail) return;
+      const newStart = Math.max(0, Math.min(visibleRange.start, detail.startHour));
+      const newEnd = Math.min(24, Math.max(visibleRange.end, detail.endHour));
+      if (newStart < visibleRange.start || newEnd > visibleRange.end) {
+        setVisibleHoursPreset('custom');
+        setCustomStartHour(newStart);
+        setCustomEndHour(newEnd);
+      }
+    };
+    window.addEventListener('planner:ensure-time-visible', onEnsure);
+    return () => window.removeEventListener('planner:ensure-time-visible', onEnsure);
+  }, [isMobile, visibleRange.start, visibleRange.end, setVisibleHoursPreset, setCustomStartHour, setCustomEndHour]);
+
   const visibleDates = useMemo(() => {
     if (viewMode === 'day') {
       return [{ label: currentDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' }), value: formatDate(currentDate) }];
