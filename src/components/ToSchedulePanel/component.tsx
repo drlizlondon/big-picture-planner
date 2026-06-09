@@ -189,8 +189,9 @@ const DraggableBlockItem: React.FC<DraggableBlockProps> = ({ block, categoryMap,
   const isTray = variant === 'tray';
 
   return (
-    <div 
+    <div
       ref={setNodeRef}
+      data-tour={isTray ? undefined : 'ready-item'}
       {...listeners}
       {...attributes}
       onPointerDown={(e) => {

@@ -165,7 +165,7 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
 };
 
 const KeyboardHint: React.FC<{ selectedBlock?: PlannerBlock }> = ({ selectedBlock }) => (
-  <div className="keyboard-hint sticky bottom-0 z-header border-t border-border-default/70 bg-surface-primary/95 px-4 py-2 shadow-sm backdrop-blur">
+  <div data-tour="arrow-controls" className="keyboard-hint sticky bottom-0 z-header border-t border-border-default/70 bg-surface-primary/95 px-4 py-2 shadow-sm backdrop-blur">
     <div className="mx-auto flex max-w-[760px] flex-wrap items-center justify-center gap-2 text-[11px] text-text-secondary">
       <span className="font-bold text-text-primary">Keyboard shortcuts</span>
       <span>{selectedBlock ? 'Selected block:' : 'Select a block:'}</span>

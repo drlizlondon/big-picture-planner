@@ -220,12 +220,13 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
                     void handleQuickSave();
                   }}
                   className="h-[44px] rounded-small border border-border-default bg-white px-3 text-[16px] outline-none focus:border-accent-primary"
-                  placeholder="Type anything you need to get done..."
+                  placeholder="Example: Book dentist appointment next Tuesday"
                 />
               </div>
               <DurationSelector value={quickDuration} onChange={setQuickDuration} label="Duration" compact />
               <button
                 type="submit"
+                data-tour="add-ready-button"
                 disabled={!quickTitle.trim() || isQuickSaving}
                 className="w-full h-[44px] bg-accent-primary hover:bg-accent-hover disabled:opacity-50 text-white rounded-medium font-bold text-[14px] transition-colors shadow-sm"
               >

@@ -186,6 +186,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
   return (
     <div
       ref={setNodeRef}
+      data-tour="scheduled-block"
       style={style}
       {...listeners}
       {...attributes}
