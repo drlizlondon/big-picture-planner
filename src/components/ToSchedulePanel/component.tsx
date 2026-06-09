@@ -103,9 +103,18 @@ export const ToSchedulePanel: React.FC<Props> = ({
         {unscheduledBlocks === undefined ? (
           <p className="text-[14px] text-text-muted text-center mt-4">Loading...</p>
         ) : visibleBlocks.length === 0 ? (
-          <p className={`${isTray ? 'mobile-inbox-empty' : 'text-center mt-4'} text-[13px] text-text-secondary`}>
-            {query.trim() ? 'Nothing matching that search.' : isTray ? 'Nothing to schedule.' : 'Nothing waiting for a place right now.'}
-          </p>
+          <div className={`${isTray ? 'mobile-inbox-empty' : 'text-center mt-4'} text-[13px] text-text-secondary`}>
+            <p>{query.trim() ? 'Nothing matching that search.' : isTray ? 'Nothing to schedule.' : 'Nothing waiting for a place right now.'}</p>
+            {!isTray && !query.trim() && (
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('planner:start-tour'))}
+                className="mt-2 text-[12px] font-semibold text-accent-primary hover:underline"
+              >
+                ▶ Replay the 60-second demo
+              </button>
+            )}
+          </div>
         ) : (
           visibleBlocks.map((block: PlannerBlock) => (
             <DraggableBlockItem 

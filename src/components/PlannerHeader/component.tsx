@@ -27,7 +27,15 @@ export const PlannerHeader: React.FC<Props> = ({ currentDate, onPrevWeek, onNext
     <header className="planner-header h-[76px] bg-white/95 backdrop-blur flex items-center px-5 justify-between gap-4 sticky top-0 z-header border-b border-border-default/50">
       <div className="planner-header-main flex items-center gap-5">
         <div className="planner-brand">
-          <div className="text-[20px] font-bold tracking-tight text-text-primary">Big Picture Planner</div>
+          <div className="flex items-center gap-2">
+            <div className="text-[20px] font-bold tracking-tight text-text-primary">Big Picture Planner</div>
+            <span
+              className="rounded-full bg-accent-primary/10 text-accent-primary text-[10px] font-bold uppercase tracking-wide px-2 py-0.5"
+              title="You're an early founder member — expect rough edges, and your feedback shapes what we build."
+            >
+              Founder Beta
+            </span>
+          </div>
           <div className="text-[11px] font-medium text-text-secondary">See the big picture. Fit everything in.</div>
         </div>
         
@@ -52,6 +60,15 @@ export const PlannerHeader: React.FC<Props> = ({ currentDate, onPrevWeek, onNext
       
       <div className="planner-header-actions flex items-center gap-3">
         <PlanningLegend />
+        <a
+          href="/feedback.html?src=app"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="planner-feedback-button h-9 hidden sm:flex items-center gap-1.5 rounded-medium border border-border-default bg-surface-primary px-3 text-[12px] font-semibold text-text-secondary hover:text-accent-primary hover:border-accent-primary/40 shadow-sm transition-colors"
+          title="Found a bug or have an idea? Tell us — we read every message."
+        >
+          <span aria-hidden="true">💬</span> Feedback
+        </a>
         <SyncStatusPanel />
         <button onClick={onOpenSetup} className="planner-setup-button h-9 w-9 hover:bg-background rounded-medium border border-border-default shadow-sm transition-colors flex items-center justify-center text-text-secondary hover:text-text-primary" aria-label="Planner Setup" title="Planner Setup">
           <span aria-hidden="true">⚙</span>

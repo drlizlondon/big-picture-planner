@@ -65,7 +65,7 @@ export const PlannerSetupPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           </nav>
 
           <div className="overflow-y-auto p-6">
-            {activeSection === 'general' && <GeneralSection />}
+            {activeSection === 'general' && <GeneralSection onClose={onClose} />}
             {activeSection === 'editorLayout' && <EditorLayoutSection setup={setup} updateField={updateField} />}
             {activeSection === 'sources' && <SourcesSection />}
             {activeSection === 'filters' && <FutureSection title="Filters" body="The side panel filters show or hide matching calendar blocks. Full saved views and custom labels are not enabled yet." />}
@@ -78,20 +78,39 @@ export const PlannerSetupPanel: React.FC<Props> = ({ isOpen, onClose }) => {
   );
 };
 
-const GeneralSection: React.FC = () => (
-  <section className="flex flex-col gap-4">
-    <div>
-      <h3 className="text-[18px] font-bold text-text-primary">General</h3>
-      <p className="mt-1 text-[13px] leading-6 text-text-secondary">
-        The planner is local-first. You can plan without an account, and sync can be added when you want it.
-      </p>
-    </div>
-    <div className="grid gap-3 sm:grid-cols-2">
-      <SetupInfoCard title="Local-first planning" body="Your blocks are saved on this device before any cloud sync happens." />
-      <SetupInfoCard title="Fine tuning" body="Select a scheduled block, then use arrow keys and +/- for precise changes." />
-    </div>
-  </section>
-);
+const GeneralSection: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const replayTour = () => {
+    onClose();
+    // Let the drawer close before the spotlight starts
+    setTimeout(() => window.dispatchEvent(new CustomEvent('planner:start-tour')), 250);
+  };
+  return (
+    <section className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-[18px] font-bold text-text-primary">General</h3>
+        <p className="mt-1 text-[13px] leading-6 text-text-secondary">
+          The planner is local-first. You can plan without an account, and sync can be added when you want it.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SetupInfoCard title="Local-first planning" body="Your blocks are saved on this device before any cloud sync happens." />
+        <SetupInfoCard title="Fine tuning" body="Select a scheduled block, then use arrow keys and +/- for precise changes." />
+      </div>
+      <div className="rounded-medium border border-border-default bg-background p-4 flex items-center justify-between gap-4">
+        <div>
+          <div className="text-[14px] font-bold text-text-primary">New here?</div>
+          <p className="mt-0.5 text-[12px] leading-5 text-text-secondary">Replay the 60-second walkthrough: add a task, send it to Ready, place it, then move it.</p>
+        </div>
+        <button
+          onClick={replayTour}
+          className="flex-shrink-0 h-9 rounded-small bg-accent-primary px-4 text-[13px] font-bold text-white hover:bg-accent-hover transition-colors shadow-sm"
+        >
+          Replay walkthrough
+        </button>
+      </div>
+    </section>
+  );
+};
 
 interface EditorLayoutSectionProps {
   setup: ReturnType<typeof usePlannerSetup>['setup'];

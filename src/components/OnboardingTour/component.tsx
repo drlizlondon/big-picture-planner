@@ -115,6 +115,18 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
     }
   }, []);
 
+  // Allow the tour to be replayed on demand (Settings → Replay walkthrough,
+  // empty-state prompts, etc.) without a page reload.
+  useEffect(() => {
+    const onStart = () => {
+      localStorage.removeItem(TOUR_KEY);
+      const inputOpen = !!document.querySelector('[data-tour="quick-add-input"]');
+      setStep(inputOpen ? 'type' : 'open_input');
+    };
+    window.addEventListener('planner:start-tour', onStart);
+    return () => window.removeEventListener('planner:start-tour', onStart);
+  }, []);
+
   // Poll modal-open state + whether the input has text
   useEffect(() => {
     if (!step || step === 'complete') return;
@@ -312,8 +324,9 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
             <button
               onClick={dismiss}
               className="text-[11px] text-text-muted hover:text-text-secondary transition-colors"
+              title="You can replay this any time from Settings"
             >
-              Skip tour
+              Skip — replay later in Settings
             </button>
             {manualNext && (
               <button
