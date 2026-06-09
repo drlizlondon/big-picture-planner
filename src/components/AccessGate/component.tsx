@@ -322,7 +322,7 @@ const TrialExpiredScreen: React.FC = () => (
       <div className="text-[40px] mb-4">&#x2728;</div>
       <h1 className="text-[28px] font-bold text-text-primary mb-3">Your access needs renewing</h1>
       <p className="text-[15px] text-text-secondary leading-relaxed mb-6">
-        Get in touch and we&apos;ll sort out your Founding Access. £40 one-off founder price, with a 14-day no-questions refund.
+        Get in touch and we&apos;ll sort out your Founding Access. £40 one-off founder price (normally £60), with a 14-day no-questions refund.
       </p>
       <a
         href="mailto:hello@bigpictureplanner.app?subject=Founding Access"
