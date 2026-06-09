@@ -105,6 +105,8 @@
       </p>
 
       <div class="stats" id="stats"></div>
+      <div class="stats" id="metrics"></div>
+      <p style="font-size:11px;color:var(--text-muted);margin:-8px 0 18px;">* Founder members are tracked manually for now (payment is fulfilled by hand). "Founders" below counts redeemed codes; update once Stripe status is integrated.</p>
 
       <div class="panel">
         <table>
@@ -220,6 +222,18 @@
       gate.style.display = 'none';
       consoleEl.style.display = 'block';
       render(data || []);
+      loadMetrics();
+    }
+
+    async function loadMetrics() {
+      const { data, error } = await supabase.rpc('admin_metrics');
+      if (error || !data) return;
+      $('metrics').innerHTML = `
+        <div class="stat"><div class="n">${data.active_block_users}</div><div class="l">Active (made a block)</div></div>
+        <div class="stat"><div class="n">${data.founder_interest_yes}</div><div class="l">Said yes to &pound;40</div></div>
+        <div class="stat"><div class="n">${data.feedback}</div><div class="l">Feedback items</div></div>
+        <div class="stat"><div class="n">${data.redeemed}</div><div class="l">Founders (redeemed)*</div></div>
+      `;
     }
 
     function render(rows) {
@@ -329,7 +343,7 @@ Getting started takes 2 minutes:
 
    ${code}
 
-That starts your free 28-day trial. No card needed.
+That unlocks your Founder Access. This is an early founder beta, so expect a few rough edges. Your feedback shapes what gets built next.
 
 This code is unique to you and can only be used once, so please don't share it.
 
