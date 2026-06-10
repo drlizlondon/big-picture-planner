@@ -28,6 +28,7 @@ export const AccessGate: React.FC<Props> = ({ children }) => {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async load of access state on mount
     void refresh();
     const unsub = subscribeToAccessChanges(refresh);
     return unsub;
@@ -84,7 +85,7 @@ export const AccessGate: React.FC<Props> = ({ children }) => {
 
 // ─── Sign In Screen ────────────────────────────────────────────────────────────
 
-const SignInScreen: React.FC<{ onSignedIn: () => void }> = ({ onSignedIn: _ }) => {
+const SignInScreen: React.FC<{ onSignedIn: () => void }> = () => {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
@@ -289,7 +290,7 @@ const DemoBanner: React.FC = () => {
 
 // ─── Trial Banner ──────────────────────────────────────────────────────────────
 
-const TrialBanner: React.FC<{ daysRemaining: number }> = ({ daysRemaining: _ }) => (
+const TrialBanner: React.FC<{ daysRemaining: number }> = () => (
   <div className="bg-accent-primary px-4 py-2 text-center">
     <p className="text-[12px] font-bold text-white">
       You&apos;re a Founder Beta member. Thank you for helping shape Big Picture Planner.
@@ -301,6 +302,7 @@ const TrialBanner: React.FC<{ daysRemaining: number }> = ({ daysRemaining: _ }) 
 // ─── Refund Window Banner ──────────────────────────────────────────────────────
 
 const RefundWindowBanner: React.FC<{ endsAt: string }> = ({ endsAt }) => {
+  // eslint-disable-next-line react-hooks/purity -- one-off display calc, fine at render
   const days = Math.ceil((new Date(endsAt).getTime() - Date.now()) / 86400000);
   return (
     <div className="bg-green-600 px-4 py-2 text-center">

@@ -100,7 +100,7 @@ export const syncGoogleCalendarEvents = async (): Promise<GCalSyncResult> => {
   timeMax.setDate(timeMax.getDate() + SYNC_WINDOW_FUTURE_DAYS);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let rawEvents: any[] = [];
+  let rawEvents: any[];
   try {
     const params = new URLSearchParams({
       timeMin: timeMin.toISOString(),

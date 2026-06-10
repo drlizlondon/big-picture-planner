@@ -30,6 +30,9 @@
  * `planner:start-tour` event.
  */
 
+/* eslint-disable react-hooks/set-state-in-effect -- this component is an
+   effect-driven step machine: step transitions and per-frame layout are
+   deliberately committed from effects. */
 import React, { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';

@@ -224,7 +224,6 @@ export const AppShell: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isBlockingPanelOpen, selectedBlock, currentDate]);
 
   const clearWeekSwitchTimer = () => {
