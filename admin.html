@@ -113,6 +113,16 @@
       <div class="stats" id="metrics"></div>
       <p style="font-size:11px;color:var(--text-muted);margin:-8px 0 18px;">* Founder members are tracked manually for now (payment is fulfilled by hand). "Founders" below counts redeemed codes; update once Stripe status is integrated.</p>
 
+      <div class="panel" style="padding:14px;margin-bottom:18px;">
+        <div style="font-size:13px;font-weight:800;margin-bottom:4px;">Direct invite (friends, family, testers)</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Skips the waitlist queue: adds them to the list as a comp and creates a free single-use code straight away. No payment involved. Use "Copy invite" on their row afterwards to send it.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input id="direct-email" type="email" placeholder="their@email.com" autocomplete="off" style="flex:2;min-width:200px;height:38px;border:1px solid var(--border);border-radius:8px;padding:0 10px;font-size:13px;outline:none;" />
+          <input id="direct-name" type="text" placeholder="Name (optional)" autocomplete="off" style="flex:1;min-width:120px;height:38px;border:1px solid var(--border);border-radius:8px;padding:0 10px;font-size:13px;outline:none;" />
+          <button id="direct-btn" class="btn primary" style="height:38px;">Generate friend code</button>
+        </div>
+      </div>
+
       <div class="panel">
         <table>
           <thead>
@@ -209,6 +219,38 @@
 
     supabase.auth.onAuthStateChange((_event, session) => {
       if (session) { gate.style.display = 'none'; loadWaitlist(); }
+    });
+
+    // ─── Direct invite (friends / family / testers) ──────────
+    document.getElementById('direct-btn').addEventListener('click', async () => {
+      const emailEl = document.getElementById('direct-email');
+      const nameEl = document.getElementById('direct-name');
+      const email = emailEl.value.trim().toLowerCase();
+      const name = nameEl.value.trim();
+      if (!email || !email.includes('@')) { emailEl.focus(); return; }
+
+      const btn = document.getElementById('direct-btn');
+      btn.disabled = true; btn.textContent = 'Generating…';
+
+      // Put them on the list as a comp so they show up in the table below.
+      // 23505 = already on the waitlist, which is fine.
+      const { error: insErr } = await supabase
+        .from('waitlist')
+        .insert({ email, name: name || null, source: 'friend' });
+      if (insErr && insErr.code !== '23505') {
+        toast('Error: ' + insErr.message);
+        btn.disabled = false; btn.textContent = 'Generate friend code';
+        return;
+      }
+
+      const { data, error } = await supabase.rpc('admin_generate_code', { p_email: email });
+      btn.disabled = false; btn.textContent = 'Generate friend code';
+      if (error) { toast('Error: ' + error.message); return; }
+
+      try { await navigator.clipboard.writeText(data); } catch { /* clipboard optional */ }
+      toast('Code ' + data + ' created and copied. Use Copy invite on their row to send it.');
+      emailEl.value = ''; nameEl.value = '';
+      await loadWaitlist();
     });
 
     // ─── Load + render ───────────────────────────────────────

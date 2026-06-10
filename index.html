@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Big Picture Planner — Your week is a puzzle. Let's fit it together.</title>
-  <meta name="description" content="Calendars show what is fixed. To-do lists hold everything else. Big Picture Planner helps you see your real gaps and place floating tasks where they actually fit. Try the demo, then buy Founding Access." />
+  <meta name="description" content="Calendars show what is fixed. To-do lists hold everything else. Big Picture Planner helps you see your real gaps and place floating tasks where they actually fit. Try the demo, then request a £40 founder place in the paid beta." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -223,6 +223,32 @@
     .guarantee-box p { font-size: 14px; color: var(--text-secondary); line-height: 1.65; }
     .guarantee-box p + p { margin-top: 10px; }
 
+    /* REQUEST FORM */
+    .request-wrap { max-width: 480px; margin: 0 auto; text-align: center; }
+    .request-intro { font-size: 16px; color: var(--text-secondary); margin-bottom: 28px; }
+    #request-form { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+    #request-form input[type="email"], #request-form input[type="text"] {
+      width: 100%; height: 52px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 16px;
+      font-size: 15px; font-family: inherit; color: var(--text);
+      background: #fff; outline: none;
+      transition: border-color 0.15s;
+    }
+    #request-form input:focus { border-color: var(--purple); }
+    #request-form input::placeholder { color: var(--text-muted); }
+    .req-ack { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--text-secondary); line-height: 1.5; padding: 4px 2px; cursor: pointer; }
+    .req-ack input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--purple); flex-shrink: 0; cursor: pointer; }
+    #request-form .btn { width: 100%; margin-top: 4px; }
+    #request-form .btn:disabled { opacity: 0.7; cursor: not-allowed; }
+    .form-note { font-size: 12px; color: var(--text-muted); text-align: center; }
+    .form-success { display: none; background: var(--purple-light); border-radius: var(--radius); padding: 24px; text-align: center; }
+    .form-success.visible { display: block; }
+    .form-success-emoji { font-size: 32px; margin-bottom: 8px; }
+    .form-success h3 { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+    .form-success p { font-size: 14px; color: var(--text-secondary); }
+
     /* FOUNDER NOTE */
     .founder-section { padding: 80px 24px; max-width: 620px; margin: 0 auto; }
     .founder-avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--purple-light); margin-bottom: 20px; display: flex; align-items: center; justify-content: center; font-size: 28px; }
@@ -280,9 +306,9 @@
     </p>
     <div class="btn-row">
       <a href="/planner/?tour=1&src=hero" class="btn btn-primary" onclick="bppTrack('hero_try_demo')">&#9654; Try the demo</a>
-      <a href="#founding-access" class="btn btn-secondary" onclick="bppTrack('hero_see_founding_access')">See Founding Access</a>
+      <a href="#request" class="btn btn-secondary" onclick="bppTrack('hero_request_founding_access'); setRequestSource('hero');">Request Founding Access</a>
     </div>
-    <p class="hero-micro">See how Big Picture Planner works before you join Founding Access.</p>
+    <p class="hero-micro">See how Big Picture Planner works, then request a founder place if it feels useful for your week.</p>
   </section>
 
   <!-- SCREENSHOT -->
@@ -341,11 +367,12 @@
     <section class="section demo-section">
       <p class="section-label">See it for yourself</p>
       <h2>Try the demo</h2>
-      <p class="demo-copy">Before joining Founding Access, try the demo and see whether this way of planning makes sense for your brain and your life.</p>
+      <p class="demo-copy">Before requesting Founding Access, try the demo and see whether this way of planning makes sense for your brain and your life.</p>
       <div class="btn-row">
         <a href="/planner/?tour=1&src=demo" class="btn btn-primary" onclick="bppTrack('demo_open_demo')">Open the demo</a>
+        <a href="#request" class="btn btn-secondary" onclick="bppTrack('demo_request_founding_access'); setRequestSource('demo');">Request Founding Access</a>
       </div>
-      <p class="hero-micro">The demo is quick to try and helps you see the planning flow before you commit.</p>
+      <p class="hero-micro">The demo is quick to try and helps you see the planning flow before you request a founder place.</p>
     </section>
   </div>
 
@@ -403,21 +430,22 @@
   <div class="section-soft">
     <section class="section">
       <p class="section-label">Where the product is</p>
-      <h2>A working beta, not a polished corporate app.</h2>
-      <p style="font-size:16px;color:var(--text-secondary);max-width:560px;">Big Picture Planner is in paid beta. That means the core product works and is ready to use, but it is still improving.</p>
+      <h2>A working beta, released carefully.</h2>
+      <p style="font-size:16px;color:var(--text-secondary);max-width:560px;">Big Picture Planner is a working beta, not a polished corporate app. We are opening access gradually so we can keep the experience stable, learn from early users, and improve the product properly.</p>
       <div class="beta-grid">
         <div class="beta-card beta-yes">
           <h3>You should expect</h3>
           <ul>
             <li><span class="mark">&#10003;</span> A usable planning tool that helps you organise your week</li>
             <li><span class="mark">&#10003;</span> Some rough edges while the product develops</li>
-            <li><span class="mark">&#10003;</span> Regular improvements based on real user feedback</li>
-            <li><span class="mark">&#10003;</span> A direct opportunity to shape what gets built next</li>
+            <li><span class="mark">&#10003;</span> Regular improvements based on real feedback</li>
+            <li><span class="mark">&#10003;</span> Controlled access while the beta is still being shaped</li>
           </ul>
         </div>
         <div class="beta-card beta-no">
           <h3>You should not expect</h3>
           <ul>
+            <li><span class="mark">&#10005;</span> Unlimited instant access for everyone</li>
             <li><span class="mark">&#10005;</span> A perfect app with every feature finished</li>
             <li><span class="mark">&#10005;</span> Enterprise-level polish</li>
             <li><span class="mark">&#10005;</span> A tool that replaces every calendar, task manager or productivity app you already use</li>
@@ -433,36 +461,62 @@
     <div class="pricing-wrap">
       <p class="section-label">The offer</p>
       <h2 style="margin-left:auto;margin-right:auto;">Founding Access</h2>
-      <p class="pricing-intro">Big Picture Planner is currently opening in small founder batches. Founding Access helps fund the product while it is still early, and gives early users the lowest access price while the app is being shaped.</p>
-      <p class="pricing-intro" style="margin-top:-16px;">This is not a free waitlist experiment. It is a paid beta for people who genuinely want to use the planner and help improve it.</p>
+      <p class="pricing-intro">Big Picture Planner is opening in small founder batches while the product is still in beta. Founding Access is for people who genuinely want to use the planner, help shape what gets built next, and are comfortable joining while the product is still early.</p>
 
       <div class="offer-box">
         <div class="offer-head">
-          <p class="offer-name">Founding Access</p>
-          <p class="offer-price">&pound;40 <small>one-off</small></p>
-          <p class="offer-meta">Expected future price: <s>&pound;60</s> &middot; Limited to the first 100 founder places</p>
+          <p class="offer-name">Founding Access &middot; Paid beta</p>
+          <p class="offer-price">&pound;40 <small>founder price</small></p>
+          <p class="offer-meta">Expected future price: <s>&pound;60</s> &middot; Founder places are released gradually while access is controlled</p>
         </div>
         <ul class="offer-list">
-          <li><span>&#10003;</span> Access to the working beta</li>
+          <li><span>&#10003;</span> Access to the working beta once invited</li>
           <li><span>&#10003;</span> The Life Inbox and visual weekly planning flow</li>
           <li><span>&#10003;</span> Calendar-based planning tools</li>
           <li><span>&#10003;</span> Import and export features where available</li>
           <li><span>&#10003;</span> Product updates during the founding period</li>
           <li><span>&#10003;</span> Priority feedback influence</li>
-          <li><span>&#10003;</span> A 14-day beta guarantee</li>
+          <li><span>&#10003;</span> A 14-day beta guarantee after paid access begins</li>
         </ul>
-        <button type="button" class="btn btn-primary" onclick="bppTrack('pricing_buy_founding_access'); openFoundingAccess('pricing');">Buy Founding Access</button>
+        <a href="#request" class="btn btn-primary" onclick="bppTrack('pricing_request_founding_access'); setRequestSource('pricing');">Request Founding Access</a>
         <a href="/planner/?tour=1&src=pricing" class="offer-secondary" onclick="bppTrack('pricing_try_demo_first')">Try the demo first</a>
       </div>
-      <p class="pricing-support">Join the first founder batch and help shape Big Picture Planner while it is still early.</p>
+      <p class="pricing-support">Request a founder place now. If you are included in an upcoming batch, you will receive instructions to pay and access the beta.</p>
 
       <div class="guarantee-box">
         <h3>14-day beta guarantee</h3>
-        <p>Try Big Picture Planner properly for 14 days. If you use it and feel it does not help you plan your week more clearly, you can request a refund.</p>
+        <p>Once your paid access begins, try Big Picture Planner properly for 14 days. If you use it and feel it does not help you plan your week more clearly, you can request a refund.</p>
         <p>The guarantee is designed for genuine early users &mdash; people who actually try the product &mdash; rather than sign-ups who never open it. Full details are in our <a href="refund-policy.html" style="color:var(--purple);font-weight:700;">Refund Policy</a>.</p>
       </div>
     </div>
   </section>
+
+  <!-- REQUEST FOUNDING ACCESS FORM -->
+  <div class="section-soft">
+    <section class="section" id="request">
+      <div class="request-wrap">
+        <p class="section-label">Request a founder place</p>
+        <h2 style="margin-left:auto;margin-right:auto;">Request Founding Access</h2>
+        <p class="request-intro">Founder places are released in small batches while Big Picture Planner is in beta. Request a founder place and we will invite early users gradually as access opens.</p>
+        <form id="request-form" onsubmit="return submitFounderRequest(event)">
+          <input type="email" id="req-email" placeholder="Email address (required)" autocomplete="email" required />
+          <input type="text" id="req-name" placeholder="First name (optional)" autocomplete="given-name" />
+          <input type="text" id="req-method" placeholder="What are you currently using to plan your week? (optional)" />
+          <label class="req-ack">
+            <input type="checkbox" id="req-ack" required />
+            <span>I understand Founding Access is a paid beta currently priced at &pound;40 for invited early users.</span>
+          </label>
+          <button type="submit" class="btn btn-primary" id="req-submit">Request a founder place</button>
+          <p class="form-note">Requesting access does not mean instant access. Payment happens only once a founder place is available and you are invited.</p>
+        </form>
+        <div class="form-success" id="request-success">
+          <div class="form-success-emoji">&#x1F389;</div>
+          <h3>You're on the founder list</h3>
+          <p>We are inviting early users in small batches so we can keep the beta stable and learn from real usage. If you are included in an upcoming batch, we will email you with next steps.</p>
+        </div>
+      </div>
+    </section>
+  </div>
 
   <!-- FOUNDER NOTE -->
   <div class="divider"></div>
@@ -470,9 +524,9 @@
     <div class="founder-avatar">&#x1F44B;</div>
     <h2>A note from the founder</h2>
     <p>I built Big Picture Planner because I was tired of having a calendar, a to-do list and a head full of things that still had no clear place to go.</p>
-    <p>This is an early product, but it is solving a real problem. The founder price helps us keep improving it properly, without pretending the beta is more finished than it is.</p>
-    <p>If you want a perfect, polished productivity suite, this probably is not the right moment to join.</p>
-    <p>If you want a practical planning tool that already helps you see your week more clearly, and you like the idea of shaping what it becomes, Founding Access is for you.</p>
+    <p>This is an early product, but it is solving a real problem. Founder places help us keep improving it properly, without pretending the beta is more finished than it is.</p>
+    <p>If you want a perfect, polished productivity suite, this probably is not the right moment to request access.</p>
+    <p>If you want a practical planning tool that already helps you see your week more clearly, and you like the idea of shaping what it becomes, request a founder place.</p>
     <p class="founder-name">&mdash; Lizzie, founder</p>
   </section>
 
@@ -480,13 +534,14 @@
   <div class="section-soft">
     <section class="section">
       <p class="section-label">Trust and clarity</p>
-      <h2>Before you buy</h2>
+      <h2>Before you request access</h2>
       <ul class="trust-list">
         <li><span>&#10003;</span> The demo lets you see how the product works</li>
-        <li><span>&#10003;</span> Founding Access is paid</li>
-        <li><span>&#10003;</span> The product is in beta</li>
+        <li><span>&#10003;</span> Founding Access is paid for invited early users</li>
+        <li><span>&#10003;</span> The current founder price is &pound;40 &middot; the expected future price is &pound;60</li>
+        <li><span>&#10003;</span> The product is in beta and access is being released gradually</li>
         <li><span>&#10003;</span> You should expect a working planner with some rough edges</li>
-        <li><span>&#10003;</span> You have a 14-day beta guarantee if you genuinely use it and it does not help</li>
+        <li><span>&#10003;</span> You have a 14-day beta guarantee once your paid access begins</li>
         <li><span>&#10003;</span> Founder places are limited while the product is still being shaped</li>
       </ul>
     </section>
@@ -495,9 +550,9 @@
   <!-- BOTTOM CTA -->
   <section class="cta-section">
     <h2>Ready to see where it all fits?</h2>
-    <p>Join the first founder batch for &pound;40, with a 14-day beta guarantee.</p>
-    <button type="button" class="btn btn-primary" onclick="bppTrack('bottom_buy_founding_access'); openFoundingAccess('bottom');">Buy Founding Access</button>
-    <a href="/planner/?tour=1&src=bottom" class="cta-alt" onclick="bppTrack('bottom_try_demo_first')">Try the demo first</a>
+    <p>Request a &pound;40 founder place. If you are invited into a batch, you can pay and start planning.</p>
+    <a href="#request" class="btn btn-primary" onclick="bppTrack('bottom_request_founding_access'); setRequestSource('bottom');">Request Founding Access</a>
+    <a href="/planner/?tour=1&src=bottom" class="cta-alt" onclick="bppTrack('bottom_open_demo')">Open the demo</a>
   </section>
 
   <!-- FOOTER -->
@@ -511,31 +566,93 @@
     <p>&copy; 2026 Big Picture Planner &nbsp;&middot;&nbsp; <a href="/planner/">Open the app</a></p>
   </footer>
 
-  <!-- CLICK TRACKING -->
+  <!-- CLICK TRACKING + FOUNDER REQUEST FORM -->
   <script>
-    // Fire-and-forget click tracking into Supabase (landing_clicks table).
-    // keepalive lets the request complete even while the browser navigates away.
     (function () {
       var URL_BASE = 'https://ovdrrltrhctwvtngjiaw.supabase.co';
       var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im92ZHJybHRyaGN0d3Z0bmdqaWF3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MTE1ODMsImV4cCI6MjA5NjQ4NzU4M30.8c5_67GeGFIxXb11E9D4wGy5j37yeOD8ULMRDDSjXJs';
+
+      function post(path, body) {
+        return fetch(URL_BASE + '/rest/v1/' + path, {
+          method: 'POST',
+          keepalive: true,
+          headers: {
+            'apikey': ANON_KEY,
+            'Authorization': 'Bearer ' + ANON_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify(body)
+        });
+      }
+
+      // UTM parameters captured once on landing, attached to clicks and requests.
+      var params = new URLSearchParams(window.location.search);
+      var utm = {
+        utm_source: params.get('utm_source'),
+        utm_medium: params.get('utm_medium'),
+        utm_campaign: params.get('utm_campaign')
+      };
+
+      // Which CTA brought the visitor to the request form.
+      var requestSource = 'direct';
+      window.setRequestSource = function (src) { requestSource = src; };
+
+      // Fire-and-forget click tracking (landing_clicks table); must never block navigation.
       window.bppTrack = function (event) {
         try {
-          fetch(URL_BASE + '/rest/v1/landing_clicks', {
-            method: 'POST',
-            keepalive: true,
-            headers: {
-              'apikey': ANON_KEY,
-              'Authorization': 'Bearer ' + ANON_KEY,
-              'Content-Type': 'application/json',
-              'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({ event: event, page: 'index' })
-          }).catch(function () {});
-        } catch (e) { /* tracking must never block navigation */ }
+          post('landing_clicks', { event: event, page: 'index' }).catch(function () {});
+        } catch (e) {}
+      };
+
+      window.submitFounderRequest = function (e) {
+        e.preventDefault();
+        var email = document.getElementById('req-email').value.trim();
+        if (!email || email.indexOf('@') === -1) { document.getElementById('req-email').focus(); return false; }
+
+        var btn = document.getElementById('req-submit');
+        btn.disabled = true;
+        btn.textContent = 'Sending request…';
+
+        var row = {
+          email: email,
+          source: 'landing',
+          cta_source: requestSource,
+          price_ack: document.getElementById('req-ack').checked
+        };
+        var name = document.getElementById('req-name').value.trim();
+        var method = document.getElementById('req-method').value.trim();
+        if (name) row.name = name;
+        if (method) row.current_method = method;
+        if (utm.utm_source) row.utm_source = utm.utm_source;
+        if (utm.utm_medium) row.utm_medium = utm.utm_medium;
+        if (utm.utm_campaign) row.utm_campaign = utm.utm_campaign;
+
+        function succeed() {
+          window.bppTrack('founder_request_submitted_' + requestSource);
+          document.getElementById('request-form').style.display = 'none';
+          document.getElementById('request-success').classList.add('visible');
+        }
+        function fail() {
+          btn.disabled = false;
+          btn.textContent = 'Try again';
+        }
+
+        post('waitlist', row).then(function (res) {
+          // 409 = already on the list; treat as success so repeat visitors aren't stuck.
+          if (res.ok || res.status === 409) { succeed(); return; }
+          // 400 = the founder_requests.sql migration hasn't run yet, so the new
+          // columns don't exist. Never lose a request: retry with original columns.
+          var fallback = { email: email, source: 'landing' };
+          if (name) fallback.name = name;
+          if (method) fallback.current_method = method;
+          post('waitlist', fallback).then(function (res2) {
+            if (res2.ok || res2.status === 409) { succeed(); } else { fail(); }
+          }).catch(fail);
+        }).catch(fail);
+        return false;
       };
     })();
   </script>
-
-  <script src="founder.js"></script>
 </body>
 </html>

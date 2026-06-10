@@ -1,5 +1,7 @@
-// Founding Access payment link.
-// Paste your Stripe Payment Link URL between the quotes below.
+// Founding Access payment link — INVITE FLOW ONLY.
+// This script is intentionally not loaded on any public landing page; it is
+// used by invite.html, which is noindexed and only sent by email to invited
+// founder users. Paste your Stripe Payment Link URL between the quotes below.
 // Leave it empty to show the "opening shortly" message instead.
 window.BPP_FOUNDING_ACCESS_URL = 'https://buy.stripe.com/4gM8wOgWa235fTfcAX2oE00';
 
