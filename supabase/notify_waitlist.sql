@@ -53,4 +53,7 @@ $$;
 drop trigger if exists waitlist_signup_notify on public.waitlist;
 create trigger waitlist_signup_notify
   after insert on public.waitlist
-  for each row execute function public.notify_waitlist_signup();
+  for each row
+  -- Don't notify yourself about your own direct invites from the console.
+  when (coalesce(new.source, '') <> 'friend')
+  execute function public.notify_waitlist_signup();
