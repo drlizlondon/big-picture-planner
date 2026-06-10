@@ -100,8 +100,13 @@
         <button class="signout" id="signout">Sign out</button>
       </header>
       <p class="sub">
-        Curated invites for the controlled beta. Generate a single-use code, copy the invite email, send it, then mark it sent.
+        Founder flow: <strong>1)</strong> they join the waitlist &middot; <strong>2)</strong> you invite them to pay &pound;40 (Stripe link) &middot; <strong>3)</strong> once paid, generate their code and send the invite email &middot; <strong>4)</strong> they sign in and redeem. Codes are not payment-checked, so only send one after payment (or to someone you are comping on purpose).
         <button class="refresh" id="refresh">↻ Refresh</button>
+      </p>
+      <p class="sub" style="margin-top:-12px;">
+        Google Calendar: while the app is unverified, each person's <strong>Google account</strong> must be on the
+        <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener" style="color:var(--purple);font-weight:700;">test users list</a>
+        before calendar sync will work for them. Use the GCal buttons below: copy their email, paste it into the Google page, then mark it done. Note: if they sign in with a non-Google email, ask which Google account they will connect.
       </p>
 
       <div class="stats" id="stats"></div>
@@ -116,6 +121,7 @@
               <th>Email</th>
               <th style="width:120px;">Code</th>
               <th style="width:110px;">Status</th>
+              <th style="width:130px;">Google Cal</th>
               <th style="width:280px;">Actions</th>
             </tr>
           </thead>
@@ -274,11 +280,14 @@
           actions = `<button class="btn primary" data-act="gen" data-email="${r.email}">Generate code</button>`;
         }
 
+        const gcalCell = gcalCellFor(r);
+
         tr.innerHTML = `
           <td class="pos">${r.position ?? ''}</td>
           <td><div class="email">${r.email}</div>${r.name ? `<div style="color:var(--text-muted);font-size:12px;">${r.name}</div>` : ''}</td>
           <td>${codeCell}</td>
           <td>${statusBadge}</td>
+          <td>${gcalCell}</td>
           <td><div class="actions">${actions}</div></td>
         `;
         tbody.appendChild(tr);
@@ -297,6 +306,23 @@
           : '<span class="badge invited">Code ready</span>';
       }
       return '<span class="badge pending">Not invited</span>';
+    }
+
+    // Google Calendar test-user state for one row.
+    // uses_gcal: 'yes' | 'no' | null (asked on the waitlist form)
+    // gcal_tester_at: when you added their Google account to the test users list
+    function gcalCellFor(r) {
+      if (r.gcal_tester_at) return '<span class="badge redeemed">Added ✓</span>';
+      if (r.uses_gcal === 'no') return '<span class="badge pending">Not needed</span>';
+      const label = r.uses_gcal === 'yes' ? 'Needs access' : 'Unknown';
+      const badgeClass = r.uses_gcal === 'yes' ? 'invited' : 'pending';
+      return `
+        <span class="badge ${badgeClass}">${label}</span>
+        <div class="actions" style="margin-top:5px;">
+          <button class="btn" data-act="gcal-copy" data-email="${r.email}" title="Copies their email and opens the Google test users page">Add to Google</button>
+          <button class="btn" data-act="gcal-done" data-email="${r.email}" title="Mark as added to the test users list">Done</button>
+        </div>
+      `;
     }
 
     // ─── Actions ─────────────────────────────────────────────
@@ -320,6 +346,15 @@
         const body = inviteEmail(btn.dataset.code, btn.dataset.name, btn.dataset.email);
         await navigator.clipboard.writeText(body);
         toast('Invite email copied — paste into Gmail');
+      } else if (act === 'gcal-copy') {
+        await navigator.clipboard.writeText(btn.dataset.email);
+        toast('Email copied — paste into Test users, then click Done');
+        window.open('https://console.cloud.google.com/apis/credentials/consent', '_blank', 'noopener');
+      } else if (act === 'gcal-done') {
+        const { error } = await supabase.rpc('admin_mark_gcal', { p_email: btn.dataset.email });
+        if (error) { toast('Error: ' + error.message); return; }
+        toast('Marked as added to Google test users');
+        await loadWaitlist();
       }
     }
 
@@ -346,6 +381,8 @@ Getting started takes 2 minutes:
 That unlocks your Founder Access. This is an early founder beta, so expect a few rough edges. Your feedback shapes what gets built next.
 
 This code is unique to you and can only be used once, so please don't share it.
+
+Using Google Calendar? Reply with the Google account you'd like to sync and I'll switch it on for you (calendar sync is in limited beta).
 
 Want to see how it works first? Here's a 30-second guided demo:
 ${APP_URL}?tour=1

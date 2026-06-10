@@ -190,6 +190,11 @@
       </div>
       <input data-field="use_case" type="text" placeholder="What do you most want help planning?" style="width:100%;height:46px;border:1.5px solid var(--border);border-radius:10px;padding:0 14px;font-size:15px;margin-top:10px;outline:none;" />
       <input data-field="current_method" type="text" placeholder="How do you currently plan your week?" style="width:100%;height:46px;border:1.5px solid var(--border);border-radius:10px;padding:0 14px;font-size:15px;margin-top:10px;outline:none;" />
+      <select data-field="uses_gcal" style="width:100%;height:46px;border:1.5px solid var(--border);border-radius:10px;padding:0 12px;font-size:15px;margin-top:10px;outline:none;color:var(--text-secondary);background:#fff;">
+        <option value="">Do you use Google Calendar?</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
       <select data-field="founder_interest" style="width:100%;height:46px;border:1.5px solid var(--border);border-radius:10px;padding:0 12px;font-size:15px;margin-top:10px;outline:none;color:var(--text-secondary);background:#fff;">
         <option value="">Would you consider £40 Founding Access if the demo feels useful?</option>
         <option value="yes">Yes</option>
@@ -423,7 +428,7 @@
       const wrap = input.closest('.form-wrap');
       const fieldVal = (name) => { const el = wrap.querySelector('[data-field="' + name + '"]'); return el && el.value ? el.value : null; };
       const row = { email, source: 'landing' };
-      ['use_case', 'current_method', 'founder_interest'].forEach((n) => { const v = fieldVal(n); if (v) row[n] = v; });
+      ['use_case', 'current_method', 'founder_interest', 'uses_gcal'].forEach((n) => { const v = fieldVal(n); if (v) row[n] = v; });
 
       const btn = input.closest('.form-row').querySelector('button');
       btn.disabled = true;
