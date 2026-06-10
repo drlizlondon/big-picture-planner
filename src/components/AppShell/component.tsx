@@ -314,7 +314,7 @@ export const AppShell: React.FC = () => {
 
   return (
     <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
-    <div className="relative flex flex-col h-screen overflow-hidden bg-white text-text-primary font-sans">
+    <div className="app-shell-root relative flex flex-col overflow-hidden bg-white text-text-primary font-sans">
       <PlannerHeader currentDate={currentDate} onPrevWeek={handlePrevWeek} onNextWeek={handleNextWeek} onToday={handleToday} onOpenSetup={() => setIsPlannerSetupOpen(true)} />
       
       <div className={`planner-workspace flex flex-1 overflow-hidden p-3 gap-2 ${isMobileInboxExpanded ? 'mobile-inbox-expanded' : 'mobile-inbox-collapsed'} ${isDraggingBlock ? 'is-dragging-block' : ''}`}>
@@ -392,6 +392,7 @@ export const AppShell: React.FC = () => {
 
           <button
             onClick={() => setIsAddModalOpen(true)}
+            data-tour="add-button"
             className="mobile-add-fab fixed right-4 z-sidebar h-11 rounded-full bg-accent-primary px-4 text-white text-[13px] font-bold shadow-modal border border-white/30"
             title="Add item"
           >

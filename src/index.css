@@ -372,3 +372,10 @@ body {
   max-height: 35dvh;
 }
 .tour-card__body { overscroll-behavior: contain; }
+
+/* App shell: fit the dynamic mobile viewport (browser chrome aware), not 100vh */
+.app-shell-root {
+  height: 100vh;   /* fallback */
+  height: 100svh;  /* always fits even when browser chrome is visible */
+  height: 100dvh;  /* dynamic: adjusts as chrome shows/hides */
+}

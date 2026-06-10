@@ -79,11 +79,19 @@ const readInset = (name: string): number => {
 };
 
 const findTarget = (selectors: string[]): HTMLElement | null => {
+  // Prefer the first match that is actually visible (has size). This matters on
+  // mobile, where e.g. the desktop "+ Add to Planner" button is display:none and
+  // the mobile FAB is the real target (both share the data-tour anchor).
+  let fallback: HTMLElement | null = null;
   for (const s of selectors) {
-    const el = document.querySelector<HTMLElement>(s);
-    if (el) return el;
+    const els = document.querySelectorAll<HTMLElement>(s);
+    for (const el of els) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return el;
+      if (!fallback) fallback = el;
+    }
   }
-  return null;
+  return fallback;
 };
 
 // ─── Layout computation (the heart of the responsive behaviour) ───────────────
