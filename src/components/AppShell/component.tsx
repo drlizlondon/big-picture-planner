@@ -56,6 +56,18 @@ const getTopEdgeSlotCollisions: CollisionDetection = ({ collisionRect, droppable
 export const AppShell: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date()); // Boots into the user's actual week
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addModalView, setAddModalView] = useState<'menu' | 'paste'>('menu');
+
+  // The empty-week prompt asks us to open the Add modal straight on the
+  // import view ("Import your to-do list").
+  useEffect(() => {
+    const onOpenImport = () => {
+      setAddModalView('paste');
+      setIsAddModalOpen(true);
+    };
+    window.addEventListener('planner:open-import', onOpenImport);
+    return () => window.removeEventListener('planner:open-import', onOpenImport);
+  }, []);
   const [isBlockEditorOpen, setIsBlockEditorOpen] = useState(false);
   const [isPlannerSetupOpen, setIsPlannerSetupOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
@@ -402,11 +414,16 @@ export const AppShell: React.FC = () => {
 
       <DropConfirmationToast blockId={lastScheduledBlockId} onClose={() => setLastScheduledBlockId(null)} onEditBlock={handleEditBlock} />
 
-      <AddToPlannerModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)}
+      <AddToPlannerModal
+        isOpen={isAddModalOpen}
+        initialView={addModalView}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setAddModalView('menu');
+        }}
         onCreateBlock={() => {
           setIsAddModalOpen(false);
+          setAddModalView('menu');
           setEditingBlockId(null);
           setIsBlockEditorOpen(true);
         }}

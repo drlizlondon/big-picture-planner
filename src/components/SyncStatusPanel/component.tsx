@@ -30,6 +30,13 @@ export const SyncStatusPanel: React.FC = () => {
   const [icsImporting, setIcsImporting] = useState(false);
   const icsInputRef = React.useRef<HTMLInputElement>(null);
 
+  // Let other parts of the app (e.g. the empty-week prompt) open this panel.
+  useEffect(() => {
+    const onOpen = () => setIsOpen(true);
+    window.addEventListener('planner:open-sync', onOpen);
+    return () => window.removeEventListener('planner:open-sync', onOpen);
+  }, []);
+
   // Check Google Calendar connection state when panel opens
   useEffect(() => {
     if (!isOpen || !sync.isLoggedIn) return;
@@ -343,8 +350,15 @@ export const SyncStatusPanel: React.FC = () => {
                   <span className="ml-auto text-[10px] font-semibold text-text-muted">Manual import</span>
                 </div>
                 <p className="text-[12px] text-text-secondary leading-snug mb-2">
-                  Export from Apple Calendar → File → Export, then upload the .ics file here.
+                  Upload a .ics file and your events appear in the week. This imports a snapshot rather than a live sync, so re-upload whenever you want the latest.
                 </p>
+                <details className="mb-2">
+                  <summary className="cursor-pointer text-[11px] font-bold text-accent-primary">How do I get a .ics file?</summary>
+                  <div className="mt-1.5 space-y-1.5 text-[11px] leading-snug text-text-secondary">
+                    <p><span className="font-bold text-text-primary">On a Mac:</span> open Calendar, click the calendar you want, then File → Export → Export. Upload the file here.</p>
+                    <p><span className="font-bold text-text-primary">On iPhone:</span> open Calendar → Calendars → tap the ⓘ next to a calendar → turn on Public Calendar → Share Link → Copy. Paste the link into Safari and change webcal:// to https:// — the .ics file downloads. Upload it here.</p>
+                  </div>
+                </details>
                 <input
                   ref={icsInputRef}
                   type="file"

@@ -10,11 +10,13 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onCreateBlock: () => void;
+  /** Open straight onto a specific view, e.g. 'paste' for the import flow. */
+  initialView?: 'menu' | 'paste';
 }
 
 type ImportTab = 'quick' | 'ai';
 
-export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBlock }) => {
+export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBlock, initialView = 'menu' }) => {
   const createBtnRef = useRef<HTMLButtonElement>(null);
   const quickTitleRef = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<'menu' | 'paste' | 'review' | 'importReview'>('menu');
@@ -51,10 +53,12 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
     };
     if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- jump to the requested view on open
+      if (initialView !== 'menu') setView(initialView);
       setTimeout(() => quickTitleRef.current?.focus() || createBtnRef.current?.focus(), 50);
     }
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleClose, isOpen]);
+  }, [handleClose, isOpen, initialView]);
 
   if (!isOpen) return null;
 

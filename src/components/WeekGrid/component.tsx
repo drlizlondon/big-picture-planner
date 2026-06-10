@@ -1,5 +1,7 @@
 // Week Canvas Component
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../db/db';
 import { addDays, formatDate, getStartOfWeek, getWeekDays } from '../../utils/dateUtils';
 import { DayColumn } from '../DayColumn/component';
 import { useWeekBlocks } from '../../hooks/usePlannerData';
@@ -175,6 +177,8 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
                 activeFilters={activeFilters}
               />
             ))}
+
+            <EmptyWeekPrompt />
           </div>
           {!isMobile && <KeyboardHint selectedBlock={visibleBlocks.find(block => block.id === selectedBlockId)} />}
           <div className="h-4 flex-shrink-0 bg-white" />
@@ -195,6 +199,55 @@ const KeyboardHint: React.FC<{ selectedBlock?: PlannerBlock }> = ({ selectedBloc
     </div>
   </div>
 );
+
+/**
+ * First-run guidance shown over the grid while the planner is completely
+ * empty: point the user at the three ways to fill their week. Disappears as
+ * soon as they have a single block (scheduled or in the inbox).
+ */
+const EmptyWeekPrompt: React.FC = () => {
+  const totalBlocks = useLiveQuery(() => db.blocks.filter(b => !b.deletedAt).count(), [], undefined);
+  if (totalBlocks !== 0) return null;
+
+  const fire = (name: string) => window.dispatchEvent(new CustomEvent(name));
+
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-8 z-blocks flex justify-center px-4">
+      <div className="pointer-events-auto w-full max-w-[340px] rounded-large border border-border-default bg-surface-primary/95 p-4 shadow-modal backdrop-blur">
+        <div className="text-[14px] font-bold text-text-primary">Your week is empty. Let&apos;s fill it.</div>
+        <p className="mt-1 text-[12px] leading-relaxed text-text-secondary">
+          Bring in what you already have, then drag everything into place.
+        </p>
+        <div className="mt-3 flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => fire('planner:open-sync')}
+            className="h-10 w-full rounded-small bg-accent-primary text-[13px] font-bold text-white hover:bg-accent-hover transition-colors"
+          >
+            Connect or import your calendar
+          </button>
+          <button
+            type="button"
+            onClick={() => fire('planner:open-import')}
+            className="h-10 w-full rounded-small border border-border-default bg-background text-[13px] font-bold text-text-primary hover:bg-border-default/40 transition-colors"
+          >
+            Import your to-do list
+          </button>
+        </div>
+        <p className="mt-2.5 text-center text-[11px] text-text-muted">
+          Google Calendar syncs live. Apple Calendar imports via a .ics file.
+        </p>
+        <button
+          type="button"
+          onClick={() => fire('planner:start-tour')}
+          className="mt-1 w-full text-center text-[11px] font-semibold text-accent-primary hover:underline"
+        >
+          Or take the 60-second walkthrough
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const ZoomSelect: React.FC<{ value: ZoomMode; onChange: (value: ZoomMode) => void }> = ({ value, onChange }) => (
   <select
