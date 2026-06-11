@@ -9,6 +9,7 @@ import { BUILT_IN_CHILDCARE_FEATURE_ID } from '../../utils/plannerSetup';
 import { formatDurationLabel } from '../../utils/durationLabels';
 import { isGCalBlock } from '../../services/googleCalendarService';
 import { isIcsBlock } from '../../services/icsImportService';
+import { getCategoryColor } from '../../utils/categoryColors';
 
 interface Props {
   block: PlannerBlock;
@@ -30,7 +31,10 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
   const activeFeatures = allFeatures.filter(f => block.features?.[f.id]?.enabled);
   const categories = useCategories() || [];
   const category = block.categoryId ? categories.find(cat => cat.id === block.categoryId) : undefined;
+  const categoryColor = getCategoryColor(category);
   const childcare = block.features?.[BUILT_IN_CHILDCARE_FEATURE_ID];
+  const gcal = isGCalBlock(block);
+  const ics = isIcsBlock(block);
   const [isActionsOpen, setIsActionsOpen] = useState(false);
 
   const wasDragging = useRef(false);
@@ -51,6 +55,18 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
       return;
     }
     onSelectBlock(block.id);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (wasDragging.current) return;
+    if (gcal || ics) {
+      onSelectBlock(block.id);
+      return;
+    }
+    setIsActionsOpen(false);
+    onEditBlock(block.id);
   };
 
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -116,8 +132,6 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
     }
   }
 
-  const gcal = isGCalBlock(block);
-  const ics = isIcsBlock(block);
   const blockTone = getBlockTone(block, hasConflicts, category?.name);
   const style = {
     top: `${topOffset}px`,
@@ -196,6 +210,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
       }}
       onPointerUp={handlePointerUp}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
       onMouseLeave={() => setIsActionsOpen(false)}
       tabIndex={0}
@@ -206,7 +221,15 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
 
       <div className="flex justify-between items-start gap-1 min-w-0">
         <div className="min-w-0 flex-1 pr-0">
-          <div className="text-[10px] font-bold text-text-secondary leading-[1.15] truncate flex items-center gap-1" style={{ wordBreak: 'normal', overflowWrap: 'normal', hyphens: 'none' }}>
+          <div className="text-[8px] font-bold text-text-secondary leading-[1.15] truncate flex items-center gap-1" style={{ wordBreak: 'normal', overflowWrap: 'normal', hyphens: 'none' }}>
+            {category && (
+              <span
+                className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                style={{ backgroundColor: categoryColor }}
+                title={category.name}
+                aria-label={`Category: ${category.name}`}
+              />
+            )}
             {gcal && (
               <svg width="9" height="9" viewBox="0 0 18 18" aria-label="Google Calendar" className="flex-shrink-0 opacity-70">
                 <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"/>
@@ -223,7 +246,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
             <span>{visibleTimeLabel}{secondaryTimeStr && !isShortBlock && ` • ${secondaryTimeStr}`}</span>
           </div>
           <div
-            className="mt-0.5 text-[12px] font-bold leading-[1.15]"
+            className="mt-0.5 text-[9px] font-bold leading-[1.15] text-text-primary"
             style={{
               display: '-webkit-box',
               WebkitLineClamp: titleLineClamp,
@@ -250,6 +273,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
           onPointerStop={stopActionPointer}
           isCompact={usesCompactActions}
           placement={actionPlacement}
+          isSelected={isSelected}
         />
       ) : ics ? (
         // Apple Calendar .ics imports: just allow removal from view
@@ -260,10 +284,12 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
           isOpen={isActionsOpen}
           onToggle={(e) => { e.stopPropagation(); setIsActionsOpen(prev => !prev); }}
           placement={actionPlacement}
+          isSelected={isSelected}
         />
       ) : usesCompactActions ? (
         <CompactActionMenu
           isOpen={isActionsOpen}
+          isSelected={isSelected}
           onToggle={(e) => {
             e.stopPropagation();
             setIsActionsOpen(prev => !prev);
@@ -277,6 +303,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
       ) : (
         <FloatingActionToolbar
           placement={actionPlacement}
+          isSelected={isSelected}
           onEdit={handleEditAction}
           onMoveToSchedule={handleMoveToSchedule}
           onDuplicate={handleDuplicate}
@@ -328,10 +355,11 @@ type ActionPlacement = 'above' | 'below';
 
 interface FloatingActionToolbarProps extends ActionControlsProps {
   placement: ActionPlacement;
+  isSelected: boolean;
 }
 
-const FloatingActionToolbar: React.FC<FloatingActionToolbarProps> = ({ placement, onEdit, onMoveToSchedule, onDuplicate, onDelete, onPointerStop }) => (
-  <div className={`pointer-events-none absolute right-0 z-30 hidden items-center gap-1 rounded-small border border-border-default bg-surface-primary/95 px-1 py-1 shadow-sm backdrop-blur group-hover:flex group-focus-within:flex ${placement === 'above' ? '-top-8' : 'top-full mt-1'}`}>
+const FloatingActionToolbar: React.FC<FloatingActionToolbarProps> = ({ placement, isSelected, onEdit, onMoveToSchedule, onDuplicate, onDelete, onPointerStop }) => (
+  <div className={`absolute right-0 z-30 items-center gap-1 rounded-small border border-border-default bg-surface-primary/95 px-1 py-1 shadow-sm backdrop-blur ${isSelected ? 'flex pointer-events-auto' : 'hidden pointer-events-none group-hover:flex group-hover:pointer-events-auto group-focus-within:flex group-focus-within:pointer-events-auto'} ${placement === 'above' ? '-top-8' : 'top-full mt-1'}`}>
     <ActionButton label="Edit" onClick={onEdit} onPointerStop={onPointerStop}>✎</ActionButton>
     <ActionButton label="Move to Ready to schedule" onClick={onMoveToSchedule} onPointerStop={onPointerStop}>↰</ActionButton>
     <ActionButton label="Duplicate" onClick={onDuplicate} onPointerStop={onPointerStop}>⧉</ActionButton>
@@ -341,10 +369,11 @@ const FloatingActionToolbar: React.FC<FloatingActionToolbarProps> = ({ placement
 
 interface CompactActionMenuProps extends ActionControlsProps {
   isOpen: boolean;
+  isSelected: boolean;
   onToggle: (e: React.MouseEvent) => void;
 }
 
-const CompactActionMenu: React.FC<CompactActionMenuProps> = ({ isOpen, onToggle, onEdit, onMoveToSchedule, onDuplicate, onDelete, onPointerStop }) => (
+const CompactActionMenu: React.FC<CompactActionMenuProps> = ({ isOpen, isSelected, onToggle, onEdit, onMoveToSchedule, onDuplicate, onDelete, onPointerStop }) => (
   <div className="pointer-events-none absolute -right-2 -top-2 z-30 flex items-start justify-end">
     <button
       type="button"
@@ -353,7 +382,7 @@ const CompactActionMenu: React.FC<CompactActionMenuProps> = ({ isOpen, onToggle,
       onPointerDown={onPointerStop}
       onPointerUp={onPointerStop}
       onClick={onToggle}
-      className="pointer-events-none h-6 w-6 rounded-full border border-border-default bg-surface-primary/95 text-[13px] font-bold leading-none text-text-secondary opacity-0 shadow-sm transition-opacity hover:text-text-primary group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+      className={`h-6 w-6 rounded-full border border-border-default bg-surface-primary/95 text-[13px] font-bold leading-none text-text-secondary shadow-sm transition-opacity hover:text-text-primary ${isSelected ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'}`}
       title="Block actions"
     >
       ⋯
@@ -402,9 +431,10 @@ interface GCalActionMenuProps {
   onPointerStop: (e: React.PointerEvent | React.MouseEvent) => void;
   isCompact: boolean;
   placement: ActionPlacement;
+  isSelected: boolean;
 }
 
-const GCalActionMenu: React.FC<GCalActionMenuProps> = ({ block, isOpen, onToggle, onDelete, onPointerStop, isCompact, placement }) => {
+const GCalActionMenu: React.FC<GCalActionMenuProps> = ({ block, isOpen, onToggle, onDelete, onPointerStop, isCompact, placement, isSelected }) => {
   const gcalHref = block.importRawLine || 'https://calendar.google.com';
 
   const buttons = (
@@ -441,7 +471,7 @@ const GCalActionMenu: React.FC<GCalActionMenuProps> = ({ block, isOpen, onToggle
           onPointerDown={onPointerStop}
           onPointerUp={onPointerStop}
           onClick={onToggle}
-          className="pointer-events-none h-6 w-6 rounded-full border border-[#A8C4FB] bg-[#E8F0FE]/95 text-[13px] font-bold leading-none text-[#4285F4] opacity-0 shadow-sm transition-opacity hover:text-[#1a73e8] group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+          className={`h-6 w-6 rounded-full border border-[#A8C4FB] bg-[#E8F0FE]/95 text-[13px] font-bold leading-none text-[#4285F4] shadow-sm transition-opacity hover:text-[#1a73e8] ${isSelected ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'}`}
         >
           ⋯
         </button>
@@ -455,7 +485,7 @@ const GCalActionMenu: React.FC<GCalActionMenuProps> = ({ block, isOpen, onToggle
   }
 
   return (
-    <div className={`pointer-events-none absolute right-0 z-30 hidden items-center gap-1 rounded-small border border-[#A8C4FB] bg-[#E8F0FE]/95 px-1 py-1 shadow-sm backdrop-blur group-hover:flex group-focus-within:flex ${placement === 'above' ? '-top-8' : 'top-full mt-1'}`}>
+    <div className={`absolute right-0 z-30 items-center gap-1 rounded-small border border-[#A8C4FB] bg-[#E8F0FE]/95 px-1 py-1 shadow-sm backdrop-blur ${isSelected ? 'flex pointer-events-auto' : 'hidden pointer-events-none group-hover:flex group-hover:pointer-events-auto group-focus-within:flex group-focus-within:pointer-events-auto'} ${placement === 'above' ? '-top-8' : 'top-full mt-1'}`}>
       {buttons}
     </div>
   );
@@ -470,9 +500,10 @@ interface IcsActionMenuProps {
   onPointerStop: (e: React.PointerEvent | React.MouseEvent) => void;
   isCompact: boolean;
   placement: ActionPlacement;
+  isSelected: boolean;
 }
 
-const IcsActionMenu: React.FC<IcsActionMenuProps> = ({ isOpen, onToggle, onDelete, onPointerStop, isCompact, placement }) => {
+const IcsActionMenu: React.FC<IcsActionMenuProps> = ({ isOpen, onToggle, onDelete, onPointerStop, isCompact, placement, isSelected }) => {
   const buttons = (
     <ActionButton label="Remove from view" onClick={onDelete} onPointerStop={onPointerStop} danger>×</ActionButton>
   );
@@ -487,7 +518,7 @@ const IcsActionMenu: React.FC<IcsActionMenuProps> = ({ isOpen, onToggle, onDelet
           onPointerDown={onPointerStop}
           onPointerUp={onPointerStop}
           onClick={onToggle}
-          className="pointer-events-none h-6 w-6 rounded-full border border-red-200 bg-red-50/95 text-[13px] font-bold leading-none text-red-500 opacity-0 shadow-sm transition-opacity hover:text-red-600 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+          className={`h-6 w-6 rounded-full border border-red-200 bg-red-50/95 text-[13px] font-bold leading-none text-red-500 shadow-sm transition-opacity hover:text-red-600 ${isSelected ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'}`}
         >
           ⋯
         </button>
@@ -501,7 +532,7 @@ const IcsActionMenu: React.FC<IcsActionMenuProps> = ({ isOpen, onToggle, onDelet
   }
 
   return (
-    <div className={`pointer-events-none absolute right-0 z-30 hidden items-center gap-1 rounded-small border border-red-200 bg-red-50/95 px-1 py-1 shadow-sm backdrop-blur group-hover:flex group-focus-within:flex ${placement === 'above' ? '-top-8' : 'top-full mt-1'}`}>
+    <div className={`absolute right-0 z-30 items-center gap-1 rounded-small border border-red-200 bg-red-50/95 px-1 py-1 shadow-sm backdrop-blur ${isSelected ? 'flex pointer-events-auto' : 'hidden pointer-events-none group-hover:flex group-hover:pointer-events-auto group-focus-within:flex group-focus-within:pointer-events-auto'} ${placement === 'above' ? '-top-8' : 'top-full mt-1'}`}>
       {buttons}
     </div>
   );

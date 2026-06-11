@@ -3,9 +3,9 @@ import { useSyncStatus } from '../../hooks/useSyncStatus';
 import { markImportDeviceOnlyForCurrentUser, markImportLaterForCurrentUser, queueLocalImportForCurrentUser, signOut, syncPendingChanges } from '../../services/syncService';
 import { sendMagicLink, signInWithGoogle } from '../../services/supabaseClient';
 import { getAccountAccessState, getImportChoiceDescription } from './accountAccessCore';
+import { getAppHref } from '../../utils/deploymentPaths';
 
-const plannerHref = `${import.meta.env.BASE_URL || '/'}${import.meta.env.BASE_URL?.endsWith('/') ? '' : '/'}`
-  .replace(/\/{2,}/g, '/');
+const plannerHref = getAppHref();
 
 export const AccountAccess: React.FC = () => {
   const sync = useSyncStatus();
@@ -103,7 +103,7 @@ export const AccountAccess: React.FC = () => {
               <div className="space-y-3">
                 <h2 className="text-[18px] font-bold text-text-primary">Saved on this device</h2>
                 <p className="text-[14px] leading-6 text-text-secondary">
-                  Your planner is ready to use here. Account sync can be turned on when the app is connected to Supabase.
+                  Your planner is ready to use here. Account sync is not available in this version.
                 </p>
                 <a href={plannerHref} className="inline-flex min-h-10 items-center justify-center rounded-small bg-accent-primary px-4 py-2 text-[13px] font-bold text-white">
                   Continue planning

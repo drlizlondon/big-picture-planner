@@ -1,5 +1,5 @@
 import { db, createId } from '../db/db';
-import type { BlockSourceType, PlannerBlock, PlannerItemMetadata, PlannerTemplate } from '../types/models';
+import type { BlockSourceType, Category, PlannerBlock, PlannerItemMetadata, PlannerTemplate } from '../types/models';
 import { calculateEndTime, minutesToTime, timeToMinutes } from '../utils/planningEngine';
 import { addDays, formatDate } from '../utils/dateUtils';
 import { enqueueSyncChange } from './syncService';
@@ -85,6 +85,29 @@ export const archiveTemplate = async (id: string): Promise<void> => {
   });
   const template = await db.templates.get(id);
   if (template) await enqueueSyncChange('templates', id, 'delete', template);
+};
+
+export const createCategory = async (categoryData: Pick<Category, 'name' | 'colorHex'>): Promise<string> => {
+  const id = createId();
+  await db.categories.add({
+    id,
+    name: categoryData.name.trim(),
+    colorHex: categoryData.colorHex,
+    isArchived: false,
+  });
+  return id;
+};
+
+export const updateCategory = async (id: string, updates: Partial<Pick<Category, 'name' | 'colorHex' | 'isArchived'>>): Promise<void> => {
+  const normalizedUpdates = { ...updates };
+  if (typeof updates.name === 'string') {
+    normalizedUpdates.name = updates.name.trim();
+  }
+  await db.categories.update(id, normalizedUpdates);
+};
+
+export const archiveCategory = async (id: string): Promise<void> => {
+  await db.categories.update(id, { isArchived: true });
 };
 
 export const duplicateBlock = async (id: string, inPlace: boolean = false): Promise<string | null> => {

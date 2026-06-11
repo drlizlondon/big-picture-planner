@@ -6,16 +6,18 @@
     <script>
       // GitHub Pages serves this single root 404.html for every missing path.
       // For the planner SPA (served under /planner/), encode the requested
-      // route into ?p= and bounce to /planner/ so its index.html can restore
+      // route into ?p= and bounce to the app base so its index.html can restore
       // the route. Anything else is a genuinely missing page -> send home.
       (function () {
         var l = window.location;
         var path = l.pathname;
-        var BASE = '/planner/';
-        if (path.indexOf(BASE) === 0) {
-          var rest = path.slice(BASE.length); // path after /planner/
+        var marker = '/planner/';
+        var markerIndex = path.indexOf(marker);
+        if (markerIndex >= 0) {
+          var base = path.slice(0, markerIndex + marker.length);
+          var rest = path.slice(base.length); // path after the app base
           l.replace(
-            l.origin + BASE + '?p=' + encodeURIComponent(rest + l.search) + (l.hash || '')
+            l.origin + base + '?p=' + encodeURIComponent(rest + l.search) + (l.hash || '')
           );
           return;
         }

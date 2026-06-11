@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { EDITOR_FIELDS, type EditorFieldLocation, usePlannerSetup } from '../../utils/plannerSetup';
+import { useCategories } from '../../hooks/usePlannerData';
+import { archiveCategory, createCategory, updateCategory } from '../../services/plannerActions';
 
 interface Props {
   isOpen: boolean;
@@ -12,11 +14,12 @@ const LOCATION_OPTIONS: Array<{ value: EditorFieldLocation; label: string }> = [
   { value: 'hidden', label: 'Hide' },
 ];
 
-type SetupSection = 'general' | 'editorLayout' | 'sources' | 'filters' | 'appearance' | 'advanced';
+type SetupSection = 'general' | 'editorLayout' | 'categories' | 'sources' | 'filters' | 'appearance' | 'advanced';
 
 const SECTIONS: Array<{ id: SetupSection; label: string; description: string }> = [
   { id: 'general', label: 'General', description: 'Everyday planner preferences.' },
   { id: 'editorLayout', label: 'Editor Layout', description: 'Choose what appears when editing a block.' },
+  { id: 'categories', label: 'Categories', description: 'Colour accents for your blocks.' },
   { id: 'sources', label: 'Sources', description: 'Understand where planner items come from.' },
   { id: 'filters', label: 'Filters', description: 'Control what appears on the calendar.' },
   { id: 'appearance', label: 'Appearance', description: 'Keep the planner visually calm.' },
@@ -67,6 +70,7 @@ export const PlannerSetupPanel: React.FC<Props> = ({ isOpen, onClose }) => {
           <div className="overflow-y-auto p-6">
             {activeSection === 'general' && <GeneralSection onClose={onClose} />}
             {activeSection === 'editorLayout' && <EditorLayoutSection setup={setup} updateField={updateField} />}
+            {activeSection === 'categories' && <CategoriesSection />}
             {activeSection === 'sources' && <SourcesSection />}
             {activeSection === 'filters' && <FutureSection title="Filters" body="The side panel filters show or hide matching calendar blocks. Full saved views and custom labels are not enabled yet." />}
             {activeSection === 'appearance' && <FutureSection title="Appearance" body="The launch theme is intentionally restrained: small type, light grid lines and clear block colours." />}
@@ -152,6 +156,115 @@ const EditorLayoutSection: React.FC<EditorLayoutSectionProps> = ({ setup, update
     </div>
   </section>
 );
+
+const CATEGORY_COLOR_PRESETS = ['#3B82F6', '#22C55E', '#F97316', '#8B5CF6', '#EC4899', '#64748B'];
+
+const CategoriesSection: React.FC = () => {
+  const categories = useCategories() || [];
+  const [name, setName] = useState('');
+  const [colorHex, setColorHex] = useState(CATEGORY_COLOR_PRESETS[0]);
+
+  const handleCreate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
+    await createCategory({ name: trimmedName, colorHex });
+    setName('');
+  };
+
+  return (
+    <section className="flex flex-col gap-4">
+      <div>
+        <h3 className="text-[18px] font-bold text-text-primary">Categories</h3>
+        <p className="mt-1 text-[13px] leading-6 text-text-secondary">
+          Categories add a small colour dot to blocks without taking over the calendar.
+        </p>
+      </div>
+
+      <form onSubmit={handleCreate} className="rounded-medium border border-border-default bg-background p-4">
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+          <label className="flex flex-col gap-2">
+            <span className="text-[12px] font-bold uppercase tracking-[0.04em] text-text-primary">New category</span>
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="h-[38px] rounded-small border border-border-default bg-white px-3 text-[13px] outline-none focus:border-accent-primary"
+              placeholder="e.g. Health, Work, Family"
+            />
+          </label>
+          <label className="flex flex-col gap-2">
+            <span className="text-[12px] font-bold uppercase tracking-[0.04em] text-text-primary">Colour</span>
+            <input
+              type="color"
+              value={colorHex}
+              onChange={(event) => setColorHex(event.target.value)}
+              className="h-[38px] w-full min-w-[64px] rounded-small border border-border-default bg-white p-1"
+              aria-label="New category colour"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={!name.trim()}
+            className="h-[38px] rounded-small bg-accent-primary px-4 text-[13px] font-bold text-white disabled:opacity-50"
+          >
+            Add
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {CATEGORY_COLOR_PRESETS.map(preset => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => setColorHex(preset)}
+              className={`h-6 w-6 rounded-full border ${colorHex.toLowerCase() === preset.toLowerCase() ? 'border-text-primary ring-2 ring-text-primary/10' : 'border-border-default'}`}
+              style={{ backgroundColor: preset }}
+              aria-label={`Use colour ${preset}`}
+            />
+          ))}
+        </div>
+      </form>
+
+      <div className="rounded-medium border border-border-default overflow-hidden">
+        <div className="grid grid-cols-[1fr_76px_70px] bg-background border-b border-border-default px-3 py-2 text-[11px] font-bold uppercase tracking-[0.04em] text-text-muted sm:grid-cols-[1fr_96px_90px]">
+          <span>Category</span>
+          <span>Colour</span>
+          <span></span>
+        </div>
+        {categories.length === 0 ? (
+          <div className="px-3 py-4 text-[13px] text-text-secondary">
+            No categories yet. Add one above, then assign it from the block editor.
+          </div>
+        ) : (
+          categories.map(category => (
+            <div key={category.id} className="grid grid-cols-[1fr_76px_70px] gap-2 px-3 py-3 border-b border-border-default last:border-b-0 items-center sm:grid-cols-[1fr_96px_90px]">
+              <input
+                value={category.name}
+                onChange={(event) => void updateCategory(category.id, { name: event.target.value })}
+                className="h-[36px] min-w-0 rounded-small border border-border-default bg-white px-2 text-[13px] font-semibold text-text-primary outline-none focus:border-accent-primary"
+                aria-label={`Name for ${category.name}`}
+              />
+              <input
+                type="color"
+                value={category.colorHex}
+                onChange={(event) => void updateCategory(category.id, { colorHex: event.target.value })}
+                className="h-[36px] w-full rounded-small border border-border-default bg-white p-1"
+                aria-label={`Colour for ${category.name}`}
+              />
+              <button
+                type="button"
+                onClick={() => void archiveCategory(category.id)}
+                className="h-[36px] rounded-small border border-border-default bg-surface-primary px-2 text-[12px] font-bold text-text-secondary hover:text-semantic-danger"
+              >
+                Archive
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+};
 
 const SourcesSection: React.FC = () => (
   <section className="flex flex-col gap-4">

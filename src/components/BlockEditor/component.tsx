@@ -4,7 +4,7 @@ import { useBlock, useCategories } from '../../hooks/usePlannerData';
 import { calculateEndTime } from '../../utils/planningEngine';
 import type { FeatureData } from '../../types/models';
 import { DurationSelector } from '../DurationSelector/component';
-import { BUILT_IN_CHILDCARE_FEATURE_ID, usePlannerSetup, type EditorFieldId } from '../../utils/plannerSetup';
+import { BUILT_IN_CHILDCARE_FEATURE_ID, EDITOR_FIELDS, usePlannerSetup, type EditorFieldId } from '../../utils/plannerSetup';
 
 interface Props {
   isOpen: boolean;
@@ -330,7 +330,8 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
   };
 
   const renderLocationFields = (location: 'basic' | 'moreDetails') => (
-    (Object.keys(fields) as EditorFieldId[])
+    EDITOR_FIELDS
+      .map(field => field.id)
       .filter(field => setup[field] === location)
       .map(field => <React.Fragment key={field}>{fields[field]}</React.Fragment>)
   );

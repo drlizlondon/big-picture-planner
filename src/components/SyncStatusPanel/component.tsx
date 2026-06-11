@@ -5,8 +5,10 @@ import { markImportDeviceOnlyForCurrentUser, markImportLaterForCurrentUser, queu
 import { connectGoogleCalendar, sendMagicLink, signInWithGoogle } from '../../services/supabaseClient';
 import { getLastSyncTime, hasGCalAccess, syncGoogleCalendarEvents } from '../../services/googleCalendarService';
 import { importIcsFile } from '../../services/icsImportService';
+import { getAppHref, getSiteHref } from '../../utils/deploymentPaths';
 
-const accountHref = `${import.meta.env.BASE_URL || '/'}account`.replace(/\/{2,}/g, '/');
+const accountHref = getAppHref('account');
+const feedbackHref = getSiteHref('feedback.html?src=app');
 
 const formatRelativeTime = (iso: string): string => {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -180,7 +182,7 @@ export const SyncStatusPanel: React.FC = () => {
 
           {!sync.isConfigured && (
             <p className="mt-3 text-[13px] leading-snug text-text-secondary">
-              Saved on this device. Add Supabase keys to enable magic link sync.
+              Saved on this device. Account sync is not available in this version.
             </p>
           )}
 
@@ -402,7 +404,7 @@ export const SyncStatusPanel: React.FC = () => {
               Account access
             </a>
             <a
-              href="/feedback.html?src=app"
+              href={feedbackHref}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[12px] font-semibold text-text-muted hover:text-text-secondary"

@@ -7,11 +7,11 @@
     <title>Big Picture Planner</title>
     <script>
       // Restore path encoded by the root 404.html for GitHub Pages SPA routing.
-      // The app lives under /planner/, so restore relative to that base.
       (function () {
         var p = new URLSearchParams(window.location.search).get('p');
         if (p) {
-          window.history.replaceState(null, '', '/planner/' + decodeURIComponent(p));
+          var base = '%BASE_URL%';
+          window.history.replaceState(null, '', base + decodeURIComponent(p));
         }
       })();
     </script>

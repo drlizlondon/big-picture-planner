@@ -16,13 +16,13 @@ export type PlannerSetup = Record<EditorFieldId, EditorFieldLocation>;
 export const BUILT_IN_CHILDCARE_FEATURE_ID = 'childcare-needed';
 
 export const EDITOR_FIELDS: Array<{ id: EditorFieldId; label: string }> = [
-  { id: 'description', label: 'Description' },
-  { id: 'category', label: 'Category' },
-  { id: 'baseEvent', label: 'Base Calendar Event' },
   { id: 'travelTime', label: 'Travel Time' },
+  { id: 'category', label: 'Category' },
+  { id: 'description', label: 'Description' },
+  { id: 'baseEvent', label: 'Base Calendar Event' },
   { id: 'additionalTimezone', label: 'Additional Timezone' },
-  { id: 'saveAsTemplate', label: 'Save As Template' },
   { id: 'childcare', label: 'Childcare Needed' },
+  { id: 'saveAsTemplate', label: 'Save As Template' },
 ];
 
 export const DEFAULT_PLANNER_SETUP: PlannerSetup = {

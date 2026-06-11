@@ -2,6 +2,7 @@
 import React from 'react';
 import { getStartOfWeek, addDays } from '../../utils/dateUtils';
 import { SyncStatusPanel } from '../SyncStatusPanel/component';
+import { getSiteHref } from '../../utils/deploymentPaths';
 
 interface Props {
   currentDate: Date;
@@ -61,7 +62,7 @@ export const PlannerHeader: React.FC<Props> = ({ currentDate, onPrevWeek, onNext
       <div className="planner-header-actions flex items-center gap-3">
         <PlanningLegend />
         <a
-          href="/feedback.html?src=app"
+          href={getSiteHref('feedback.html?src=app')}
           target="_blank"
           rel="noopener noreferrer"
           className="planner-feedback-button h-9 hidden sm:flex items-center gap-1.5 rounded-medium border border-border-default bg-surface-primary px-3 text-[12px] font-semibold text-text-secondary hover:text-accent-primary hover:border-accent-primary/40 shadow-sm transition-colors"

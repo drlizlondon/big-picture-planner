@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getAccessState, redeemCode, subscribeToAccessChanges, type AccessState } from '../../services/accessService';
 import { signInWithGoogle, sendMagicLink, getCurrentSession } from '../../services/supabaseClient';
 import { signOut } from '../../services/syncService';
+import { getSiteHref } from '../../utils/deploymentPaths';
 
 interface Props {
   children: React.ReactNode;
@@ -168,7 +169,7 @@ const SignInScreen: React.FC<{ onSignedIn: () => void }> = () => {
 
         <p className="mt-4 text-center text-[12px] text-text-muted">
           Don&apos;t have a code yet?{' '}
-          <a href="/" className="text-accent-primary font-bold hover:underline">Join the waitlist</a>
+          <a href={getSiteHref()} className="text-accent-primary font-bold hover:underline">Join the waitlist</a>
         </p>
         <BetaNote />
       </div>
@@ -246,7 +247,7 @@ const CodeEntryScreen: React.FC<{ onRedeemed: () => void }> = ({ onRedeemed }) =
         <div className="mt-4 text-center space-y-2">
           <p className="text-[12px] text-text-muted">
             No code yet?{' '}
-            <a href="/" className="text-accent-primary font-bold hover:underline">Join the waitlist</a>
+            <a href={getSiteHref()} className="text-accent-primary font-bold hover:underline">Join the waitlist</a>
           </p>
           <button onClick={() => signOut()} className="text-[12px] text-text-muted hover:text-text-secondary">
             Sign out
@@ -294,7 +295,7 @@ const TrialBanner: React.FC<{ daysRemaining: number }> = () => (
   <div className="bg-accent-primary px-4 py-2 text-center">
     <p className="text-[12px] font-bold text-white">
       You&apos;re a Founder Beta member. Thank you for helping shape Big Picture Planner.
-      {' '}<a href="/feedback.html?src=app" className="underline">Share feedback</a>
+      {' '}<a href={getSiteHref('feedback.html?src=app')} className="underline">Share feedback</a>
     </p>
   </div>
 );
