@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Big Picture Planner — Your week is a puzzle. Let's fit it together.</title>
-  <meta name="description" content="Calendars show what is fixed. To-do lists hold everything else. Big Picture Planner helps you see your real gaps and place floating tasks where they actually fit. Try the demo, then request a £40 founder place in the paid beta." />
+  <meta name="description" content="Calendars show what is fixed. To-do lists hold everything else. Big Picture Planner helps you see your real gaps and place floating tasks where they actually fit. Try the demo, enter an access code, or request a founder place." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -51,6 +51,9 @@
       justify-content: space-between;
     }
     .nav-logo { font-size: 15px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); text-decoration: none; }
+    .nav-links { display: flex; align-items: center; gap: 10px; }
+    .nav-link { color: var(--text-secondary); font-size: 13px; font-weight: 700; padding: 8px 10px; text-decoration: none; transition: color 0.15s; }
+    .nav-link:hover { color: var(--purple-dark); }
     .nav-cta { background: var(--purple); color: #fff; font-size: 13px; font-weight: 700; padding: 8px 18px; border-radius: 100px; text-decoration: none; transition: background 0.15s; }
     .nav-cta:hover { background: var(--purple-dark); }
 
@@ -73,6 +76,11 @@
       border: 2px solid var(--border);
     }
     .btn-secondary:hover { border-color: var(--purple-mid); color: var(--purple-dark); }
+    .btn-code {
+      background: var(--purple-light); color: var(--purple-dark);
+      border: 2px solid var(--purple-mid);
+    }
+    .btn-code:hover { background: #fff; transform: translateY(-1px); }
     .btn-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 
     /* HERO */
@@ -279,6 +287,11 @@
     .divider { height: 1px; background: var(--border); max-width: 860px; margin: 0 auto; }
 
     @media (max-width: 600px) {
+      nav { padding: 0 14px; }
+      .nav-logo { font-size: 13px; }
+      .nav-links { gap: 4px; }
+      .nav-link { font-size: 12px; padding: 8px 6px; }
+      .nav-cta { font-size: 12px; padding: 8px 10px; }
       .hero { padding: 52px 20px 44px; }
       .section { padding: 60px 20px; }
       .founder-section { padding: 60px 20px; }
@@ -294,7 +307,10 @@
   <!-- NAV -->
   <nav>
     <a href="/" class="nav-logo">Big Picture Planner</a>
-    <a href="/planner/?tour=1&src=nav" class="nav-cta" onclick="bppTrack('nav_try_demo')">Try the demo</a>
+    <div class="nav-links">
+      <a href="/planner/?tour=1&src=nav" class="nav-cta" onclick="bppTrack('nav_try_demo')">Try demo</a>
+      <a href="/planner/?access=code&src=landing_nav" class="nav-link" onclick="bppTrack('nav_have_code')">I have a code</a>
+    </div>
   </nav>
 
   <!-- HERO -->
@@ -306,9 +322,10 @@
     </p>
     <div class="btn-row">
       <a href="/planner/?tour=1&src=hero" class="btn btn-primary" onclick="bppTrack('hero_try_demo')">&#9654; Try the demo</a>
-      <a href="#request" class="btn btn-secondary" onclick="bppTrack('hero_request_founding_access'); setRequestSource('hero');">Request Founding Access</a>
+      <a href="/planner/?access=code&src=landing_hero" class="btn btn-code" onclick="bppTrack('hero_have_code')">I have an access code</a>
+      <a href="#request" class="btn btn-secondary" onclick="bppTrack('hero_request_access'); setRequestSource('hero');">Request access</a>
     </div>
-    <p class="hero-micro">See how Big Picture Planner works, then request a founder place if it feels useful for your week.</p>
+    <p class="hero-micro">Try the demo, enter your code if you already have one, or request a founder place if you need access.</p>
   </section>
 
   <!-- SCREENSHOT -->
@@ -367,12 +384,13 @@
     <section class="section demo-section">
       <p class="section-label">See it for yourself</p>
       <h2>Try the demo</h2>
-      <p class="demo-copy">Before requesting Founding Access, try the demo and see whether this way of planning makes sense for your brain and your life.</p>
+      <p class="demo-copy">Try the demo and see whether this way of planning makes sense for your brain and your life. Already have a code? Open Planner and sign in.</p>
       <div class="btn-row">
         <a href="/planner/?tour=1&src=demo" class="btn btn-primary" onclick="bppTrack('demo_open_demo')">Open the demo</a>
-        <a href="#request" class="btn btn-secondary" onclick="bppTrack('demo_request_founding_access'); setRequestSource('demo');">Request Founding Access</a>
+        <a href="/planner/?access=code&src=landing_demo" class="btn btn-code" onclick="bppTrack('demo_have_code')">Already have a code? Open Planner</a>
+        <a href="#request" class="btn btn-secondary" onclick="bppTrack('demo_request_access'); setRequestSource('demo');">Request access</a>
       </div>
-      <p class="hero-micro">The demo is quick to try and helps you see the planning flow before you request a founder place.</p>
+      <p class="hero-micro">The demo is quick to try and code holders can go straight into the access flow.</p>
     </section>
   </div>
 
@@ -478,7 +496,7 @@
           <li><span>&#10003;</span> Priority feedback influence</li>
           <li><span>&#10003;</span> A 14-day beta guarantee after paid access begins</li>
         </ul>
-        <a href="#request" class="btn btn-primary" onclick="bppTrack('pricing_request_founding_access'); setRequestSource('pricing');">Request Founding Access</a>
+        <a href="#request" class="btn btn-primary" onclick="bppTrack('pricing_request_founding_access'); setRequestSource('pricing');">Request a founder place</a>
         <a href="/planner/?tour=1&src=pricing" class="offer-secondary" onclick="bppTrack('pricing_try_demo_first')">Try the demo first</a>
       </div>
       <p class="pricing-support">Request a founder place now. If you are included in an upcoming batch, you will receive instructions to pay and access the beta.</p>
@@ -496,7 +514,7 @@
     <section class="section" id="request">
       <div class="request-wrap">
         <p class="section-label">Request a founder place</p>
-        <h2 style="margin-left:auto;margin-right:auto;">Request Founding Access</h2>
+        <h2 style="margin-left:auto;margin-right:auto;">Request access</h2>
         <p class="request-intro">Founder places are released in small batches while Big Picture Planner is in beta. Request a founder place and we will invite early users gradually as access opens.</p>
         <form id="request-form" onsubmit="return submitFounderRequest(event)">
           <input type="email" id="req-email" placeholder="Email address (required)" autocomplete="email" required />
@@ -551,7 +569,7 @@
   <section class="cta-section">
     <h2>Ready to see where it all fits?</h2>
     <p>Request a &pound;40 founder place. If you are invited into a batch, you can pay and start planning.</p>
-    <a href="#request" class="btn btn-primary" onclick="bppTrack('bottom_request_founding_access'); setRequestSource('bottom');">Request Founding Access</a>
+    <a href="#request" class="btn btn-primary" onclick="bppTrack('bottom_request_founding_access'); setRequestSource('bottom');">Request access</a>
     <a href="/planner/?tour=1&src=bottom" class="cta-alt" onclick="bppTrack('bottom_open_demo')">Open the demo</a>
   </section>
 
