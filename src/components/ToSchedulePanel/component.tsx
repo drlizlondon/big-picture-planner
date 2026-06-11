@@ -83,10 +83,10 @@ export const ToSchedulePanel: React.FC<Props> = ({
           <span className={isExpanded ? 'rotate-180' : ''}>▲</span>
         </button>
         <div className="min-w-0">
-          <h2 className="text-[15px] font-bold">{inboxTitle} <span className="text-[12px] text-text-muted font-semibold">({unscheduledBlocks?.length || 0})</span></h2>
-          {!isTray && <p className="text-[12px] text-text-secondary mt-0.5">Things waiting for a place.</p>}
+          <h2 className="text-[13px] font-bold">{inboxTitle} <span className="text-[11px] text-text-muted font-semibold">({unscheduledBlocks?.length || 0})</span></h2>
+          {!isTray && <p className="text-[11px] text-text-secondary mt-0.5">Things waiting for a place.</p>}
         </div>
-        {isTray && <div className="ml-auto text-[12px] font-semibold text-text-secondary">{isDraggingBlock ? 'Place it in the week' : 'Long press to pick up'}</div>}
+        {isTray && <div className="ml-auto text-[11px] font-semibold text-text-secondary">{isDraggingBlock ? 'Place it in the week' : 'Long press to pick up'}</div>}
       </div>
 
       <input
@@ -220,11 +220,11 @@ const DraggableBlockItem: React.FC<DraggableBlockProps> = ({ block, categoryMap,
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           {category && <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: categoryColor }} title={category.name} />}
-          <div className={`${isTray ? 'mobile-inbox-card-title' : 'truncate'} text-[12px] font-bold text-text-primary`}>{block.title}</div>
-          <div className="ml-auto flex-shrink-0 rounded-[999px] border border-border-default bg-background px-2 py-0.5 text-[10px] font-bold text-text-secondary">{block.durationMinutes} min</div>
+          <div className={`${isTray ? 'mobile-inbox-card-title' : 'ready-item-title'} text-[11px] font-bold text-text-primary`}>{block.title}</div>
+          <div className="ml-auto flex-shrink-0 rounded-[999px] border border-border-default bg-background px-1.5 py-0.5 text-[9px] font-bold text-text-secondary">{block.durationMinutes} min</div>
         </div>
         {!isTray && block.description && (
-          <div className="text-[11px] text-text-secondary mt-0.5 truncate leading-tight">
+          <div className="ready-item-description text-[10px] text-text-secondary mt-0.5 leading-tight">
             {block.description}
           </div>
         )}

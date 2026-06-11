@@ -16,6 +16,17 @@ test.describe('public access journey', () => {
     await expect(codeLink).toHaveAttribute('href', '/planner/?access=code&src=landing_nav');
   });
 
+  test('landing page gives returning users a clear login route', async ({ page }) => {
+    await openLanding(page);
+
+    const navLogin = page.getByRole('link', { name: 'Log in' }).first();
+    await expect(navLogin).toBeVisible();
+    await expect(navLogin).toHaveAttribute('href', '/planner/sign-in?src=landing_nav_login');
+    await expect(page.getByText('Already have an account?').first()).toBeVisible();
+    await expect(page.getByText('Like Tetris for your real life.')).toBeVisible();
+    await expect(page.getByText('ADHD')).toHaveCount(0);
+  });
+
   test('I have a code opens the app access flow', async ({ page }) => {
     await openLanding(page);
 

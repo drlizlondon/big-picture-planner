@@ -26,9 +26,10 @@ interface Props {
   expandedDate?: string | null;
   isDraggingBlock?: boolean;
   activeFilters: PlannerFilterId[];
+  onSlotClick?: (position: { date: string; startTime: string }) => void;
 }
 
-export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBlock, selectedBlockId, expandedDate = null, isDraggingBlock = false, activeFilters }) => {
+export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBlock, selectedBlockId, expandedDate = null, isDraggingBlock = false, activeFilters, onSlotClick }) => {
   const [viewMode, setViewMode] = usePersistedSetting<ViewMode>('planner.viewMode', 'week');
   const [zoomMode, setZoomMode] = usePersistedSetting<ZoomMode>('planner.zoomMode', 'comfortable');
   const [visibleHoursPreset, setVisibleHoursPreset] = usePersistedSetting<VisibleHoursPreset>('planner.visibleHoursPreset', '07-22');
@@ -104,7 +105,7 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
         <div className="week-grid-toolbar flex items-center justify-between gap-3 min-w-0">
           <div className="min-w-[230px] flex items-baseline gap-2">
             <div className="text-[15px] font-bold text-text-primary">Fit your life into the week</div>
-            <div className="text-[12px] text-text-secondary">
+            <div className="planner-scaled-label text-text-secondary">
               {isMobile ? 'Drag from Life Inbox' : visibleBlocks.length === 0 ? 'Drag from Ready to schedule' : `${visibleBlocks.length} visible this week`}
             </div>
           </div>
@@ -153,12 +154,12 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
           <div className="flex flex-1 relative min-h-max">
             <div className="week-time-gutter w-12 flex-shrink-0 border-r border-border-default/50 flex flex-col bg-surface-primary">
               {visibleHours.map(hour => (
-                <div key={hour} className="flex justify-center text-text-muted text-[10px] font-semibold pt-2 border-b border-border-default/55 box-border" style={{ height: `${hourHeight}px` }}>
+                <div key={hour} className="planner-scaled-small flex justify-center text-text-muted font-semibold pt-2 border-b border-border-default/55 box-border" style={{ height: `${hourHeight}px` }}>
                   {`${String(hour).padStart(2, '0')}:00`}
                 </div>
               ))}
               <div className="relative h-0 flex justify-center text-text-muted text-[11px] font-medium">
-                <span className="-translate-y-1/2 text-[10px] font-semibold">{`${String(visibleRange.end).padStart(2, '0')}:00`}</span>
+                <span className="planner-scaled-small -translate-y-1/2 font-semibold">{`${String(visibleRange.end).padStart(2, '0')}:00`}</span>
               </div>
             </div>
 
@@ -175,6 +176,7 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
                 visibleEndHour={visibleRange.end}
                 isExpanded={expandedDate === day.value}
                 activeFilters={activeFilters}
+                onSlotClick={onSlotClick}
               />
             ))}
 
@@ -354,7 +356,7 @@ const MonthCanvas: React.FC<MonthCanvasProps> = ({ dates, blocks, today }) => {
     <div className="p-4">
       <div className="grid grid-cols-7 border border-border-default rounded-medium overflow-hidden bg-surface-primary">
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-          <div key={day} className="h-9 flex items-center justify-center text-[12px] font-semibold text-text-secondary border-b border-border-default bg-background">
+          <div key={day} className="planner-scaled-label h-9 flex items-center justify-center font-semibold text-text-secondary border-b border-border-default bg-background">
             {day}
           </div>
         ))}
@@ -362,12 +364,12 @@ const MonthCanvas: React.FC<MonthCanvasProps> = ({ dates, blocks, today }) => {
           const dayBlocks = blocksByDate[day.value] || [];
           return (
             <div key={day.value} className={`min-h-[108px] border-t border-r border-border-default/70 p-2 ${day.value === today ? 'bg-accent-primary/[0.055]' : 'bg-surface-primary'} ${day.inMonth ? '' : 'opacity-45'}`}>
-              <div className="text-[12px] font-semibold text-text-secondary">{day.label}</div>
+              <div className="planner-scaled-label font-semibold text-text-secondary">{day.label}</div>
               <div className="mt-2 flex flex-col gap-1">
                 {dayBlocks.slice(0, 3).map(block => (
                   <MonthBlock key={block.id} block={block} />
                 ))}
-                {dayBlocks.length > 3 && <div className="text-[11px] text-text-muted px-1">More placed here</div>}
+                {dayBlocks.length > 3 && <div className="planner-scaled-small text-text-muted px-1">More placed here</div>}
               </div>
             </div>
           );
@@ -385,7 +387,7 @@ const MonthBlock: React.FC<{ block: PlannerBlock }> = ({ block }) => {
       : 'border-[#C9D3E1] bg-[#F3F6FB]';
 
   return (
-    <div className={`truncate text-[12px] text-text-primary rounded-small border px-2 py-1 ${tone}`}>
+    <div className={`planner-scaled-label truncate text-text-primary rounded-small border px-2 py-1 ${tone}`}>
       <span>{block.title}</span>
       {block.travelEnabled && (block.travelBeforeMinutes > 0 || block.travelAfterMinutes > 0) && (
         <span className="ml-1 text-[#2877BD]">Travel</span>

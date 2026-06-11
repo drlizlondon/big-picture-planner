@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Big Picture Planner — Your week is a puzzle. Let's fit it together.</title>
-  <meta name="description" content="Calendars show what is fixed. To-do lists hold everything else. Big Picture Planner helps you see your real gaps and place floating tasks where they actually fit. Try the demo, enter an access code, or request a founder place." />
+  <title>Big Picture Planner — Your week as a puzzle. Fit it together.</title>
+  <meta name="description" content="Big Picture Planner helps you see work, errands, people, travel time, admin and rest in one visual week. Try the demo, log in, enter an access code, or request access." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -309,6 +309,7 @@
     <a href="/" class="nav-logo">Big Picture Planner</a>
     <div class="nav-links">
       <a href="/planner/?tour=1&src=nav" class="nav-cta" onclick="bppTrack('nav_try_demo')">Try demo</a>
+      <a href="/planner/sign-in?src=landing_nav_login" class="nav-link" onclick="bppTrack('nav_login')">Log in</a>
       <a href="/planner/?access=code&src=landing_nav" class="nav-link" onclick="bppTrack('nav_have_code')">I have a code</a>
     </div>
   </nav>
@@ -316,16 +317,19 @@
   <!-- HERO -->
   <section class="hero">
     <div class="hero-badge">Working beta &middot; Founder places open</div>
-    <h1>Your week is a puzzle.<br><em>Big Picture Planner helps you fit it together.</em></h1>
+    <h1>Your week as a puzzle.<br><em>Big Picture Planner helps you fit it together.</em></h1>
     <p class="hero-sub">
-      Calendars show what is already fixed. To-do lists hold everything else. Big Picture Planner helps you see your real gaps and place the floating tasks, errands, admin and life commitments where they actually fit.
+      Your week is not just a list. It is work, errands, people, travel time, admin, meals, exercise, rest, and the things you still have not found space for.
+      <br><br>
+      Big Picture Planner helps you see it all at once, move things around, and work out where everything actually fits. Like Tetris for your real life.
     </p>
     <div class="btn-row">
       <a href="/planner/?tour=1&src=hero" class="btn btn-primary" onclick="bppTrack('hero_try_demo')">&#9654; Try the demo</a>
+      <a href="/planner/sign-in?src=landing_hero_login" class="btn btn-secondary" onclick="bppTrack('hero_login')">Log in</a>
       <a href="/planner/?access=code&src=landing_hero" class="btn btn-code" onclick="bppTrack('hero_have_code')">I have an access code</a>
       <a href="#request" class="btn btn-secondary" onclick="bppTrack('hero_request_access'); setRequestSource('hero');">Request access</a>
     </div>
-    <p class="hero-micro">Try the demo, enter your code if you already have one, or request a founder place if you need access.</p>
+    <p class="hero-micro">Already have an account? <a href="/planner/sign-in?src=landing_hero_micro" onclick="bppTrack('hero_micro_login')" style="color:var(--purple);font-weight:700;">Log in</a>. Have an access code? Enter it to get started.</p>
   </section>
 
   <!-- SCREENSHOT -->
@@ -335,21 +339,6 @@
     </div>
   </div>
 
-  <!-- PROBLEM -->
-  <section class="section">
-    <p class="section-label">The missing step</p>
-    <h2>Most planning tools split your life in two.</h2>
-    <div class="problem-copy">
-      <p><strong>Your calendar</strong> has the fixed things &mdash; meetings, school runs, appointments and deadlines.</p>
-      <p><strong>Your to-do list</strong> has everything else &mdash; errands, admin, chores, calls, returns, forms, ideas and loose ends.</p>
-      <p>But the real question is not &ldquo;what do I need to do?&rdquo;</p>
-      <p class="problem-punch">It is &ldquo;where does this actually fit?&rdquo;</p>
-      <p>Big Picture Planner is built for that missing step.</p>
-    </div>
-  </section>
-
-  <div class="divider"></div>
-
   <!-- HOW IT WORKS -->
   <section class="section">
     <p class="section-label">How it works</p>
@@ -358,24 +347,37 @@
       <div class="step">
         <div class="step-num">1</div>
         <div class="step-content">
-          <h3>Dump it all into your Life Inbox</h3>
-          <p>Capture every floating task before it clutters your head. School forms, dentist bookings, that call you keep putting off &mdash; everything goes in, with no date needed yet.</p>
+          <h3>Add what is on your mind</h3>
+          <p>Drop commitments, tasks, errands, social plans and loose ideas into one visual planning space.</p>
         </div>
       </div>
       <div class="step">
         <div class="step-num">2</div>
         <div class="step-content">
-          <h3>See the real shape of your week</h3>
-          <p>View your fixed commitments and open gaps together. The gaps are where your week actually happens &mdash; and now you can see them.</p>
+          <h3>Turn tasks into movable blocks</h3>
+          <p>See the pieces of your week clearly, including the things your calendar does not normally hold.</p>
         </div>
       </div>
       <div class="step">
         <div class="step-num">3</div>
         <div class="step-content">
-          <h3>Drag tasks into the spaces where they fit</h3>
-          <p>Build a realistic week by placing tasks visually, instead of hoping a list will somehow turn into a plan.</p>
+          <h3>Fit the pieces into your week</h3>
+          <p>Move things around until the week makes sense and you can see what is realistic.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- PROBLEM -->
+  <section class="section">
+    <p class="section-label">Planning without extra admin</p>
+    <h2>Most planning tools turn your life into admin.</h2>
+    <div class="problem-copy">
+      <p><strong>Big Picture Planner is different.</strong> It is not here to make you manage another system. It is here to help you understand your actual week.</p>
+      <p>Use it when your plans change, when your calendar does not tell the full story, or when you need to see everything before you can decide what to do next.</p>
+      <p class="problem-punch">No more guessing whether you have time. No more pretending a to-do list is a plan.</p>
     </div>
   </section>
 
@@ -384,13 +386,14 @@
     <section class="section demo-section">
       <p class="section-label">See it for yourself</p>
       <h2>Try the demo</h2>
-      <p class="demo-copy">Try the demo and see whether this way of planning makes sense for your brain and your life. Already have a code? Open Planner and sign in.</p>
+      <p class="demo-copy">Explore the planner before creating an account.</p>
       <div class="btn-row">
         <a href="/planner/?tour=1&src=demo" class="btn btn-primary" onclick="bppTrack('demo_open_demo')">Open the demo</a>
-        <a href="/planner/?access=code&src=landing_demo" class="btn btn-code" onclick="bppTrack('demo_have_code')">Already have a code? Open Planner</a>
+        <a href="/planner/sign-in?src=landing_demo_login" class="btn btn-secondary" onclick="bppTrack('demo_login')">Log in</a>
+        <a href="/planner/?access=code&src=landing_demo" class="btn btn-code" onclick="bppTrack('demo_have_code')">I have an access code</a>
         <a href="#request" class="btn btn-secondary" onclick="bppTrack('demo_request_access'); setRequestSource('demo');">Request access</a>
       </div>
-      <p class="hero-micro">The demo is quick to try and code holders can go straight into the access flow.</p>
+      <p class="hero-micro">Already have an account? <a href="/planner/sign-in?src=landing_demo_micro" onclick="bppTrack('demo_micro_login')" style="color:var(--purple);font-weight:700;">Log in</a>. Have an access code? Enter it to get started. Need access? Request an invite.</p>
     </section>
   </div>
 
@@ -419,12 +422,12 @@
   <!-- WHO IT'S FOR -->
   <section class="section">
     <p class="section-label">Who it's for</p>
-    <h2>If your brain is always doing the fitting anyway, this helps.</h2>
+    <h2>For busy weeks with moving pieces.</h2>
     <div class="pain-grid">
       <div class="pain-card">
-        <span class="pain-icon">&#x1F9E0;</span>
-        <h3>ADHD brains</h3>
-        <p>Out of sight, out of mind. Keeping it all in your head is exhausting. Having one visual place where it all lives &mdash; and moves &mdash; is a genuine relief.</p>
+        <span class="pain-icon">&#x1F9E9;</span>
+        <h3>Visual planners</h3>
+        <p>See commitments, tasks and open space together, then move the pieces until the week makes sense.</p>
       </div>
       <div class="pain-card">
         <span class="pain-icon">&#x1F3E0;</span>
@@ -449,28 +452,28 @@
     <section class="section">
       <p class="section-label">Where the product is</p>
       <h2>A working beta, released carefully.</h2>
-      <p style="font-size:16px;color:var(--text-secondary);max-width:560px;">Big Picture Planner is a working beta, not a polished corporate app. We are opening access gradually so we can keep the experience stable, learn from early users, and improve the product properly.</p>
+      <p style="font-size:16px;color:var(--text-secondary);max-width:560px;">Big Picture Planner is a working beta, released gradually so we can keep the experience stable, learn from early users, and improve the product properly.</p>
       <div class="beta-grid">
         <div class="beta-card beta-yes">
-          <h3>You should expect</h3>
+          <h3>What to expect</h3>
           <ul>
-            <li><span class="mark">&#10003;</span> A usable planning tool that helps you organise your week</li>
-            <li><span class="mark">&#10003;</span> Some rough edges while the product develops</li>
+            <li><span class="mark">&#10003;</span> A visual planning space for real life</li>
+            <li><span class="mark">&#10003;</span> A way to plan work, errands, family commitments, travel time, social plans, admin and workouts</li>
+            <li><span class="mark">&#10003;</span> Help seeing what is realistic, what needs moving, and what simply will not fit</li>
             <li><span class="mark">&#10003;</span> Regular improvements based on real feedback</li>
-            <li><span class="mark">&#10003;</span> Controlled access while the beta is still being shaped</li>
           </ul>
         </div>
         <div class="beta-card beta-no">
-          <h3>You should not expect</h3>
+          <h3>What not to expect</h3>
           <ul>
-            <li><span class="mark">&#10005;</span> Unlimited instant access for everyone</li>
-            <li><span class="mark">&#10005;</span> A perfect app with every feature finished</li>
-            <li><span class="mark">&#10005;</span> Enterprise-level polish</li>
-            <li><span class="mark">&#10005;</span> A tool that replaces every calendar, task manager or productivity app you already use</li>
+            <li><span class="mark">&#10005;</span> A corporate project-management tool</li>
+            <li><span class="mark">&#10005;</span> A replacement for your calendar or team systems</li>
+            <li><span class="mark">&#10005;</span> Productivity dashboards that turn planning into another job</li>
+            <li><span class="mark">&#10005;</span> Unlimited instant access while the beta is opening gradually</li>
           </ul>
         </div>
       </div>
-      <p class="beta-footnote">This is for people who are happy to use a working early product, because the underlying planning method is already useful.</p>
+      <p class="beta-footnote">It is a visual layer that helps you turn a messy week into something you can actually understand.</p>
     </section>
   </div>
 

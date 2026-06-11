@@ -10,9 +10,25 @@ interface Props {
   onNextWeek: () => void;
   onToday: () => void;
   onOpenSetup: () => void;
+  textScale: number;
+  canDecreaseText: boolean;
+  canIncreaseText: boolean;
+  onDecreaseText: () => void;
+  onIncreaseText: () => void;
 }
 
-export const PlannerHeader: React.FC<Props> = ({ currentDate, onPrevWeek, onNextWeek, onToday, onOpenSetup }) => {
+export const PlannerHeader: React.FC<Props> = ({
+  currentDate,
+  onPrevWeek,
+  onNextWeek,
+  onToday,
+  onOpenSetup,
+  textScale,
+  canDecreaseText,
+  canIncreaseText,
+  onDecreaseText,
+  onIncreaseText,
+}) => {
   const startOfWeek = getStartOfWeek(currentDate);
   const endOfWeek = addDays(startOfWeek, 6);
   
@@ -60,6 +76,13 @@ export const PlannerHeader: React.FC<Props> = ({ currentDate, onPrevWeek, onNext
       </div>
       
       <div className="planner-header-actions flex items-center gap-3">
+        <TextZoomControls
+          textScale={textScale}
+          canDecreaseText={canDecreaseText}
+          canIncreaseText={canIncreaseText}
+          onDecreaseText={onDecreaseText}
+          onIncreaseText={onIncreaseText}
+        />
         <PlanningLegend />
         <a
           href={getSiteHref('feedback.html?src=app')}
@@ -78,6 +101,46 @@ export const PlannerHeader: React.FC<Props> = ({ currentDate, onPrevWeek, onNext
     </header>
   );
 };
+
+interface TextZoomControlsProps {
+  textScale: number;
+  canDecreaseText: boolean;
+  canIncreaseText: boolean;
+  onDecreaseText: () => void;
+  onIncreaseText: () => void;
+}
+
+const TextZoomControls: React.FC<TextZoomControlsProps> = ({
+  textScale,
+  canDecreaseText,
+  canIncreaseText,
+  onDecreaseText,
+  onIncreaseText,
+}) => (
+  <div className="planner-text-zoom inline-flex items-center rounded-medium border border-border-default bg-surface-primary p-0.5 shadow-sm" title="Planner text size">
+    <button
+      type="button"
+      onClick={onDecreaseText}
+      disabled={!canDecreaseText}
+      className="h-8 w-8 rounded-small text-[16px] font-bold text-text-secondary hover:bg-background hover:text-text-primary disabled:opacity-35"
+      aria-label="Decrease planner text"
+    >
+      -
+    </button>
+    <span className="min-w-9 text-center text-[11px] font-bold text-text-muted" aria-live="polite">
+      {Math.round(textScale * 100)}%
+    </span>
+    <button
+      type="button"
+      onClick={onIncreaseText}
+      disabled={!canIncreaseText}
+      className="h-8 w-8 rounded-small text-[16px] font-bold text-text-secondary hover:bg-background hover:text-text-primary disabled:opacity-35"
+      aria-label="Increase planner text"
+    >
+      +
+    </button>
+  </div>
+);
 
 const PlanningLegend: React.FC = () => (
   <div className="hidden 2xl:flex items-center gap-3 rounded-medium border border-border-default bg-surface-primary px-3 py-1.5 shadow-sm">

@@ -54,6 +54,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
       e.stopPropagation();
       return;
     }
+    (e.currentTarget as HTMLElement).focus();
     onSelectBlock(block.id);
   };
 
@@ -84,6 +85,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
     if (distance < 5) {
       e.preventDefault();
       e.stopPropagation();
+      (e.currentTarget as HTMLElement).focus();
       onSelectBlock(block.id);
     }
   };
@@ -180,6 +182,14 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
   };
 
   const handleKeyDown = async (e: React.KeyboardEvent) => {
+    const isDeleteKey = e.key === 'Backspace' || e.key === 'Delete';
+    if (isDeleteKey && isSelected) {
+      e.preventDefault();
+      e.stopPropagation();
+      await deleteBlock(block.id);
+      return;
+    }
+
     if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
     if (!block.date || !block.startTime) return;
 
@@ -201,6 +211,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
     <div
       ref={setNodeRef}
       data-tour="scheduled-block"
+      data-block-id={block.id}
       style={style}
       {...listeners}
       {...attributes}
@@ -221,7 +232,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
 
       <div className="flex justify-between items-start gap-1 min-w-0">
         <div className="min-w-0 flex-1 pr-0">
-          <div className="text-[8px] font-bold text-text-secondary leading-[1.15] truncate flex items-center gap-1" style={{ wordBreak: 'normal', overflowWrap: 'normal', hyphens: 'none' }}>
+          <div className="scheduled-block-time font-bold text-text-secondary leading-[1.15] truncate flex items-center gap-1" style={{ wordBreak: 'normal', overflowWrap: 'normal', hyphens: 'none' }}>
             {category && (
               <span
                 className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
@@ -246,7 +257,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
             <span>{visibleTimeLabel}{secondaryTimeStr && !isShortBlock && ` • ${secondaryTimeStr}`}</span>
           </div>
           <div
-            className="mt-0.5 text-[9px] font-bold leading-[1.15] text-text-primary"
+            className="scheduled-block-title mt-0.5 font-bold leading-[1.15] text-text-primary"
             style={{
               display: '-webkit-box',
               WebkitLineClamp: titleLineClamp,
@@ -313,17 +324,17 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
       )}
       
       <div className="flex flex-wrap items-center gap-1 mt-0.5 overflow-hidden pointer-events-none">
-        {childcare?.enabled && !childcare.isComplete && <div className="text-[10px] font-semibold bg-white/70 border border-border-default px-1 rounded flex items-center whitespace-nowrap" title="Childcare needed">Childcare?</div>}
-        {childcare?.enabled && childcare.isComplete && <div className="text-[10px] font-semibold bg-white/60 border border-border-default px-1 rounded flex items-center whitespace-nowrap opacity-80" title="Childcare sorted">✓ childcare</div>}
-        {hasConflicts && <div className="text-[10px] font-bold text-semantic-danger bg-white/75 border border-semantic-danger/30 px-1 rounded flex items-center whitespace-nowrap" title="Overlaps with another block">⚠ overlap</div>}
-        {isOutOfBounds && <div className="text-[10px] font-bold text-semantic-danger bg-white/75 border border-semantic-danger/30 px-1 rounded flex items-center whitespace-nowrap" title="Travel extends outside day bounds">⚠ bounds</div>}
-        {isLongBlock && <div className="text-[10px] font-semibold text-text-secondary bg-white/55 border border-border-default px-1 rounded whitespace-nowrap">{formatDurationLabel(block.durationMinutes)}</div>}
+        {childcare?.enabled && !childcare.isComplete && <div className="scheduled-block-badge font-semibold bg-white/70 border border-border-default px-1 rounded flex items-center whitespace-nowrap" title="Childcare needed">Childcare?</div>}
+        {childcare?.enabled && childcare.isComplete && <div className="scheduled-block-badge font-semibold bg-white/60 border border-border-default px-1 rounded flex items-center whitespace-nowrap opacity-80" title="Childcare sorted">✓ childcare</div>}
+        {hasConflicts && <div className="scheduled-block-badge font-bold text-semantic-danger bg-white/75 border border-semantic-danger/30 px-1 rounded flex items-center whitespace-nowrap" title="Overlaps with another block">⚠ overlap</div>}
+        {isOutOfBounds && <div className="scheduled-block-badge font-bold text-semantic-danger bg-white/75 border border-semantic-danger/30 px-1 rounded flex items-center whitespace-nowrap" title="Travel extends outside day bounds">⚠ bounds</div>}
+        {isLongBlock && <div className="scheduled-block-badge font-semibold text-text-secondary bg-white/55 border border-border-default px-1 rounded whitespace-nowrap">{formatDurationLabel(block.durationMinutes)}</div>}
       </div>
 
       {activeFeatures.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1.5 pointer-events-none">
           {activeFeatures.map(f => (
-            <span key={f.id} className="text-[10px] bg-white/70 border border-border-default px-1.5 py-0.5 rounded-sm text-text-secondary font-medium flex items-center gap-0.5 shadow-sm">
+            <span key={f.id} className="scheduled-block-badge bg-white/70 border border-border-default px-1.5 py-0.5 rounded-sm text-text-secondary font-medium flex items-center gap-0.5 shadow-sm">
               {f.icon && <span>{f.icon}</span>}{f.name} {block.features?.[f.id]?.isComplete ? '✓' : '?'}
             </span>
           ))}

@@ -1,21 +1,29 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { PlannerHeader } from '../PlannerHeader/component';
 import { Sidebar } from '../Sidebar/component';
 import { WeekGrid } from '../WeekGrid/component';
 import { addDays } from '../../utils/dateUtils';
 import { DndContext, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useDroppable, useSensor, useSensors, type Collision, type CollisionDetection, type DragEndEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
-import { moveBlockByDays, moveBlockByMinutes, moveBlockToSchedule, moveBlockToWeek, resizeBlockDuration } from '../../services/plannerActions';
+import { createBlock, deleteBlock, moveBlockByDays, moveBlockByMinutes, moveBlockToSchedule, moveBlockToWeek, resizeBlockDuration } from '../../services/plannerActions';
 import { AddToPlannerModal } from '../AddToPlannerModal/component';
 import { BlockEditor } from '../BlockEditor/component';
 import { PlannerSetupPanel } from '../PlannerSetupPanel/component';
 import { ToSchedulePanel } from '../ToSchedulePanel/component';
 import { useBlock, useWeekBlocks } from '../../hooks/usePlannerData';
-import { calculateEndTime } from '../../utils/planningEngine';
+import { calculateEndTime, detectMinuteOverlap, minutesToTime, timeToMinutes } from '../../utils/planningEngine';
 import { DEFAULT_FILTERS, FILTER_LABELS, matchesPlannerFilters, type PlannerFilterId } from '../../utils/plannerFilters';
 import { formatDate, getStartOfWeek } from '../../utils/dateUtils';
 import { OnboardingTour } from '../OnboardingTour/component';
+import type { PlannerBlock } from '../../types/models';
 
 const MOBILE_INBOX_PREF_KEY = 'planner.mobileInboxExpanded';
+const PLANNER_TEXT_SCALE_KEY = 'planner.textScale';
+const PLANNER_TEXT_SCALE_MIN = 0.9;
+const PLANNER_TEXT_SCALE_MAX = 1.3;
+const PLANNER_TEXT_SCALE_STEP = 0.1;
+const PASTE_DAY_START_MINUTE = 7 * 60;
+const PASTE_DAY_END_MINUTE = 22 * 60;
+const PASTE_SNAP_MINUTES = 15;
 const collisionDetection: CollisionDetection = (args) => {
   const topEdgeCollisions = getTopEdgeSlotCollisions(args);
   if (topEdgeCollisions.length > 0) return topEdgeCollisions;
@@ -97,7 +105,23 @@ export const AppShell: React.FC = () => {
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<PlannerFilterId[]>(DEFAULT_FILTERS);
+  const [plannerTextScale, setPlannerTextScale] = useState(() => {
+    try {
+      const storedRawValue = localStorage.getItem(PLANNER_TEXT_SCALE_KEY);
+      if (storedRawValue === null) return 1;
+      const storedValue = Number(storedRawValue);
+      return clampTextScale(Number.isFinite(storedValue) ? storedValue : 1);
+    } catch {
+      return 1;
+    }
+  });
   const selectedBlock = useBlock(selectedBlockId);
+  const visibleWeekStart = formatDate(getStartOfWeek(currentDate));
+  const visibleWeekEnd = formatDate(addDays(getStartOfWeek(currentDate), 6));
+  const visibleWeekBlocksRaw = useWeekBlocks(visibleWeekStart, visibleWeekEnd);
+  const visibleWeekBlocks = useMemo(() => visibleWeekBlocksRaw || [], [visibleWeekBlocksRaw]);
+  const plannerClipboardRef = useRef<PlannerClipboardBlock | null>(null);
+  const lastClickedSlotRef = useRef<PlannerSlotPosition | null>(null);
   const weekSwitchTimer = useRef<number | null>(null);
   const dayExpandTimer = useRef<number | null>(null);
   const keyboardQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -120,6 +144,10 @@ export const AppShell: React.FC = () => {
 
   const handleSelectBlock = (blockId: string) => {
     setSelectedBlockId(blockId);
+  };
+
+  const handleSlotClick = (position: PlannerSlotPosition) => {
+    lastClickedSlotRef.current = position;
   };
 
   const handlePrevWeek = () => setCurrentDate(prev => addDays(prev, -7));
@@ -162,6 +190,19 @@ export const AppShell: React.FC = () => {
       // Keep the in-memory preference if storage is unavailable.
     }
   };
+
+  const updatePlannerTextScale = (nextScale: number) => {
+    const clampedScale = clampTextScale(nextScale);
+    setPlannerTextScale(clampedScale);
+    try {
+      localStorage.setItem(PLANNER_TEXT_SCALE_KEY, String(clampedScale));
+    } catch {
+      // Keep the in-memory preference if storage is unavailable.
+    }
+  };
+
+  const decreasePlannerText = () => updatePlannerTextScale(plannerTextScale - PLANNER_TEXT_SCALE_STEP);
+  const increasePlannerText = () => updatePlannerTextScale(plannerTextScale + PLANNER_TEXT_SCALE_STEP);
   const isBlockingPanelOpen = isAddModalOpen || isBlockEditorOpen || isPlannerSetupOpen;
 
   useEffect(() => {
@@ -197,19 +238,64 @@ export const AppShell: React.FC = () => {
     };
 
     const handleKeyDown = async (event: KeyboardEvent) => {
-      if (!selectedBlock || isBlockingPanelOpen) return;
+      if (isBlockingPanelOpen) return;
       if (isTypingTarget(event.target)) return;
-      if (!selectedBlock.date || !selectedBlock.startTime) return;
 
+      const isCopyKey = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c';
+      const isPasteKey = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v';
       const isMoveKey = event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight';
       const isDurationKey = event.key === '+' || event.key === '=' || event.key === '-' || event.key === '_';
-      if (!isMoveKey && !isDurationKey) return;
+      const isDeleteKey = event.key === 'Backspace' || event.key === 'Delete';
+      const blockForShortcut = selectedBlock || visibleWeekBlocks.find(block => block.id === selectedBlockId);
+
+      if (isCopyKey) {
+        if (!blockForShortcut?.date || !blockForShortcut.startTime) return;
+        event.preventDefault();
+        plannerClipboardRef.current = copyBlockToPlannerClipboard(blockForShortcut);
+        return;
+      }
+
+      if (isPasteKey) {
+        const copiedBlock = plannerClipboardRef.current;
+        if (!copiedBlock) return;
+        event.preventDefault();
+        keyboardQueueRef.current = keyboardQueueRef.current.catch(() => undefined).then(async () => {
+          const placement = findPastePlacement({
+            copiedBlock,
+            blocks: visibleWeekBlocks,
+            currentDate,
+            preferredSlot: lastClickedSlotRef.current,
+          });
+          const blockId = await createBlock({
+            ...copiedBlock,
+            ...placement,
+            isScheduled: true,
+          });
+          setSelectedBlockId(blockId);
+          setLastScheduledBlockId(blockId);
+          if (placement.date < visibleWeekStart || placement.date > visibleWeekEnd) {
+            setCurrentDate(new Date(`${placement.date}T12:00:00`));
+          }
+          revealSelectedBlock();
+        });
+        return;
+      }
+
+      if (!blockForShortcut || (!isMoveKey && !isDurationKey && !isDeleteKey)) return;
 
       event.preventDefault();
       const key = event.key;
-      const blockId = selectedBlock.id;
+      const blockId = blockForShortcut.id;
 
       keyboardQueueRef.current = keyboardQueueRef.current.catch(() => undefined).then(async () => {
+        if (isDeleteKey) {
+          await deleteBlock(blockId);
+          setSelectedBlockId(null);
+          return;
+        }
+
+        if (!blockForShortcut.date || !blockForShortcut.startTime) return;
+
         if (key === 'ArrowLeft' || key === 'ArrowRight') {
           const newDate = await moveBlockByDays(blockId, key === 'ArrowLeft' ? -1 : 1);
           if (newDate) ensureWeekVisible(newDate);
@@ -234,9 +320,9 @@ export const AppShell: React.FC = () => {
       });
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isBlockingPanelOpen, selectedBlock, currentDate]);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [isBlockingPanelOpen, selectedBlock, selectedBlockId, currentDate, visibleWeekBlocks, visibleWeekStart, visibleWeekEnd]);
 
   const clearWeekSwitchTimer = () => {
     if (weekSwitchTimer.current !== null) {
@@ -325,8 +411,22 @@ export const AppShell: React.FC = () => {
 
   return (
     <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
-    <div className="app-shell-root relative flex flex-col overflow-hidden bg-white text-text-primary font-sans">
-      <PlannerHeader currentDate={currentDate} onPrevWeek={handlePrevWeek} onNextWeek={handleNextWeek} onToday={handleToday} onOpenSetup={() => setIsPlannerSetupOpen(true)} />
+    <div
+      className="app-shell-root relative flex flex-col overflow-hidden bg-white text-text-primary font-sans"
+      style={{ '--planner-text-scale': plannerTextScale } as React.CSSProperties}
+    >
+      <PlannerHeader
+        currentDate={currentDate}
+        onPrevWeek={handlePrevWeek}
+        onNextWeek={handleNextWeek}
+        onToday={handleToday}
+        onOpenSetup={() => setIsPlannerSetupOpen(true)}
+        textScale={plannerTextScale}
+        canDecreaseText={plannerTextScale > PLANNER_TEXT_SCALE_MIN}
+        canIncreaseText={plannerTextScale < PLANNER_TEXT_SCALE_MAX}
+        onDecreaseText={decreasePlannerText}
+        onIncreaseText={increasePlannerText}
+      />
       
       <div className={`planner-workspace flex flex-1 overflow-hidden p-3 gap-2 ${isMobileInboxExpanded ? 'mobile-inbox-expanded' : 'mobile-inbox-collapsed'} ${isDraggingBlock ? 'is-dragging-block' : ''}`}>
         {isSidebarCollapsed ? (
@@ -360,6 +460,7 @@ export const AppShell: React.FC = () => {
             expandedDate={mobileExpandedDate}
             isDraggingBlock={isDraggingBlock}
             activeFilters={activeFilters}
+            onSlotClick={handleSlotClick}
           />
         </main>
         <WeekEdgeDropZone id="next-week" title="Next Week" helper="Drag here or click to view next week" weekOffset={1} isDraggingBlock={isDraggingBlock} onClick={handleNextWeek} />
@@ -441,6 +542,117 @@ export const AppShell: React.FC = () => {
     </div>
     </DndContext>
   );
+};
+
+const clampTextScale = (scale: number) => (
+  Math.min(PLANNER_TEXT_SCALE_MAX, Math.max(PLANNER_TEXT_SCALE_MIN, Number(scale.toFixed(2))))
+);
+
+type PlannerSlotPosition = Pick<PlannerBlock, 'date' | 'startTime'> & { date: string; startTime: string };
+type PlannerClipboardBlock = Omit<PlannerBlock, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'date' | 'startTime' | 'endTime' | 'isScheduled'>;
+
+interface PastePlacementOptions {
+  copiedBlock: PlannerClipboardBlock;
+  blocks: PlannerBlock[];
+  currentDate: Date;
+  preferredSlot: PlannerSlotPosition | null;
+}
+
+const copyBlockToPlannerClipboard = (block: PlannerBlock): PlannerClipboardBlock => ({
+  title: block.title,
+  description: block.description,
+  durationMinutes: block.durationMinutes,
+  isBaseEvent: block.isBaseEvent,
+  isHidden: false,
+  sourceType: block.sourceType === 'calendar_import' ? 'manual' : block.sourceType,
+  metadata: cloneValue(block.metadata),
+  categoryId: block.categoryId,
+  templateId: block.templateId,
+  travelEnabled: block.travelEnabled,
+  travelBeforeMinutes: block.travelBeforeMinutes,
+  travelAfterMinutes: block.travelAfterMinutes,
+  additionalTimezone: block.additionalTimezone,
+  features: resetCopiedFeatureCompletion(block.features),
+  reviewColour: block.reviewColour,
+  importSource: block.importSource,
+  importRawLine: block.importRawLine,
+});
+
+const resetCopiedFeatureCompletion = (features: PlannerBlock['features']) => (
+  Object.fromEntries(Object.entries(cloneValue(features)).map(([id, feature]) => [
+    id,
+    { ...feature, isComplete: false },
+  ]))
+);
+
+const findPastePlacement = ({ copiedBlock, blocks, currentDate, preferredSlot }: PastePlacementOptions): PlannerSlotPosition => {
+  const weekStart = getStartOfWeek(currentDate);
+  const weekDates = Array.from({ length: 7 }).map((_, index) => formatDate(addDays(weekStart, index)));
+  const visibleBlocks = blocks.filter(block => block.date && block.startTime && !block.deletedAt);
+
+  if (preferredSlot) {
+    const preferredStart = timeToMinutes(preferredSlot.startTime);
+    const sameDaySlot = findFreeSlotOnDate(preferredSlot.date, preferredStart, copiedBlock.durationMinutes, visibleBlocks);
+    if (sameDaySlot) return sameDaySlot;
+  }
+
+  const now = new Date();
+  const today = formatDate(now);
+  const todayStart = snapMinute(now.getHours() * 60 + now.getMinutes());
+  const orderedDates = getPasteDateOrder(weekDates, preferredSlot?.date, today);
+
+  for (const date of orderedDates) {
+    const startMinute = date === today ? Math.max(PASTE_DAY_START_MINUTE, todayStart) : PASTE_DAY_START_MINUTE;
+    const slot = findFreeSlotOnDate(date, startMinute, copiedBlock.durationMinutes, visibleBlocks);
+    if (slot) return slot;
+  }
+
+  const fallbackDate = preferredSlot?.date || (weekDates.includes(today) ? today : weekDates[0]);
+  return {
+    date: fallbackDate,
+    startTime: minutesToTime(PASTE_DAY_START_MINUTE),
+  };
+};
+
+const getPasteDateOrder = (weekDates: string[], preferredDate: string | undefined, today: string) => {
+  const dates = [...weekDates];
+  const firstChoice = preferredDate && dates.includes(preferredDate)
+    ? preferredDate
+    : dates.includes(today)
+      ? today
+      : dates[0];
+  return [firstChoice, ...dates.filter(date => date !== firstChoice)];
+};
+
+const findFreeSlotOnDate = (date: string, startMinute: number, durationMinutes: number, blocks: PlannerBlock[]): PlannerSlotPosition | null => {
+  const latestStart = Math.max(PASTE_DAY_START_MINUTE, PASTE_DAY_END_MINUTE - durationMinutes);
+  const firstStart = Math.min(latestStart, Math.max(PASTE_DAY_START_MINUTE, snapMinute(startMinute)));
+
+  for (let minute = firstStart; minute <= latestStart; minute += PASTE_SNAP_MINUTES) {
+    if (!hasPasteOverlap(date, minute, durationMinutes, blocks)) {
+      return { date, startTime: minutesToTime(minute) };
+    }
+  }
+
+  return null;
+};
+
+const hasPasteOverlap = (date: string, startMinute: number, durationMinutes: number, blocks: PlannerBlock[]) => (
+  blocks.some(block => {
+    if (block.date !== date || !block.startTime) return false;
+    const otherStart = timeToMinutes(block.startTime);
+    return detectMinuteOverlap(startMinute, startMinute + durationMinutes, otherStart, otherStart + block.durationMinutes);
+  })
+);
+
+const snapMinute = (minute: number) => {
+  const snapped = Math.ceil(minute / PASTE_SNAP_MINUTES) * PASTE_SNAP_MINUTES;
+  return Math.min(PASTE_DAY_END_MINUTE - PASTE_SNAP_MINUTES, Math.max(PASTE_DAY_START_MINUTE, snapped));
+};
+
+const cloneValue = <T,>(value: T): T => {
+  if (value === undefined || value === null) return value;
+  return JSON.parse(JSON.stringify(value)) as T;
 };
 
 interface MobileSelectedBlockControlsProps {

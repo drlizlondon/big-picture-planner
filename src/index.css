@@ -92,8 +92,21 @@ body {
   }
 
   .planner-header-actions {
-    gap: 0;
+    gap: 4px;
     flex-shrink: 0;
+  }
+
+  .planner-text-zoom {
+    order: -1;
+  }
+
+  .planner-text-zoom button {
+    width: 28px;
+    height: 28px;
+  }
+
+  .planner-text-zoom span {
+    display: none;
   }
 
   .planner-setup-button {
@@ -378,4 +391,43 @@ body {
   height: 100vh;   /* fallback */
   height: 100svh;  /* always fits even when browser chrome is visible */
   height: 100dvh;  /* dynamic: adjusts as chrome shows/hides */
+  --planner-text-scale: 1;
+}
+
+.scheduled-block-time {
+  font-size: calc(8px * var(--planner-text-scale));
+}
+
+.scheduled-block-title {
+  font-size: calc(9px * var(--planner-text-scale));
+}
+
+.scheduled-block-badge {
+  font-size: calc(10px * var(--planner-text-scale));
+}
+
+.planner-scaled-label {
+  font-size: calc(12px * var(--planner-text-scale));
+}
+
+.planner-scaled-small {
+  font-size: calc(10px * var(--planner-text-scale));
+}
+
+.ready-item-title,
+.ready-item-description {
+  display: -webkit-box;
+  overflow: hidden;
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: none;
+  -webkit-box-orient: vertical;
+}
+
+.ready-item-title {
+  -webkit-line-clamp: 2;
+}
+
+.ready-item-description {
+  -webkit-line-clamp: 1;
 }
