@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getAccessState, redeemCode, subscribeToAccessChanges, type AccessState } from '../../services/accessService';
 import { signInWithGoogle, sendMagicLink, getCurrentSession } from '../../services/supabaseClient';
 import { signOut } from '../../services/syncService';
-import { getSiteHref } from '../../utils/deploymentPaths';
+import { getAppHref, getSiteHref } from '../../utils/deploymentPaths';
 
 interface Props {
   children: React.ReactNode;
@@ -117,7 +117,10 @@ const SignInScreen: React.FC<{ onSignedIn: () => void }> = () => {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="text-[13px] font-bold uppercase tracking-widest text-text-secondary mb-2">Big Picture Planner</div>
-          <h1 className="text-[28px] font-bold text-text-primary leading-tight">Sign in to access<br />your planner</h1>
+          <h1 className="text-[28px] font-bold text-text-primary leading-tight">Sign in to continue</h1>
+          <p className="mt-3 text-[14px] leading-5 text-text-secondary">
+            If you have an access code, sign in first, then enter it on the next screen. You can also try the demo without signing in.
+          </p>
         </div>
 
         <div className="rounded-large border border-border-default bg-surface-primary p-5 shadow-card space-y-3">
@@ -167,10 +170,10 @@ const SignInScreen: React.FC<{ onSignedIn: () => void }> = () => {
           {error && <p className="text-[12px] text-semantic-error font-semibold">{error}</p>}
         </div>
 
-        <p className="mt-4 text-center text-[12px] text-text-muted">
-          Don&apos;t have a code yet?{' '}
-          <a href={getSiteHref()} className="text-accent-primary font-bold hover:underline">Join the waitlist</a>
-        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-center text-[12px] font-bold">
+          <a href={getAppHref('?demo=1&src=signin')} className="text-accent-primary hover:underline">Try demo</a>
+          <a href={getSiteHref('#request')} className="text-accent-primary hover:underline">Back to landing / request access</a>
+        </div>
         <BetaNote />
       </div>
     </div>
@@ -209,9 +212,12 @@ const CodeEntryScreen: React.FC<{ onRedeemed: () => void }> = ({ onRedeemed }) =
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="text-[28px] mb-2">&#x1F9E9;</div>
-          <h1 className="text-[28px] font-bold text-text-primary leading-tight">Enter your Founder Access code</h1>
+          <h1 className="text-[28px] font-bold text-text-primary leading-tight">Enter your access code</h1>
           <p className="mt-2 text-[14px] text-text-secondary">
             {userEmail ? `Signed in as ${userEmail}` : 'Check your invitation email for your code.'}
+          </p>
+          <p className="mt-2 text-[13px] leading-5 text-text-muted">
+            Codes may be for trial, friend/family, tester, press, or founder access.
           </p>
         </div>
 
@@ -233,7 +239,7 @@ const CodeEntryScreen: React.FC<{ onRedeemed: () => void }> = ({ onRedeemed }) =
               disabled={isSubmitting || code.trim().length < 6}
               className="h-11 w-full rounded-small bg-accent-primary text-[14px] font-bold text-white disabled:opacity-60"
             >
-              {isSubmitting ? 'Checking...' : 'Unlock Founding Access'}
+              {isSubmitting ? 'Checking...' : 'Continue'}
             </button>
           </form>
 
@@ -247,7 +253,7 @@ const CodeEntryScreen: React.FC<{ onRedeemed: () => void }> = ({ onRedeemed }) =
         <div className="mt-4 text-center space-y-2">
           <p className="text-[12px] text-text-muted">
             No code yet?{' '}
-            <a href={getSiteHref()} className="text-accent-primary font-bold hover:underline">Join the waitlist</a>
+            <a href={getSiteHref('#request')} className="text-accent-primary font-bold hover:underline">Request access</a>
           </p>
           <button onClick={() => signOut()} className="text-[12px] text-text-muted hover:text-text-secondary">
             Sign out
@@ -285,6 +291,12 @@ const DemoBanner: React.FC = () => {
       >
         Have a code? Sign in
       </button>
+      <a
+        href={getSiteHref('#request')}
+        className="text-[12px] font-bold text-white underline underline-offset-2 hover:text-white/90"
+      >
+        Request access
+      </a>
     </div>
   );
 };
