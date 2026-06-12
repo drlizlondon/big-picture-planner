@@ -174,6 +174,10 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
       });
     }
 
+    if (isScheduledLocal) {
+      ensureSavedBlockTimeVisible(startTime, duration);
+    }
+
     resetForm();
     onClose();
   };
@@ -469,3 +473,15 @@ const NumberField: React.FC<NumberFieldProps> = ({ label, value, onChange }) => 
     />
   </div>
 );
+
+const ensureSavedBlockTimeVisible = (startTime: string, durationMinutes: number) => {
+  const [hours, minutes] = startTime.split(':').map(Number);
+  const startMinutes = hours * 60 + minutes;
+  const endMinutes = startMinutes + durationMinutes;
+  const startHour = Math.floor(startMinutes / 60);
+  const endHour = Math.min(24, Math.max(startHour + 1, Math.ceil(endMinutes / 60)));
+
+  window.dispatchEvent(new CustomEvent('planner:ensure-time-visible', {
+    detail: { startHour, endHour },
+  }));
+};

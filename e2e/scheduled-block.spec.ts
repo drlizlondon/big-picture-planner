@@ -26,6 +26,36 @@ test.describe('scheduled block interactions', () => {
     await expect(page.getByRole('dialog').locator('input').first()).toHaveValue('Tiny typography check');
   });
 
+  test('saving a duration change on a scheduled block updates its end time', async ({ page }) => {
+    await getSeededScheduledBlock(page).dblclick();
+    const dialog = page.getByRole('dialog');
+
+    await dialog.getByRole('combobox').first().selectOption('120');
+    await dialog.getByRole('button', { name: 'Save Changes' }).click();
+
+    await expect(dialog).toHaveCount(0);
+    await expect(getSeededScheduledBlock(page)).toHaveAttribute('title', /Time: 09:00 - 11:00/);
+    const [block] = await getStoredBlocks(page);
+    expect(block).toMatchObject({
+      durationMinutes: 120,
+      startTime: '09:00',
+      endTime: '11:00',
+    });
+  });
+
+  test('saving a later longer block expands the visible time range', async ({ page }) => {
+    await getSeededScheduledBlock(page).dblclick();
+    const dialog = page.getByRole('dialog');
+
+    await dialog.locator('input[type="time"]').fill('21:30');
+    await dialog.getByRole('combobox').first().selectOption('120');
+    await dialog.getByRole('button', { name: 'Save Changes' }).click();
+
+    await expect(dialog).toHaveCount(0);
+    await expect(getSeededScheduledBlock(page)).toHaveAttribute('title', /Time: 21:30 - 23:30/);
+    await expect(page.locator('.week-time-gutter').getByText('23:00')).toBeVisible();
+  });
+
   test('dragging a block does not open the editor', async ({ page }) => {
     const block = getSeededScheduledBlock(page);
     const box = await block.boundingBox();
@@ -214,6 +244,7 @@ interface StoredBlock {
   categoryId?: string;
   date?: string;
   startTime?: string;
+  endTime?: string;
   isScheduled: boolean;
   deletedAt?: number;
 }
