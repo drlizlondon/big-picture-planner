@@ -4,6 +4,8 @@ import { calculateEndTime, minutesToTime, timeToMinutes } from '../utils/plannin
 import { addDays, formatDate } from '../utils/dateUtils';
 import { enqueueSyncChange } from './syncService';
 import { isGCalBlock, getGCalEventId, patchGoogleCalendarEvent } from './googleCalendarService';
+import { decideWriteScope, getCalendarLinkType, markSourceChangedLocally, markSourcePushed, supportsWriteBack } from './calendarSyncCore';
+import { getCalendarWriteBackPreference } from './calendarPreferences';
 
 export const createBlock = async (
   blockData: Omit<PlannerBlock, 'id' | 'createdAt' | 'updatedAt'>
@@ -30,13 +32,20 @@ export const createBlock = async (
 export const updateBlock = async (id: string, updates: Partial<PlannerBlock>): Promise<void> => {
   const now = Date.now();
   const existing = await db.blocks.get(id);
-  await db.blocks.update(id, {
-    ...updates,
-    metadata: updates.metadata || (existing ? normalizeBlockMetadata({ ...existing, ...updates }) : updates.metadata),
-    updatedAt: now
-  });
+  let metadata = updates.metadata || (existing ? normalizeBlockMetadata({ ...existing, ...updates }) : updates.metadata);
+
+  // A local edit to an externally-linked/imported block must NOT silently push to
+  // the external calendar — record it as "changed in Big Planner" instead (reqs #5, #6).
+  if (metadata?.source && getCalendarLinkType(metadata.source) !== 'local_only') {
+    metadata = { ...metadata, source: markSourceChangedLocally(metadata.source, now) };
+  }
+
+  await db.blocks.update(id, { ...updates, metadata, updatedAt: now });
   const block = await db.blocks.get(id);
-  if (block) await enqueueSyncChange('blocks', id, block.deletedAt ? 'delete' : 'upsert', block);
+  // External calendar blocks aren't stored in Supabase — skip the cloud sync queue.
+  if (block && getCalendarLinkType(block.metadata?.source) === 'local_only') {
+    await enqueueSyncChange('blocks', id, block.deletedAt ? 'delete' : 'upsert', block);
+  }
 };
 
 export const deleteBlock = async (id: string): Promise<void> => {
@@ -177,30 +186,76 @@ export const moveBlockToWeek = async (id: string, date: string, startTime: strin
   if (!block) return;
 
   const endTime = calculateEndTime(startTime, block.durationMinutes);
-
-  await db.blocks.update(id, {
-    isScheduled: true,
-    date,
-    startTime,
-    endTime,
-    updatedAt: Date.now(),
-  });
+  const now = Date.now();
 
   if (isGCalBlock(block)) {
-    // Write the new time back to Google Calendar.
-    // Fire-and-forget: Dexie is already updated so the UI stays snappy.
-    // On next calendar sync Google's version will confirm the change.
-    const eventId = getGCalEventId(block);
-    if (eventId) {
-      void patchGoogleCalendarEvent(eventId, date, startTime, endTime).catch(() => {
-        // Silent failure — the user will see the move in the grid and Google
-        // Calendar will be retried on the next periodic sync.
-      });
+    // Linked external event. Decide whether this move should also touch Google
+    // Calendar, honouring the user's write-back preference and never silently
+    // overwriting an external change (reqs #5, #6).
+    const decision = decideWriteScope(block, getCalendarWriteBackPreference());
+    const source = block.metadata?.source;
+
+    if (decision.scope === 'external' && source) {
+      const eventId = getGCalEventId(block);
+      if (eventId) {
+        try {
+          await patchGoogleCalendarEvent(eventId, date, startTime, endTime);
+          await db.blocks.update(id, {
+            isScheduled: true, date, startTime, endTime, updatedAt: now,
+            metadata: { ...block.metadata!, source: markSourcePushed(source, now) },
+          });
+          return;
+        } catch {
+          // Push failed — fall through to a local-only update flagged as changed,
+          // so the user can retry rather than lose the move.
+        }
+      }
     }
+
+    // Local-only move (preference said so, push failed, or a choice is needed):
+    // keep the change in Big Planner and mark it as not-yet-pushed.
+    await db.blocks.update(id, {
+      isScheduled: true, date, startTime, endTime, updatedAt: now,
+      metadata: source ? { ...block.metadata!, source: markSourceChangedLocally(source, now) } : block.metadata,
+    });
     // GCal events are not stored in Supabase — skip the sync queue.
-  } else {
-    const updatedBlock = await db.blocks.get(id);
-    if (updatedBlock) await enqueueSyncChange('blocks', id, 'upsert', updatedBlock);
+    return;
+  }
+
+  await db.blocks.update(id, { isScheduled: true, date, startTime, endTime, updatedAt: now });
+  const updatedBlock = await db.blocks.get(id);
+  if (updatedBlock) await enqueueSyncChange('blocks', id, 'upsert', updatedBlock);
+};
+
+/**
+ * Explicitly push a linked block's current local times to its external calendar
+ * (the "also update Google Calendar" action). Refuses to overwrite when the
+ * external copy has diverged unless `force` is passed (req #6).
+ * Returns true on success.
+ */
+export const pushBlockToExternalCalendar = async (id: string, options: { force?: boolean } = {}): Promise<boolean> => {
+  const block = await db.blocks.get(id);
+  if (!block || !block.startTime || !block.date) return false;
+  const source = block.metadata?.source;
+  if (!supportsWriteBack(source) || !source) return false;
+
+  const decision = decideWriteScope(block, 'always');
+  if (decision.blockedByConflict && !options.force) return false;
+
+  const eventId = getGCalEventId(block);
+  if (!eventId) return false;
+  const endTime = block.endTime ?? calculateEndTime(block.startTime, block.durationMinutes);
+
+  try {
+    await patchGoogleCalendarEvent(eventId, block.date, block.startTime, endTime);
+    const now = Date.now();
+    await db.blocks.update(id, {
+      updatedAt: now,
+      metadata: { ...block.metadata!, source: markSourcePushed(source, now) },
+    });
+    return true;
+  } catch {
+    return false;
   }
 };
 

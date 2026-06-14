@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { createBlock, createTemplate, deleteBlock, duplicateBlock, moveBlockToSchedule, updateBlock } from '../../services/plannerActions';
+import { createBlock, createTemplate, deleteBlock, duplicateBlock, moveBlockToSchedule, pushBlockToExternalCalendar, updateBlock } from '../../services/plannerActions';
 import { useBlock, useCategories } from '../../hooks/usePlannerData';
 import { calculateEndTime } from '../../utils/planningEngine';
+import { deriveCalendarSyncStatus, getCalendarLinkType, getCalendarSyncStatusLabel, supportsWriteBack } from '../../services/calendarSyncCore';
 import type { FeatureData } from '../../types/models';
 import { DurationSelector } from '../DurationSelector/component';
 import { BUILT_IN_CHILDCARE_FEATURE_ID, EDITOR_FIELDS, usePlannerSetup, type EditorFieldId } from '../../utils/plannerSetup';
@@ -41,12 +42,19 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
   const [additionalTimezone, setAdditionalTimezone] = useState<string | undefined>(undefined);
   const [features, setFeatures] = useState<Record<string, FeatureData>>({});
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [alsoUpdateExternal, setAlsoUpdateExternal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const titleRef = useRef<HTMLInputElement>(null);
   const categories = useCategories() || [];
   const block = useBlock(blockId || null);
   const { setup } = usePlannerSetup();
+
+  const source = block?.metadata?.source;
+  const linkType = getCalendarLinkType(source);
+  const isExternalBlock = !!block && linkType !== 'local_only';
+  const canWriteBack = !!block && supportsWriteBack(source);
+  const blockSyncStatus = block ? deriveCalendarSyncStatus(block) : 'local_only';
 
   const resetForm = useCallback(() => {
     setTitle('');
@@ -64,6 +72,7 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
     setTimezoneEnabled(false);
     setFeatures({});
     setSaveAsTemplate(false);
+    setAlsoUpdateExternal(false);
     setError(null);
   }, []);
 
@@ -96,6 +105,7 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
       setTimezoneEnabled(!!block.additionalTimezone);
       setFeatures(block.features || {});
       setSaveAsTemplate(false);
+      setAlsoUpdateExternal(false);
     } else if (!blockId && isOpen) {
       resetForm();
     }
@@ -152,6 +162,14 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
 
     if (blockId) {
       await updateBlock(blockId, blockData);
+      // Edits to a linked event stay in Big Planner unless the user explicitly
+      // opts to also update the external calendar (req #5). Never silent.
+      if (canWriteBack && alsoUpdateExternal) {
+        const pushed = await pushBlockToExternalCalendar(blockId);
+        if (!pushed) {
+          return setError('Saved in Big Planner. Could not update Google Calendar (it may have changed there) — resolve it on the event.');
+        }
+      }
     } else {
       await createBlock({
         ...blockData,
@@ -362,6 +380,33 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
           {error && (
             <div className="p-3 bg-semantic-danger/10 border border-semantic-danger/20 rounded-small text-semantic-danger text-[13px] font-semibold" role="alert">
               {error}
+            </div>
+          )}
+
+          {isExternalBlock && (
+            <div className="rounded-medium border border-accent-primary/25 bg-accent-primary/[0.04] p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[12px] font-bold text-text-primary">
+                  {linkType === 'linked' ? 'Linked Google Calendar event' : linkType === 'exported' ? 'Exported to your calendar' : 'Imported copy'}
+                </span>
+                <span className="text-[11px] font-bold text-text-secondary">{getCalendarSyncStatusLabel(blockSyncStatus)}</span>
+              </div>
+              <p className="text-[11px] leading-snug text-text-secondary">
+                {canWriteBack
+                  ? 'Saving updates Big Planner only. Tick below to also update Google Calendar.'
+                  : 'This is a one-way import. Saving changes your Big Planner copy only — your calendar is untouched.'}
+              </p>
+              {canWriteBack && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={alsoUpdateExternal}
+                    onChange={(e) => setAlsoUpdateExternal(e.target.checked)}
+                    className="w-4 h-4 rounded text-accent-primary focus:ring-accent-primary border-border-default"
+                  />
+                  <span className="text-[12px] font-semibold text-text-primary">Also update Google Calendar</span>
+                </label>
+              )}
             </div>
           )}
 

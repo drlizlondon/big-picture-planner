@@ -4,7 +4,11 @@ import { useSyncStatus } from '../../hooks/useSyncStatus';
 import { markImportDeviceOnlyForCurrentUser, markImportLaterForCurrentUser, queueLocalImportForCurrentUser, signOut, syncPendingChanges } from '../../services/syncService';
 import { connectGoogleCalendar, sendMagicLink, signInWithGoogle } from '../../services/supabaseClient';
 import { getLastSyncTime, hasGCalAccess, syncGoogleCalendarEvents } from '../../services/googleCalendarService';
-import { importIcsFile } from '../../services/icsImportService';
+import { commitIcsImport, parseIcsFile, type IcsParseResult } from '../../services/icsImportService';
+import { applyImportPreferenceToBlock, findImportPreference, loadImportPreferences, rememberImportPreference } from '../../services/calendarImportPrefs';
+import { getCalendarWriteBackPreference, setCalendarWriteBackPreference } from '../../services/calendarPreferences';
+import { useCategories } from '../../hooks/usePlannerData';
+import type { CalendarWriteBackPreference, ImportTarget } from '../../types/models';
 import { getAppHref, getSiteHref } from '../../utils/deploymentPaths';
 
 const accountHref = getAppHref('account');
@@ -31,6 +35,21 @@ export const SyncStatusPanel: React.FC = () => {
   const [gcalSyncing, setGcalSyncing] = useState(false);
   const [icsImporting, setIcsImporting] = useState(false);
   const icsInputRef = React.useRef<HTMLInputElement>(null);
+  const categories = useCategories() || [];
+
+  // Two-phase .ics import: parse → configure (name/category/target) → commit (reqs #7, #8).
+  const [icsParse, setIcsParse] = useState<IcsParseResult | null>(null);
+  const [importName, setImportName] = useState('');
+  const [importCategoryId, setImportCategoryId] = useState('');
+  const [importTarget, setImportTarget] = useState<ImportTarget>('calendar');
+  const [reuseHint, setReuseHint] = useState(false);
+
+  // External-calendar write-back preference (req #5).
+  const [writeBackPref, setWriteBackPref] = useState<CalendarWriteBackPreference>(() => getCalendarWriteBackPreference());
+  const handleWriteBackChange = (pref: CalendarWriteBackPreference) => {
+    setWriteBackPref(pref);
+    setCalendarWriteBackPreference(pref);
+  };
 
   // Let other parts of the app (e.g. the empty-week prompt) open this panel.
   useEffect(() => {
@@ -116,20 +135,57 @@ export const SyncStatusPanel: React.FC = () => {
     setIcsImporting(true);
     setMessage(null);
     try {
-      const result = await importIcsFile(file);
-      if (result.imported > 0) {
-        setMessage(`Imported ${result.imported} event${result.imported === 1 ? '' : 's'} from Apple Calendar`);
-      } else if (result.deduplicated > 0) {
-        setMessage('All events already imported — nothing new to add.');
-      } else {
+      const parsed = await parseIcsFile(file);
+      if (parsed.blocks.length === 0) {
         setMessage('No timed events found in that file.');
+        return;
       }
+      // Pre-fill the import config from a saved preference for this calendar (req #8).
+      const saved = findImportPreference(loadImportPreferences(), 'apple_calendar', parsed.externalCalendarId);
+      setIcsParse(parsed);
+      setImportName(saved?.calendarName ?? parsed.calendarName);
+      setImportCategoryId(saved?.categoryId ?? '');
+      setImportTarget(saved?.target ?? 'calendar');
+      setReuseHint(!!saved);
     } catch {
       setMessage("Could not read that file. Make sure it's a .ics file exported from Apple Calendar.");
     } finally {
       setIcsImporting(false);
       // Reset so the same file can be re-uploaded
       if (icsInputRef.current) icsInputRef.current.value = '';
+    }
+  };
+
+  const handleConfirmIcsImport = async () => {
+    if (!icsParse) return;
+    setIcsImporting(true);
+    setMessage(null);
+    try {
+      // Remember the choices for next time (req #8)…
+      rememberImportPreference({
+        provider: 'apple_calendar',
+        externalCalendarId: icsParse.externalCalendarId,
+        calendarName: importName.trim() || icsParse.calendarName,
+        categoryId: importCategoryId || undefined,
+        target: importTarget,
+      });
+      const pref = findImportPreference(loadImportPreferences(), 'apple_calendar', icsParse.externalCalendarId)!;
+      // …apply the chosen name/category/target to every parsed event (req #7).
+      const blocks = icsParse.blocks.map(block => applyImportPreferenceToBlock(
+        { ...block, metadata: block.metadata ? { ...block.metadata, source: block.metadata.source ? { ...block.metadata.source, name: pref.calendarName } : block.metadata.source } : block.metadata },
+        pref,
+      ));
+      const result = await commitIcsImport(blocks);
+      if (result.imported > 0) {
+        setMessage(`Imported ${result.imported} event${result.imported === 1 ? '' : 's'} from ${pref.calendarName}`);
+      } else if (result.deduplicated > 0) {
+        setMessage('All events already imported — nothing new to add.');
+      } else {
+        setMessage('Nothing new to add.');
+      }
+      setIcsParse(null);
+    } finally {
+      setIcsImporting(false);
     }
   };
 
@@ -297,10 +353,26 @@ export const SyncStatusPanel: React.FC = () => {
                 {gcalConnected ? (
                   <>
                     <p className="text-[12px] text-text-secondary leading-snug mb-2">
-                      Your calendar events appear in blue in the grid. Drag them to reschedule &mdash; changes sync back to Google Calendar.
+                      Your calendar events appear in blue in the grid. Big Planner is your planning surface &mdash; choose below whether edits also update Google Calendar.
                       {gcalLastSync && (
                         <span className="block mt-1 text-text-muted">Last synced {formatRelativeTime(gcalLastSync)}</span>
                       )}
+                    </p>
+                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.04em] text-text-muted" htmlFor="gcal-writeback">
+                      When you change a Google event
+                    </label>
+                    <select
+                      id="gcal-writeback"
+                      value={writeBackPref}
+                      onChange={(e) => handleWriteBackChange(e.target.value as CalendarWriteBackPreference)}
+                      className="mb-2 h-8 w-full rounded-small border border-border-default bg-surface-primary px-2 text-[12px] font-semibold text-text-primary outline-none"
+                    >
+                      <option value="ask">Update Big Planner only, ask before Google</option>
+                      <option value="local_only">Only ever update Big Planner</option>
+                      <option value="always">Also update Google Calendar automatically</option>
+                    </select>
+                    <p className="mb-2 text-[11px] leading-snug text-text-muted">
+                      Conflicts (changed in both places) are never overwritten automatically &mdash; you choose on the event.
                     </p>
                     <div className="flex gap-2">
                       <button
@@ -369,13 +441,65 @@ export const SyncStatusPanel: React.FC = () => {
                   className="hidden"
                   id="ics-file-input"
                 />
-                <button
-                  onClick={() => icsInputRef.current?.click()}
-                  disabled={icsImporting}
-                  className="flex h-9 w-full items-center justify-center gap-2 rounded-small border border-border-default bg-surface-primary px-3 text-[12px] font-bold text-text-primary hover:bg-red-50 hover:border-red-200 hover:text-red-600 disabled:opacity-60 transition-colors"
-                >
-                  {icsImporting ? 'Importing…' : 'Upload .ics file'}
-                </button>
+                {icsParse ? (
+                  <div className="flex flex-col gap-2 rounded-small border border-border-default bg-surface-primary p-2.5">
+                    <div className="text-[12px] font-bold text-text-primary">
+                      {icsParse.blocks.length} event{icsParse.blocks.length === 1 ? '' : 's'} ready to import
+                    </div>
+                    {reuseHint && (
+                      <div className="text-[11px] font-semibold text-accent-primary">Reusing your saved settings for this calendar.</div>
+                    )}
+                    <label className="text-[10px] font-bold uppercase tracking-[0.04em] text-text-muted">Source calendar name</label>
+                    <input
+                      value={importName}
+                      onChange={(e) => setImportName(e.target.value)}
+                      className="h-8 rounded-small border border-border-default px-2 text-[12px] outline-none focus:border-accent-primary"
+                      placeholder="e.g. Family (Apple Calendar)"
+                    />
+                    <label className="text-[10px] font-bold uppercase tracking-[0.04em] text-text-muted">Tag / category</label>
+                    <select
+                      value={importCategoryId}
+                      onChange={(e) => setImportCategoryId(e.target.value)}
+                      className="h-8 rounded-small border border-border-default bg-surface-primary px-2 text-[12px] font-semibold text-text-primary outline-none"
+                    >
+                      <option value="">No category</option>
+                      {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+                    </select>
+                    <label className="text-[10px] font-bold uppercase tracking-[0.04em] text-text-muted">Add to</label>
+                    <select
+                      value={importTarget}
+                      onChange={(e) => setImportTarget(e.target.value as ImportTarget)}
+                      className="h-8 rounded-small border border-border-default bg-surface-primary px-2 text-[12px] font-semibold text-text-primary outline-none"
+                    >
+                      <option value="calendar">The week (keep their times)</option>
+                      <option value="inbox">Ready to schedule</option>
+                    </select>
+                    <div className="mt-1 flex gap-2">
+                      <button
+                        onClick={handleConfirmIcsImport}
+                        disabled={icsImporting}
+                        className="h-9 flex-1 rounded-small bg-accent-primary px-3 text-[12px] font-bold text-white disabled:opacity-60"
+                      >
+                        {icsImporting ? 'Importing…' : 'Import these events'}
+                      </button>
+                      <button
+                        onClick={() => setIcsParse(null)}
+                        disabled={icsImporting}
+                        className="h-9 rounded-small border border-border-default bg-surface-primary px-3 text-[12px] font-bold text-text-secondary disabled:opacity-60"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => icsInputRef.current?.click()}
+                    disabled={icsImporting}
+                    className="flex h-9 w-full items-center justify-center gap-2 rounded-small border border-border-default bg-surface-primary px-3 text-[12px] font-bold text-text-primary hover:bg-red-50 hover:border-red-200 hover:text-red-600 disabled:opacity-60 transition-colors"
+                  >
+                    {icsImporting ? 'Reading…' : 'Upload .ics file'}
+                  </button>
+                )}
               </div>
 
               <div className="mt-3 flex gap-2">

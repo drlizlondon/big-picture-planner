@@ -3,6 +3,32 @@ export type PlannerSourceProvider = 'manual' | 'google_calendar' | 'apple_calend
 export type PlannerSystemTag = 'travel' | 'recurring' | 'imported' | 'review' | 'conflict' | 'base_event' | 'template_instance';
 export type ReviewColour = 'GREEN' | 'ORANGE' | 'RED';
 
+/**
+ * How a block relates to an external calendar (Google / Apple):
+ *  - 'local_only'    Created and lives only in Big Planner. Never touches an external calendar.
+ *  - 'imported_copy' A one-way snapshot of an external event (e.g. Apple .ics). Edits stay local.
+ *  - 'linked'        A two-way link to an external event (e.g. Google Calendar). Edits *may* be written back.
+ *  - 'exported'      Created in Big Planner and pushed out to an external calendar.
+ */
+export type CalendarLinkType = 'local_only' | 'imported_copy' | 'linked' | 'exported';
+
+/**
+ * Live sync state of a linked/exported block, derived from local vs external edit times.
+ * Drives the user-facing labels in {@link getCalendarSyncStatusLabel}.
+ */
+export type CalendarSyncStatus =
+  | 'synced'              // local and external agree
+  | 'local_only'         // not connected to any external calendar
+  | 'changed_locally'    // edited in Big Planner since the last sync, not yet pushed
+  | 'changed_externally' // changed in the external calendar since the last sync, not yet pulled
+  | 'conflict';          // changed in BOTH since the last sync — needs a user decision
+
+/** Where a calendar edit should be written. */
+export type CalendarWriteScope = 'local_only' | 'external';
+
+/** User preference for how linked-event edits are written back to the external calendar. */
+export type CalendarWriteBackPreference = 'ask' | 'local_only' | 'always';
+
 export interface FeatureData {
   enabled: boolean;
   isComplete: boolean;
@@ -10,13 +36,30 @@ export interface FeatureData {
   notes?: string;
 }
 
+export interface CalendarSourceMetadata {
+  provider: PlannerSourceProvider;
+  /** Human-readable source name, e.g. "Work (Google)" or "Family (Apple Calendar)". */
+  name: string;
+  /** The external calendar this event belongs to (calendarId for Google, X-WR-CALNAME/UID host for .ics). */
+  externalCalendarId?: string;
+  /** The external event id (Google event id / iCal UID). */
+  externalId?: string;
+  /** When this event was first imported into Big Planner. */
+  importedAt?: number;
+  /** How this block relates to its external calendar (see {@link CalendarLinkType}). */
+  link?: CalendarLinkType;
+  /** Last time Big Planner reconciled this event with the external calendar. */
+  lastSyncedAt?: number;
+  /** The external event's last-modified time as of the last sync (used to detect external changes). */
+  externalUpdatedAt?: number;
+  /** When the user last edited this block locally (used to detect un-pushed local changes). */
+  localEditedAt?: number;
+  /** Cached sync status; recompute with deriveCalendarSyncStatus() rather than trusting blindly. */
+  syncStatus?: CalendarSyncStatus;
+}
+
 export interface PlannerItemMetadata {
-  source?: {
-    provider: PlannerSourceProvider;
-    name: string;
-    externalId?: string;
-    importedAt?: number;
-  };
+  source?: CalendarSourceMetadata;
   labelIds: string[];
   systemTags: PlannerSystemTag[];
   viewIds: string[];
@@ -37,6 +80,7 @@ export interface PlannerBlock {
   // Type flags
   isBaseEvent: boolean;
   isHidden: boolean;
+  isPrioritised?: boolean;
   sourceType: BlockSourceType;
   metadata?: PlannerItemMetadata;
   
@@ -122,6 +166,29 @@ export interface PlannerViewDefinition {
   systemTags: PlannerSystemTag[];
   isArchived: boolean;
   createdAt: number;
+  updatedAt: number;
+}
+
+/** Where imported events land in Big Planner. */
+export type ImportTarget = 'calendar' | 'inbox';
+
+/**
+ * Per-source-calendar import settings, remembered so future imports of the same
+ * calendar reuse the chosen tag/category and destination automatically (req #8).
+ */
+export interface CalendarImportPreference {
+  /** Stable key: `${provider}:${externalCalendarId}`. */
+  key: string;
+  provider: PlannerSourceProvider;
+  externalCalendarId: string;
+  /** Last-seen display name of the source calendar. */
+  calendarName: string;
+  /** Category to apply to imported events, if any. */
+  categoryId?: string;
+  /** Label/tag to apply to imported events, if any. */
+  labelId?: string;
+  /** Where imported events should land. */
+  target: ImportTarget;
   updatedAt: number;
 }
 

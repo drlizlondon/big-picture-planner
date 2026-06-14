@@ -4,12 +4,14 @@ import { CSS } from '@dnd-kit/utilities';
 import type { PlannerBlock } from '../../types/models';
 import { calculateEndTime, getBlockConflicts, getEffectiveMinuteRange, minutesToTime, timeToMinutes } from '../../utils/planningEngine';
 import { useCategories, useFeatures } from '../../hooks/usePlannerData';
-import { deleteBlock, duplicateBlock, moveBlockToSchedule, moveBlockToWeek } from '../../services/plannerActions';
+import { deleteBlock, duplicateBlock, moveBlockToSchedule, moveBlockToWeek, pushBlockToExternalCalendar } from '../../services/plannerActions';
 import { BUILT_IN_CHILDCARE_FEATURE_ID } from '../../utils/plannerSetup';
 import { formatDurationLabel } from '../../utils/durationLabels';
 import { isGCalBlock } from '../../services/googleCalendarService';
 import { isIcsBlock } from '../../services/icsImportService';
 import { getCategoryColor } from '../../utils/categoryColors';
+import { deriveCalendarSyncStatus, getCalendarSyncStatusLabel } from '../../services/calendarSyncCore';
+import type { CalendarSyncStatus } from '../../types/models';
 
 interface Props {
   block: PlannerBlock;
@@ -35,6 +37,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
   const childcare = block.features?.[BUILT_IN_CHILDCARE_FEATURE_ID];
   const gcal = isGCalBlock(block);
   const ics = isIcsBlock(block);
+  const syncStatus = deriveCalendarSyncStatus(block);
   const [isActionsOpen, setIsActionsOpen] = useState(false);
 
   const wasDragging = useRef(false);
@@ -181,6 +184,27 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
     await deleteBlock(block.id);
   };
 
+  // Push un-pushed local changes to Google (req #5). Refuses on conflict (req #6).
+  const handlePushExternal = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsActionsOpen(false);
+    await pushBlockToExternalCalendar(block.id);
+  };
+
+  // Conflict resolution (req #6): keep my Big Planner version (force push)…
+  const handleKeepMine = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsActionsOpen(false);
+    await pushBlockToExternalCalendar(block.id, { force: true });
+  };
+
+  // …or discard the local change and re-pull Google's version on next sync.
+  const handleUseExternal = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsActionsOpen(false);
+    await deleteBlock(block.id);
+  };
+
   const handleKeyDown = async (e: React.KeyboardEvent) => {
     const isDeleteKey = e.key === 'Backspace' || e.key === 'Delete';
     if (isDeleteKey && isSelected) {
@@ -278,9 +302,13 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
         // Google Calendar events: link out to Google Calendar + allow removal
         <GCalActionMenu
           block={block}
+          syncStatus={syncStatus}
           isOpen={isActionsOpen}
           onToggle={(e) => { e.stopPropagation(); setIsActionsOpen(prev => !prev); }}
           onDelete={handleDelete}
+          onPushExternal={handlePushExternal}
+          onKeepMine={handleKeepMine}
+          onUseExternal={handleUseExternal}
           onPointerStop={stopActionPointer}
           isCompact={usesCompactActions}
           placement={actionPlacement}
@@ -324,6 +352,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
       )}
       
       <div className="flex flex-wrap items-center gap-1 mt-0.5 overflow-hidden pointer-events-none">
+        {(gcal || ics) && <CalendarSyncBadge status={syncStatus} />}
         {childcare?.enabled && !childcare.isComplete && <div className="scheduled-block-badge font-semibold bg-white/70 border border-border-default px-1 rounded flex items-center whitespace-nowrap" title="Childcare needed">Childcare?</div>}
         {childcare?.enabled && childcare.isComplete && <div className="scheduled-block-badge font-semibold bg-white/60 border border-border-default px-1 rounded flex items-center whitespace-nowrap opacity-80" title="Childcare sorted">✓ childcare</div>}
         {hasConflicts && <div className="scheduled-block-badge font-bold text-semantic-danger bg-white/75 border border-semantic-danger/30 px-1 rounded flex items-center whitespace-nowrap" title="Overlaps with another block">⚠ overlap</div>}
@@ -341,6 +370,25 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
         </div>
       )}
 
+    </div>
+  );
+};
+
+/** Small, clear sync-status pill on calendar-linked blocks (req #9). */
+const CalendarSyncBadge: React.FC<{ status: CalendarSyncStatus }> = ({ status }) => {
+  if (status === 'local_only') return null;
+  const tone =
+    status === 'conflict'
+      ? 'text-semantic-danger border-semantic-danger/30 bg-white/80'
+      : status === 'changed_externally'
+        ? 'text-[#B45309] border-[#F4B04F]/50 bg-white/80'
+        : status === 'changed_locally'
+          ? 'text-[#2877BD] border-[#8EC5FF]/60 bg-white/80'
+          : 'text-text-secondary border-border-default bg-white/60';
+  const label = getCalendarSyncStatusLabel(status);
+  return (
+    <div className={`scheduled-block-badge font-semibold border px-1 rounded flex items-center whitespace-nowrap ${tone}`} title={`Calendar sync: ${label}`}>
+      {status === 'conflict' ? `⚠ ${label}` : label}
     </div>
   );
 };
@@ -432,20 +480,45 @@ const ActionButton: React.FC<ActionButtonProps> = ({ children, label, onClick, o
   </button>
 );
 
+interface ActionTextButtonProps {
+  children: React.ReactNode;
+  label: string;
+  onClick: (e: React.MouseEvent) => void;
+  onPointerStop: (e: React.PointerEvent | React.MouseEvent) => void;
+}
+
+const ActionTextButton: React.FC<ActionTextButtonProps> = ({ children, label, onClick, onPointerStop }) => (
+  <button
+    type="button"
+    onPointerDown={onPointerStop}
+    onPointerUp={onPointerStop}
+    onClick={onClick}
+    className="pointer-events-auto flex h-6 items-center justify-center rounded-[7px] px-2 text-[11px] font-bold text-text-secondary hover:bg-background hover:text-text-primary whitespace-nowrap"
+    title={label}
+    aria-label={label}
+  >
+    {children}
+  </button>
+);
+
 // ─── Google Calendar action menu ──────────────────────────────────────────────
 
 interface GCalActionMenuProps {
   block: PlannerBlock;
+  syncStatus: CalendarSyncStatus;
   isOpen: boolean;
   onToggle: (e: React.MouseEvent) => void;
   onDelete: (e: React.MouseEvent) => void;
+  onPushExternal: (e: React.MouseEvent) => void;
+  onKeepMine: (e: React.MouseEvent) => void;
+  onUseExternal: (e: React.MouseEvent) => void;
   onPointerStop: (e: React.PointerEvent | React.MouseEvent) => void;
   isCompact: boolean;
   placement: ActionPlacement;
   isSelected: boolean;
 }
 
-const GCalActionMenu: React.FC<GCalActionMenuProps> = ({ block, isOpen, onToggle, onDelete, onPointerStop, isCompact, placement, isSelected }) => {
+const GCalActionMenu: React.FC<GCalActionMenuProps> = ({ block, syncStatus, isOpen, onToggle, onDelete, onPushExternal, onKeepMine, onUseExternal, onPointerStop, isCompact, placement, isSelected }) => {
   const gcalHref = block.importRawLine || 'https://calendar.google.com';
 
   const buttons = (
@@ -468,6 +541,23 @@ const GCalActionMenu: React.FC<GCalActionMenuProps> = ({ block, isOpen, onToggle
         </svg>
         Open
       </a>
+      {/* Local edit not yet pushed — offer a clear, explicit write-back (req #5). */}
+      {syncStatus === 'changed_locally' && (
+        <ActionTextButton label="Update this event in Google Calendar" onClick={onPushExternal} onPointerStop={onPointerStop}>
+          Update Google
+        </ActionTextButton>
+      )}
+      {/* Both sides changed (or Google changed) — never auto-overwrite; let the user choose (req #6). */}
+      {(syncStatus === 'conflict' || syncStatus === 'changed_externally') && (
+        <>
+          <ActionTextButton label="Keep my Big Planner version and overwrite Google" onClick={onKeepMine} onPointerStop={onPointerStop}>
+            Keep mine
+          </ActionTextButton>
+          <ActionTextButton label="Discard my change and use Google's version" onClick={onUseExternal} onPointerStop={onPointerStop}>
+            Use Google
+          </ActionTextButton>
+        </>
+      )}
       <ActionButton label="Remove from view" onClick={onDelete} onPointerStop={onPointerStop} danger>×</ActionButton>
     </>
   );

@@ -40,40 +40,53 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
   const [boardHeight, setBoardHeight] = useState(640);
   const isMobile = useIsMobile();
 
-  const selectedVisibleRange = useMemo(
+  // The grid ALWAYS renders the full day (00:00–23:59) so any event is reachable
+  // by scrolling (req #1). The "working window" only sets the default density and
+  // the position the grid scrolls to — it never clips what can be seen (req #2).
+  const selectedWorkingRange = useMemo(
     () => getVisibleHourRange(visibleHoursPreset, customStartHour, customEndHour),
     [visibleHoursPreset, customStartHour, customEndHour]
   );
-  const visibleRange = useMemo(
-    () => isMobile ? getMobileVisibleHourRange(boardHeight) : selectedVisibleRange,
-    [boardHeight, isMobile, selectedVisibleRange]
+  const workingRange = useMemo(
+    () => isMobile ? getMobileVisibleHourRange(boardHeight) : selectedWorkingRange,
+    [boardHeight, isMobile, selectedWorkingRange]
   );
-  const visibleHours = useMemo(
-    () => Array.from({ length: visibleRange.end - visibleRange.start }, (_, index) => visibleRange.start + index),
-    [visibleRange.end, visibleRange.start]
-  );
-  const fitHourHeight = Math.max(isMobile ? 22 : 32, (boardHeight - (isMobile ? 56 : 112)) / Math.max(1, visibleHours.length));
+  const fullDayHours = useMemo(() => Array.from({ length: 24 }, (_, index) => index), []);
+  const workingHoursCount = Math.max(1, workingRange.end - workingRange.start);
+  // Size an hour so the working window fills the viewport; the rest of the day
+  // overflows and becomes scrollable.
+  const fitHourHeight = Math.max(isMobile ? 22 : 32, (boardHeight - (isMobile ? 56 : 112)) / workingHoursCount);
   const hourHeight = fitHourHeight * (isMobile ? 1 : ZOOM_SCALE[zoomMode]);
 
-  // When a block is moved past the visible window (via arrow keys), widen the
-  // range so it comes back into view. Desktop only — mobile derives its range
-  // from board height rather than the preset.
+  // Default-scroll to the working window on mount and whenever the working window,
+  // view, or board size changes intentionally. Plain user scrolling doesn't change
+  // these deps, so we never fight the user once they scroll to another hour.
   useEffect(() => {
-    if (isMobile) return;
+    const el = scrollRef.current;
+    if (!el || viewMode === 'month') return;
+    el.scrollTop = workingRange.start * hourHeight;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, workingRange.start, workingRange.end, boardHeight]);
+
+  // When a block is moved/saved outside the current scroll position (arrow keys,
+  // editor save), bring its time into view by scrolling — full day is always rendered.
+  useEffect(() => {
     const onEnsure = (e: Event) => {
       const detail = (e as CustomEvent<{ startHour: number; endHour: number }>).detail;
       if (!detail) return;
-      const newStart = Math.max(0, Math.min(visibleRange.start, detail.startHour));
-      const newEnd = Math.min(24, Math.max(visibleRange.end, detail.endHour));
-      if (newStart < visibleRange.start || newEnd > visibleRange.end) {
-        setVisibleHoursPreset('custom');
-        setCustomStartHour(newStart);
-        setCustomEndHour(newEnd);
+      const el = scrollRef.current;
+      if (!el) return;
+      const top = detail.startHour * hourHeight;
+      const bottom = detail.endHour * hourHeight;
+      if (top < el.scrollTop) {
+        el.scrollTop = top;
+      } else if (bottom > el.scrollTop + el.clientHeight) {
+        el.scrollTop = bottom - el.clientHeight;
       }
     };
     window.addEventListener('planner:ensure-time-visible', onEnsure);
     return () => window.removeEventListener('planner:ensure-time-visible', onEnsure);
-  }, [isMobile, visibleRange.start, visibleRange.end, setVisibleHoursPreset, setCustomStartHour, setCustomEndHour]);
+  }, [hourHeight]);
 
   const visibleDates = useMemo(() => {
     if (viewMode === 'day') {
@@ -151,15 +164,15 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
             })}
           </div>
 
-          <div className="flex flex-1 relative min-h-max">
+          <div className="flex flex-1 relative min-h-max" data-tour="time-grid" data-fullday-grid="true">
             <div className="week-time-gutter w-12 flex-shrink-0 border-r border-border-default/50 flex flex-col bg-surface-primary">
-              {visibleHours.map(hour => (
-                <div key={hour} className="planner-scaled-small flex justify-center text-text-muted font-semibold pt-2 border-b border-border-default/55 box-border" style={{ height: `${hourHeight}px` }}>
+              {fullDayHours.map(hour => (
+                <div key={hour} data-hour={hour} className="planner-scaled-small flex justify-center text-text-muted font-semibold pt-2 border-b border-border-default/55 box-border" style={{ height: `${hourHeight}px` }}>
                   {`${String(hour).padStart(2, '0')}:00`}
                 </div>
               ))}
               <div className="relative h-0 flex justify-center text-text-muted text-[11px] font-medium">
-                <span className="planner-scaled-small -translate-y-1/2 font-semibold">{`${String(visibleRange.end).padStart(2, '0')}:00`}</span>
+                <span className="planner-scaled-small -translate-y-1/2 font-semibold">24:00</span>
               </div>
             </div>
 
@@ -171,9 +184,9 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
                 onSelectBlock={onSelectBlock}
                 selectedBlockId={selectedBlockId}
                 hourHeight={hourHeight}
-                visibleHours={visibleHours}
-                visibleStartHour={visibleRange.start}
-                visibleEndHour={visibleRange.end}
+                visibleHours={fullDayHours}
+                visibleStartHour={0}
+                visibleEndHour={24}
                 isExpanded={expandedDate === day.value}
                 activeFilters={activeFilters}
                 onSlotClick={onSlotClick}
@@ -307,7 +320,7 @@ const VisibleHoursControl: React.FC<VisibleHoursControlProps> = ({
       value={preset}
       onChange={(event) => onPresetChange(event.target.value as VisibleHoursPreset)}
       className="h-[28px] rounded-[8px] bg-transparent px-2 text-[12px] font-semibold text-text-secondary outline-none hover:text-text-primary"
-      title="Visible hours"
+      title="Working hours — the day still scrolls to 00:00–23:59"
     >
       <option value="06-22">06:00-22:00</option>
       <option value="07-22">07:00-22:00</option>

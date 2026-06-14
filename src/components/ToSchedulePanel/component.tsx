@@ -3,8 +3,10 @@ import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useToScheduleBlocks, useCategories, useFeatures } from '../../hooks/usePlannerData';
 import type { PlannerBlock, Category } from '../../types/models';
-import { deleteBlock, duplicateBlock } from '../../services/plannerActions';
+import { deleteBlock, duplicateBlock, updateBlock } from '../../services/plannerActions';
 import { getCategoryColor } from '../../utils/categoryColors';
+
+type InboxSortMode = 'last-added' | 'prioritised';
 
 interface Props {
   onEditBlock: (blockId: string) => void;
@@ -26,6 +28,7 @@ export const ToSchedulePanel: React.FC<Props> = ({
   const unscheduledBlocks = useToScheduleBlocks();
   const categories = useCategories();
   const [query, setQuery] = useState('');
+  const [sortMode, setSortMode] = useState<InboxSortMode>('last-added');
   const trayPointerStart = useRef<{ x: number; y: number } | null>(null);
   const { isOver, setNodeRef } = useDroppable({
     id: 'ready-to-schedule-drop',
@@ -40,16 +43,17 @@ export const ToSchedulePanel: React.FC<Props> = ({
   const visibleBlocks = useMemo(() => {
     const blocks = unscheduledBlocks || [];
     const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) return blocks;
-    return blocks.filter(block => {
+    const matchingBlocks = normalizedQuery ? blocks.filter(block => {
       const category = block.categoryId ? categoryMap[block.categoryId] : undefined;
       return [
         block.title,
         block.description || '',
         category?.name || '',
       ].some(value => value.toLowerCase().includes(normalizedQuery));
-    });
-  }, [unscheduledBlocks, query, categoryMap]);
+    }) : blocks;
+
+    return sortLifeInboxBlocks(matchingBlocks, sortMode);
+  }, [unscheduledBlocks, query, categoryMap, sortMode]);
 
   const handleTrayPointerDown = (event: React.PointerEvent) => {
     trayPointerStart.current = { x: event.clientX, y: event.clientY };
@@ -86,7 +90,18 @@ export const ToSchedulePanel: React.FC<Props> = ({
           <h2 className="text-[13px] font-bold">{inboxTitle} <span className="text-[11px] text-text-muted font-semibold">({unscheduledBlocks?.length || 0})</span></h2>
           {!isTray && <p className="text-[11px] text-text-secondary mt-0.5">Things waiting for a place.</p>}
         </div>
-        {isTray && <div className="ml-auto text-[11px] font-semibold text-text-secondary">{isDraggingBlock ? 'Place it in the week' : 'Long press to pick up'}</div>}
+        {isTray && (isDraggingBlock ? (
+          <div className="ml-auto text-[11px] font-semibold text-text-secondary">Place it in the week</div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setSortMode(sortMode === 'last-added' ? 'prioritised' : 'last-added')}
+            className="ml-auto h-7 rounded-small border border-border-default bg-background px-2 text-[11px] font-bold text-text-secondary transition-colors hover:border-accent-primary/35 hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/20"
+            aria-label={`Sort Life Inbox. Current sort: ${sortMode === 'last-added' ? 'Last added' : 'Prioritised'}`}
+          >
+            {sortMode === 'last-added' ? 'Last added' : 'Prioritised'}
+          </button>
+        ))}
       </div>
 
       <input
@@ -95,6 +110,26 @@ export const ToSchedulePanel: React.FC<Props> = ({
         className={`${isTray ? 'sr-only' : 'h-[36px]'} rounded-small border border-border-default bg-background px-3 text-[13px] outline-none focus:border-accent-primary mb-3`}
         placeholder="Search ready items..."
       />
+      {!isTray && (
+        <div className="mb-3 grid grid-cols-2 rounded-small border border-border-default bg-background p-1" role="group" aria-label="Sort Life Inbox">
+          <button
+            type="button"
+            onClick={() => setSortMode('last-added')}
+            className={`h-8 rounded-[8px] text-[12px] font-bold transition-colors ${sortMode === 'last-added' ? 'bg-surface-primary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+            aria-pressed={sortMode === 'last-added'}
+          >
+            Last added
+          </button>
+          <button
+            type="button"
+            onClick={() => setSortMode('prioritised')}
+            className={`h-8 rounded-[8px] text-[12px] font-bold transition-colors ${sortMode === 'prioritised' ? 'bg-surface-primary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+            aria-pressed={sortMode === 'prioritised'}
+          >
+            Prioritised
+          </button>
+        </div>
+      )}
       
       <div
         className={isTray ? 'mobile-inbox-rail' : 'flex flex-col gap-1.5 overflow-y-auto min-h-0 pr-1'}
@@ -196,6 +231,7 @@ const DraggableBlockItem: React.FC<DraggableBlockProps> = ({ block, categoryMap,
   } : undefined;
 
   const isTray = variant === 'tray';
+  const isPrioritised = block.isPrioritised === true;
 
   return (
     <div
@@ -209,6 +245,7 @@ const DraggableBlockItem: React.FC<DraggableBlockProps> = ({ block, categoryMap,
       }}
       onPointerUp={handlePointerUp}
       onClick={handleClick}
+      aria-label={`Edit ${block.title}`}
       className={`${isTray ? 'mobile-inbox-card' : 'min-h-[46px] px-2.5 py-2 touch-none'} bg-surface-primary rounded-small border border-border-default cursor-grab active:cursor-grabbing hover:shadow-hover hover:-translate-y-[1px] hover:border-accent-primary/35 transition-all group relative overflow-hidden flex gap-2 shadow-sm ${isDragging ? 'opacity-90 scale-[1.04] shadow-hover ring-2 ring-accent-primary/20' : ''}`}
       style={{ ...style, borderColor: reviewColor ? `${reviewColor}99` : `${categoryColor}33`, backgroundColor: reviewColor ? `${reviewColor}0D` : undefined }}
       title="Edit block"
@@ -238,7 +275,22 @@ const DraggableBlockItem: React.FC<DraggableBlockProps> = ({ block, categoryMap,
           </div>
         )}
       </div>
-      <div className="absolute right-2 top-1.5 hidden group-hover:flex gap-1 z-20">
+      <button
+        type="button"
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
+        onClick={async (e) => {
+          e.stopPropagation();
+          await updateBlock(block.id, { isPrioritised: !isPrioritised });
+        }}
+        className={`priority-toggle h-7 w-7 flex-shrink-0 self-start rounded-[8px] border text-[17px] font-black leading-none transition-all focus:outline-none focus:ring-2 focus:ring-[#F8A6B8]/50 ${isPrioritised ? 'border-[#F8A6B8] bg-[#FFF1F5] text-[#C74368] shadow-[0_0_14px_rgba(232,93,117,0.24)]' : 'border-border-default/80 bg-background text-text-muted/70 opacity-75 hover:border-[#F8A6B8]/70 hover:bg-[#FFF7F9] hover:text-[#C74368] hover:opacity-100'}`}
+        aria-label={isPrioritised ? `Remove priority from ${block.title}` : `Mark ${block.title} as prioritised`}
+        aria-pressed={isPrioritised}
+        title={isPrioritised ? 'Remove priority' : 'Mark as prioritised'}
+      >
+        *
+      </button>
+      <div className="absolute right-11 top-1.5 hidden group-hover:flex gap-1 z-20">
         <span className="text-text-muted bg-surface-primary rounded shadow-sm border border-border-default px-1.5 text-[11px] leading-[22px]" title="Edit block">✎</span>
         <button 
           onPointerDown={(e) => e.stopPropagation()} 
@@ -268,6 +320,19 @@ const DraggableBlockItem: React.FC<DraggableBlockProps> = ({ block, categoryMap,
     </div>
   );
 };
+
+const sortLifeInboxBlocks = (blocks: PlannerBlock[], sortMode: InboxSortMode): PlannerBlock[] => {
+  return [...blocks].sort((a, b) => {
+    if (sortMode === 'prioritised') {
+      const priorityDelta = Number(b.isPrioritised === true) - Number(a.isPrioritised === true);
+      if (priorityDelta !== 0) return priorityDelta;
+    }
+
+    return getCreatedAt(b) - getCreatedAt(a);
+  });
+};
+
+const getCreatedAt = (block: PlannerBlock): number => block.createdAt || block.updatedAt || 0;
 
 const getReviewColor = (reviewColour?: string): string | undefined => {
   if (reviewColour === 'ORANGE') return '#F4B04F';

@@ -14,6 +14,7 @@ import { db } from '../db/db';
 import type { PlannerBlock } from '../types/models';
 
 export const ICS_BLOCK_ID_PREFIX = 'ics_';
+const DEFAULT_ICS_CALENDAR_NAME = 'Apple Calendar';
 
 export interface IcsImportResult {
   imported: number;
@@ -22,20 +23,39 @@ export interface IcsImportResult {
   blocks: PlannerBlock[];
 }
 
+/** Parsed-but-not-yet-committed import, so the UI can apply a tag/name first (req #7). */
+export interface IcsParseResult {
+  /** Source calendar name detected from the file (X-WR-CALNAME), editable by the user. */
+  calendarName: string;
+  /** Stable id for the source calendar, used as the import-preference key. */
+  externalCalendarId: string;
+  blocks: PlannerBlock[];
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 export const isIcsBlock = (block: PlannerBlock): boolean =>
   block.metadata?.source?.provider === 'apple_calendar';
 
-export const importIcsFile = async (file: File): Promise<IcsImportResult> => {
+/**
+ * Parse a .ics file without writing anything, returning the detected calendar
+ * name and the parsed blocks. Callers can apply an import preference (category,
+ * tag, target, name) before committing with {@link commitIcsImport}.
+ */
+export const parseIcsFile = async (file: File): Promise<IcsParseResult> => {
   const text = await file.text();
-  const blocks = parseIcs(text);
+  const calendarName = getIcsCalendarName(text) ?? DEFAULT_ICS_CALENDAR_NAME;
+  const externalCalendarId = calendarName.toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'apple_calendar';
+  const blocks = parseIcs(text, calendarName, externalCalendarId);
+  return { calendarName, externalCalendarId, blocks };
+};
 
+/** Persist already-parsed (and possibly preference-adjusted) blocks, de-duplicating by id. */
+export const commitIcsImport = async (blocks: PlannerBlock[]): Promise<IcsImportResult> => {
   if (blocks.length === 0) {
     return { imported: 0, skipped: 0, deduplicated: 0, blocks: [] };
   }
 
-  // Dedup: check which IDs already exist in Dexie
   const existingIds = new Set(
     (await db.blocks.bulkGet(blocks.map(b => b.id)))
       .filter(Boolean)
@@ -43,20 +63,30 @@ export const importIcsFile = async (file: File): Promise<IcsImportResult> => {
   );
 
   const toInsert = blocks.filter(b => !existingIds.has(b.id));
-
   await db.blocks.bulkPut(toInsert);
 
   return {
     imported: toInsert.length,
-    skipped: 0,          // parse-level skips aren't tracked separately here
+    skipped: 0,
     deduplicated: existingIds.size,
     blocks: toInsert,
   };
 };
 
+/** One-shot import (parse + commit) with no preference step — kept for callers that don't need the picker. */
+export const importIcsFile = async (file: File): Promise<IcsImportResult> => {
+  const { blocks } = await parseIcsFile(file);
+  return commitIcsImport(blocks);
+};
+
+const getIcsCalendarName = (text: string): string | undefined => {
+  const unfolded = text.replace(/\r\n[ \t]/g, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  return unfolded.match(/^X-WR-CALNAME(?:;[^:]*)?:(.*)$/mi)?.[1]?.trim() || undefined;
+};
+
 // ─── Parser ───────────────────────────────────────────────────────────────────
 
-const parseIcs = (text: string): PlannerBlock[] => {
+const parseIcs = (text: string, calendarName: string, externalCalendarId: string): PlannerBlock[] => {
   // Unfold lines (RFC 5545 §3.1 — lines can be continued with CRLF + whitespace)
   const unfolded = text.replace(/\r\n[ \t]/g, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
@@ -64,14 +94,14 @@ const parseIcs = (text: string): PlannerBlock[] => {
   const rawEvents = unfolded.split('BEGIN:VEVENT').slice(1);
 
   for (const rawEvent of rawEvents) {
-    const block = parseVEvent(rawEvent);
+    const block = parseVEvent(rawEvent, calendarName, externalCalendarId);
     if (block) events.push(block);
   }
 
   return events;
 };
 
-const parseVEvent = (raw: string): PlannerBlock | null => {
+const parseVEvent = (raw: string, calendarName: string, externalCalendarId: string): PlannerBlock | null => {
   const get = (key: string): string | undefined => {
     // Match KEY;params:value or KEY:value, case-insensitive
     const re = new RegExp(`^${key}(?:;[^:]*)?:(.*)`, 'mi');
@@ -138,9 +168,12 @@ const parseVEvent = (raw: string): PlannerBlock | null => {
     metadata: {
       source: {
         provider: 'apple_calendar',
-        name: 'Apple Calendar',
+        name: calendarName,
+        externalCalendarId,
         externalId: uid,
         importedAt: Date.now(),
+        link: 'imported_copy',
+        lastSyncedAt: Date.now(),
       },
       labelIds: [],
       systemTags: ['imported'],

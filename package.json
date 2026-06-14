@@ -8,10 +8,11 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "npm run test:import && npm run test:sync && npm run test:account",
+    "test": "npm run test:import && npm run test:sync && npm run test:account && npm run test:calendar",
     "test:import": "node scripts/plannerImport.test.mjs",
     "test:sync": "node --test scripts/syncCore.test.mjs",
     "test:account": "node --test scripts/accountAccess.test.mjs",
+    "test:calendar": "node --test scripts/calendarSyncCore.test.mjs scripts/calendarImportPrefs.test.mjs",
     "smoke": "node scripts/smoke.access.mjs",
     "test:e2e": "playwright test",
     "preflight": "npm run lint && npm run test && npm run smoke && npm run build"

@@ -17,6 +17,7 @@
 import { db } from '../db/db';
 import { getCurrentSession } from './supabaseClient';
 import type { PlannerBlock } from '../types/models';
+import { resolveCalendarSync } from './calendarSyncCore';
 
 const GCAL_API = 'https://www.googleapis.com/calendar/v3';
 const SYNC_WINDOW_PAST_DAYS = 14;
@@ -119,9 +120,11 @@ export const syncGoogleCalendarEvents = async (): Promise<GCalSyncResult> => {
     return { status: 'error', fetched: 0, upserted: 0, removed: 0 };
   }
 
+  const syncNow = Date.now();
+
   // Convert events to PlannerBlocks
   const incoming = rawEvents
-    .map(googleEventToBlock)
+    .map(event => googleEventToBlock(event, syncNow))
     .filter((b): b is PlannerBlock => b !== null);
 
   const incomingIds = new Set(incoming.map(b => b.id));
@@ -134,12 +137,14 @@ export const syncGoogleCalendarEvents = async (): Promise<GCalSyncResult> => {
     .between(dateMin, dateMax, true, true)
     .filter(b => isGCalBlock(b) && !b.deletedAt)
     .toArray();
+  const existingById = new Map(existing.map(b => [b.id, b]));
 
   const toRemove = existing.filter(b => !incomingIds.has(b.id));
   await Promise.all(toRemove.map(b => db.blocks.delete(b.id)));
 
-  // Upsert all incoming events
-  await db.blocks.bulkPut(incoming);
+  // Conflict-safe upsert: never silently clobber un-pushed local edits (req #6).
+  const reconciled = incoming.map(next => reconcileIncomingGCalBlock(existingById.get(next.id), next));
+  await db.blocks.bulkPut(reconciled);
 
   const lastSyncAt = new Date().toISOString();
   await db.syncMeta.put({ key: GCAL_LAST_SYNC_KEY, value: lastSyncAt, updatedAt: Date.now() });
@@ -151,6 +156,31 @@ export const syncGoogleCalendarEvents = async (): Promise<GCalSyncResult> => {
     removed: toRemove.length,
     lastSyncAt,
   };
+};
+
+// ─── Calendar list (for choosing a source calendar on import) ──────────────────
+
+export interface ExternalCalendarSummary {
+  id: string;
+  name: string;
+  primary: boolean;
+}
+
+export const listGoogleCalendars = async (): Promise<ExternalCalendarSummary[]> => {
+  const token = await getGCalProviderToken();
+  if (!token) return [];
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = await gcalFetch('/users/me/calendarList', token) as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data.items ?? []).map((cal: any) => ({
+      id: cal.id as string,
+      name: (cal.summaryOverride || cal.summary || cal.id) as string,
+      primary: !!cal.primary,
+    }));
+  } catch {
+    return [];
+  }
 };
 
 // ─── Write-back: PATCH a Google Calendar event ────────────────────────────────
@@ -190,8 +220,49 @@ const toDateString = (date: Date): string =>
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
+/**
+ * Merge a freshly-fetched Google event with the existing local copy so that
+ * un-pushed local edits are not silently overwritten (req #6).
+ *
+ *  - No local copy, or local in sync  → take the incoming event.
+ *  - Local changed, external unchanged → keep the local copy (it's ahead).
+ *  - Both changed                      → keep local times but flag a conflict.
+ */
+const reconcileIncomingGCalBlock = (existing: PlannerBlock | undefined, incoming: PlannerBlock): PlannerBlock => {
+  const existingSource = existing?.metadata?.source;
+  if (!existing || !existingSource) return incoming;
+
+  const resolution = resolveCalendarSync({
+    localEditedAt: existingSource.localEditedAt,
+    externalUpdatedAt: incoming.metadata?.source?.externalUpdatedAt,
+    lastSyncedAt: existingSource.lastSyncedAt,
+  });
+
+  if (resolution === 'in_sync' || resolution === 'external_ahead') {
+    return incoming; // safe to accept the external version
+  }
+
+  // Local is ahead (or in conflict) — preserve the user's local scheduling and
+  // record the external state so the UI can surface the right status/choice.
+  return {
+    ...existing,
+    metadata: existing.metadata
+      ? {
+          ...existing.metadata,
+          source: existing.metadata.source
+            ? {
+                ...existing.metadata.source,
+                externalUpdatedAt: incoming.metadata?.source?.externalUpdatedAt,
+                syncStatus: resolution === 'conflict' ? 'conflict' : 'changed_locally',
+              }
+            : existing.metadata.source,
+        }
+      : existing.metadata,
+  };
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const googleEventToBlock = (event: any): PlannerBlock | null => {
+const googleEventToBlock = (event: any, now: number = Date.now()): PlannerBlock | null => {
   // Skip all-day events, cancelled events, or events without a dateTime
   if (!event.start?.dateTime || !event.end?.dateTime) return null;
   if (event.status === 'cancelled') return null;
@@ -204,6 +275,7 @@ const googleEventToBlock = (event: any): PlannerBlock | null => {
   const date = toDateString(start);
   const startTimeStr = `${pad(start.getHours())}:${pad(start.getMinutes())}`;
   const endTimeStr = `${pad(end.getHours())}:${pad(end.getMinutes())}`;
+  const externalUpdatedAt = event.updated ? new Date(event.updated).getTime() : now;
 
   return {
     id: `${GCAL_BLOCK_ID_PREFIX}${event.id}`,
@@ -220,9 +292,15 @@ const googleEventToBlock = (event: any): PlannerBlock | null => {
     metadata: {
       source: {
         provider: 'google_calendar',
-        name: 'Google Calendar',
+        name: event.organizer?.displayName ? `${event.organizer.displayName} (Google)` : 'Google Calendar',
+        externalCalendarId: event.organizer?.email ?? 'primary',
         externalId: event.id,
-        importedAt: Date.now(),
+        importedAt: now,
+        link: 'linked',
+        lastSyncedAt: now,
+        externalUpdatedAt,
+        localEditedAt: undefined,
+        syncStatus: 'synced',
       },
       labelIds: [],
       systemTags: ['imported'],
@@ -240,7 +318,7 @@ const googleEventToBlock = (event: any): PlannerBlock | null => {
     // Store the Google Calendar event link so we can link out to it
     importRawLine: event.htmlLink,
     createdAt: start.getTime(),
-    updatedAt: Date.now(),
+    updatedAt: now,
     deletedAt: undefined,
   };
 };
