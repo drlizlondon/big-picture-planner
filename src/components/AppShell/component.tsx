@@ -461,6 +461,7 @@ export const AppShell: React.FC = () => {
             isDraggingBlock={isDraggingBlock}
             activeFilters={activeFilters}
             onSlotClick={handleSlotClick}
+            onToggleExpandDay={(date) => setMobileExpandedDate(prev => (prev === date ? null : date))}
           />
         </main>
         <WeekEdgeDropZone id="next-week" title="Next Week" helper="Drag here or click to view next week" weekOffset={1} isDraggingBlock={isDraggingBlock} onClick={handleNextWeek} />

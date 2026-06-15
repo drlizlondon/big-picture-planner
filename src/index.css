@@ -394,6 +394,40 @@ body {
   --planner-text-scale: 1;
 }
 
+/* ─── Current-time marker (calm, week-wide) ─── */
+.now-line {
+  height: 0;
+  border-top: 1.5px solid rgba(124, 92, 252, 0.5);
+}
+.now-chip {
+  align-self: flex-start;
+  border-radius: 999px;
+  background: var(--accent-primary, #7c5cfc);
+  color: #fff;
+  font-size: calc(9px * var(--planner-text-scale));
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  padding: 2px 5px;
+  box-shadow: 0 1px 3px rgba(26, 29, 41, 0.18);
+  white-space: nowrap;
+}
+.now-dot {
+  position: absolute;
+  top: 0;
+  width: 9px;
+  height: 9px;
+  margin-left: -4.5px;
+  border-radius: 999px;
+  background: var(--accent-primary, #7c5cfc);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+}
+@media (max-width: 767px) {
+  /* A touch more presence on small screens so "now" reads instantly. */
+  .now-line { border-top-width: 2px; }
+  .now-dot { width: 11px; height: 11px; margin-left: -5.5px; }
+}
+
 .scheduled-block-time {
   font-size: calc(8px * var(--planner-text-scale));
 }

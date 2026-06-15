@@ -27,9 +27,11 @@ interface Props {
   isDraggingBlock?: boolean;
   activeFilters: PlannerFilterId[];
   onSlotClick?: (position: { date: string; startTime: string }) => void;
+  /** Mobile: focus (widen) one day, collapsing the others to thin rails. Toggles. */
+  onToggleExpandDay?: (date: string) => void;
 }
 
-export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBlock, selectedBlockId, expandedDate = null, isDraggingBlock = false, activeFilters, onSlotClick }) => {
+export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBlock, selectedBlockId, expandedDate = null, isDraggingBlock = false, activeFilters, onSlotClick, onToggleExpandDay }) => {
   const [viewMode, setViewMode] = usePersistedSetting<ViewMode>('planner.viewMode', 'week');
   const [zoomMode, setZoomMode] = usePersistedSetting<ZoomMode>('planner.zoomMode', 'comfortable');
   const [visibleHoursPreset, setVisibleHoursPreset] = usePersistedSetting<VisibleHoursPreset>('planner.visibleHoursPreset', '07-22');
@@ -57,6 +59,7 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
   // overflows and becomes scrollable.
   const fitHourHeight = Math.max(isMobile ? 22 : 32, (boardHeight - (isMobile ? 56 : 112)) / workingHoursCount);
   const hourHeight = fitHourHeight * (isMobile ? 1 : ZOOM_SCALE[zoomMode]);
+  const minuteHeight = hourHeight / 60;
 
   // Default-scroll to the working window on mount and whenever the working window,
   // view, or board size changes intentionally. Plain user scrolling doesn't change
@@ -101,6 +104,13 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
   const allVisibleBlocks = useWeekBlocks(queryStart, queryEnd) || [];
   const visibleBlocks = allVisibleBlocks.filter(block => matchesPlannerFilters(block, activeFilters));
 
+  // Current-time marker: which column is "today" and where "now" sits in the day.
+  const nowMinute = useNowMinute();
+  const todayIndex = viewMode === 'month' ? -1 : visibleDates.findIndex(day => day.value === today);
+  // Only treat a day as expanded when it's actually in the current view, so a
+  // stale expanded date from another week doesn't collapse every column to a rail.
+  const expandedInView = !!expandedDate && visibleDates.some(day => day.value === expandedDate);
+
   useEffect(() => {
     if (!scrollRef.current) return;
     const element = scrollRef.current;
@@ -113,7 +123,7 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
   }, []);
 
   return (
-    <div ref={scrollRef} data-tour="week-grid" className={`week-grid-shell flex flex-col h-full overflow-auto bg-white ${expandedDate ? 'has-expanded-day' : ''} ${isDraggingBlock ? 'is-dragging-block' : ''}`}>
+    <div ref={scrollRef} data-tour="week-grid" className={`week-grid-shell flex flex-col h-full overflow-auto bg-white ${expandedInView ? 'has-expanded-day' : ''} ${isDraggingBlock ? 'is-dragging-block' : ''}`}>
       <div className="sticky top-0 z-header bg-surface-primary/95 backdrop-blur border-b border-border-default/70 px-4 py-2">
         <div className="week-grid-toolbar flex items-center justify-between gap-3 min-w-0">
           <div className="min-w-[230px] flex items-baseline gap-2">
@@ -155,10 +165,23 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
           <div className="week-days-header flex border-b border-border-default/70 h-10 sticky top-[53px] bg-surface-primary z-header shadow-sm">
             <div className="week-time-gutter w-12 flex-shrink-0 border-r border-border-default/60" />
             {visibleDates.map(day => {
-              const isExpanded = expandedDate === day.value;
+              const isExpanded = expandedInView && expandedDate === day.value;
+              const isTodayCol = day.value === today;
+              const tappable = isMobile && !!onToggleExpandDay && viewMode !== 'day';
               return (
-              <div key={day.value} className={`week-day-heading ${isExpanded ? 'expanded-day' : ''} flex-1 min-w-0 flex items-center justify-center border-r border-border-default/35 last:border-r-0 ${day.value === today ? 'bg-accent-primary/[0.06]' : ''}`}>
-                <span className={`text-[13px] font-bold whitespace-nowrap ${day.value === today ? 'text-accent-primary' : 'text-text-primary'}`}>{day.label}</span>
+              <div
+                key={day.value}
+                role={tappable ? 'button' : undefined}
+                tabIndex={tappable ? 0 : undefined}
+                aria-pressed={tappable ? isExpanded : undefined}
+                aria-label={tappable ? `${isExpanded ? 'Collapse' : 'Expand'} ${day.label}` : undefined}
+                onClick={tappable ? () => onToggleExpandDay!(day.value) : undefined}
+                onKeyDown={tappable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleExpandDay!(day.value); } } : undefined}
+                className={`week-day-heading ${isExpanded ? 'expanded-day' : ''} flex-1 min-w-0 flex items-center justify-center gap-1 border-r border-border-default/35 last:border-r-0 ${isTodayCol ? 'bg-accent-primary/[0.06]' : ''} ${tappable ? 'cursor-pointer select-none' : ''}`}
+              >
+                {isTodayCol && <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-accent-primary" aria-hidden="true" />}
+                <span className={`text-[13px] font-bold whitespace-nowrap ${isTodayCol ? 'text-accent-primary' : 'text-text-primary'}`}>{day.label}</span>
+                {tappable && <span className="day-expand-caret text-[9px] text-text-muted" aria-hidden="true">{isExpanded ? '▾' : '▸'}</span>}
               </div>
               );
             })}
@@ -187,11 +210,21 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
                 visibleHours={fullDayHours}
                 visibleStartHour={0}
                 visibleEndHour={24}
-                isExpanded={expandedDate === day.value}
+                isExpanded={expandedInView && expandedDate === day.value}
                 activeFilters={activeFilters}
                 onSlotClick={onSlotClick}
               />
             ))}
+
+            {todayIndex >= 0 && (
+              <CurrentTimeMarker
+                minute={nowMinute}
+                minuteHeight={minuteHeight}
+                todayIndex={todayIndex}
+                columnCount={visibleDates.length}
+                showDot={!expandedInView}
+              />
+            )}
 
             <EmptyWeekPrompt />
           </div>
@@ -483,6 +516,62 @@ const getMobileVisibleHourRange = (boardHeight: number) => {
   if (boardHeight >= 760) return { start: 8, end: 23 };
   if (boardHeight >= 640) return { start: 8, end: 22 };
   return { start: 8, end: 20 };
+};
+
+/** Current minute-of-day, ticking every 30s so the "now" marker stays live. */
+const useNowMinute = (): number => {
+  const [minute, setMinute] = useState(() => {
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  });
+
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      setMinute(now.getHours() * 60 + now.getMinutes());
+    };
+    const id = window.setInterval(tick, 30000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  return minute;
+};
+
+interface CurrentTimeMarkerProps {
+  minute: number;
+  minuteHeight: number;
+  todayIndex: number;
+  columnCount: number;
+  showDot: boolean;
+}
+
+/**
+ * A calm, week-wide "now" line. A soft accent hairline runs across the whole
+ * week so you can read the time-of-day at a glance, a time chip sits in the
+ * gutter, and a small dot marks today's column — together they place "now"
+ * within the week without the alarm-red look of a typical calendar cursor.
+ * Rendered behind events (low z-index) so it never slices through event text.
+ */
+const CurrentTimeMarker: React.FC<CurrentTimeMarkerProps> = ({ minute, minuteHeight, todayIndex, columnCount, showDot }) => {
+  const top = minute * minuteHeight;
+  const label = `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+  const dotLeft = columnCount > 0 ? ((todayIndex + 0.5) / columnCount) * 100 : 50;
+
+  return (
+    <div className="now-marker pointer-events-none absolute inset-x-0 z-[6]" style={{ top: `${top}px` }} aria-hidden="true">
+      <div className="flex">
+        <div className="week-time-gutter w-12 flex-shrink-0 flex justify-end pr-1">
+          <span className="now-chip -translate-y-1/2">{label}</span>
+        </div>
+        <div className="relative flex-1">
+          <div className="now-line -translate-y-1/2" />
+          {showDot && todayIndex >= 0 && (
+            <div className="now-dot -translate-y-1/2" style={{ left: `${dotLeft}%` }} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const useIsMobile = () => {

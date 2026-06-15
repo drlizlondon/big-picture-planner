@@ -28,8 +28,6 @@ interface Props {
 export const DayColumn: React.FC<Props> = ({ date, onEditBlock, onSelectBlock, selectedBlockId, hourHeight, visibleHours, visibleStartHour, visibleEndHour, isExpanded = false, activeFilters, onSlotClick }) => {
   const blocks = useWeekBlocks(date, date) || [];
   const isToday = date === formatDate(new Date());
-  const now = new Date();
-  const currentMinute = now.getHours() * 60 + now.getMinutes();
   const minuteHeight = hourHeight / 60;
   const visibleStartMinute = visibleStartHour * 60;
   const visibleEndMinute = visibleEndHour * 60;
@@ -54,15 +52,6 @@ export const DayColumn: React.FC<Props> = ({ date, onEditBlock, onSelectBlock, s
           })}
         </div>
       ))}
-
-      {isToday && currentMinute >= visibleStartMinute && currentMinute <= visibleEndMinute && (
-        <div
-          className="absolute left-0 right-0 h-px bg-semantic-danger/70 z-30 pointer-events-none"
-          style={{ top: `${(currentMinute - visibleStartMinute) * minuteHeight}px` }}
-        >
-          <div className="absolute -left-1 -top-1 w-2 h-2 rounded-full bg-semantic-danger" />
-        </div>
-      )}
 
       {visibleBlocks.map(block => (
         <TravelSegments
