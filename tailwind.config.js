@@ -56,6 +56,11 @@ export default {
         drawer: '200',
         modal: '250',
         toast: '300',
+        // Mobile-only chrome (set in index.css) sits at 1000 (Life Inbox tray)
+        // and 1001 (Add Task FAB / selected-block sheet). The onboarding
+        // Spotlight must sit ABOVE all of those so its card is never trapped
+        // behind a panel, while staying below the pre-app access gate (9999).
+        tour: '1100',
       }
     },
   },

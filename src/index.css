@@ -208,7 +208,9 @@ body {
     min-height: 0;
     display: grid;
     grid-auto-flow: column;
-    grid-auto-columns: minmax(132px, 42vw);
+    /* Wider minimum so each card shows a real title + duration (not "Vi…").
+       ~2 cards stay visible at 390px, so users can still see what's in the inbox. */
+    grid-auto-columns: minmax(180px, 76vw);
     gap: 8px;
     overflow-x: auto;
     overflow-y: hidden;
@@ -223,6 +225,37 @@ body {
     padding: 7px 8px;
     scroll-snap-align: start;
     touch-action: pan-x;
+  }
+
+  /* Reclaim horizontal space for content: a slimmer drag handle (the whole card
+     is draggable anyway) and a smaller priority cue, so the title can breathe. */
+  .mobile-inbox-card .inbox-drag-handle {
+    width: 14px;
+  }
+
+  .mobile-inbox-card .priority-toggle {
+    height: 26px;
+    width: 22px;
+    font-size: 15px;
+  }
+
+  .mobile-inbox-card-title {
+    font-size: 12px;
+  }
+
+  /* During the onboarding walkthrough, keep the Life Inbox tray and Add Task
+     button visible-but-dimmed behind the Spotlight and non-interactive, so they
+     can't compete with the card — except the one control the current step
+     actually asks the user to use. */
+  body[data-tour-step] .mobile-life-inbox-tray,
+  body[data-tour-step] .mobile-add-fab {
+    pointer-events: none;
+  }
+  body[data-tour-step="show_ready"] .mobile-life-inbox-tray {
+    pointer-events: auto;
+  }
+  body[data-tour-step="open_input"] .mobile-add-fab {
+    pointer-events: auto;
   }
 
   .mobile-inbox-card-title {
@@ -364,7 +397,9 @@ body {
 
 @media (max-width: 420px) {
   .mobile-inbox-rail {
-    grid-auto-columns: minmax(128px, 46vw);
+    /* Keep a readable minimum on the smallest phones too (was 128px, which
+       squeezed titles to "Vi…"). ~1.8 cards stay visible at 390px. */
+    grid-auto-columns: minmax(172px, 82vw);
   }
 
   .week-day-heading,

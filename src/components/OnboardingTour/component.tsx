@@ -116,7 +116,20 @@ const computeLayout = (selectors: string[], measuredCardH: number | undefined): 
   const visL = vLeft + sal;
   const visT = vTop + sat;
   const visR = vLeft + vw - sar;
-  const visB = vTop + vh - sab;
+  let visB = vTop + vh - sab;
+
+  const el = findTarget(selectors);
+
+  // Reserve the mobile Life Inbox tray's space so the card is never placed over
+  // (or trapped behind) the drawer — unless the tray IS the current target
+  // (the "drag from Ready" step), where the card should sit just above it.
+  const tray = document.querySelector<HTMLElement>('.mobile-life-inbox-tray');
+  if (tray && !(el && tray.contains(el))) {
+    const tr = tray.getBoundingClientRect();
+    if (tr.height > 0 && tr.top > visT) {
+      visB = Math.min(visB, tr.top - GAP);
+    }
+  }
 
   const cardW = Math.round(Math.min(360, vw * 0.9, vw - 2 * MARGIN));
   const cardH = Math.min(measuredCardH || 220, Math.round(vh * 0.35));
@@ -127,8 +140,6 @@ const computeLayout = (selectors: string[], measuredCardH: number | undefined): 
   const maxT = Math.max(minT, visB - cardH - MARGIN);
   const clampL = (x: number) => clamp(x, minL, maxL);
   const clampT = (y: number) => clamp(y, minT, maxT);
-
-  const el = findTarget(selectors);
 
   if (!el) {
     // No target yet (e.g. arrow controls hidden on mobile) — show the card as a
@@ -328,6 +339,18 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
     }
   }, [step]);
 
+  // Expose the active step on <body> so CSS can keep the mobile Life Inbox /
+  // FAB visible-but-dimmed and non-interactive during the walkthrough (except
+  // the one control each step actually targets). Cleared when the tour ends.
+  useEffect(() => {
+    if (step && step !== 'complete') {
+      document.body.dataset.tourStep = step;
+    } else {
+      delete document.body.dataset.tourStep;
+    }
+    return () => { delete document.body.dataset.tourStep; };
+  }, [step]);
+
   // Scroll the target into view within its scroll container (window, modal,
   // sheet, drawer) once the step settles, so the spotlight wraps a fully
   // visible element.
@@ -404,17 +427,17 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
 
   return (
     <div
-      className="pointer-events-none fixed inset-0 z-[900]"
+      className="pointer-events-none fixed inset-0 z-tour"
       style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.25s ease' }}
       aria-live="polite"
     >
       {/* Dimming + spotlight cutout */}
       {spot ? (
         <>
-          <div className="absolute bg-black/45 left-0 right-0 top-0" style={{ height: Math.max(0, spot.top), pointerEvents: panelPE }} />
-          <div className="absolute bg-black/45 left-0 right-0 bottom-0" style={{ top: spot.top + spot.height, pointerEvents: panelPE }} />
-          <div className="absolute bg-black/45" style={{ top: spot.top, height: spot.height, left: 0, width: Math.max(0, spot.left), pointerEvents: panelPE }} />
-          <div className="absolute bg-black/45" style={{ top: spot.top, height: spot.height, left: spot.left + spot.width, right: 0, pointerEvents: panelPE }} />
+          <div className="absolute bg-black/60 left-0 right-0 top-0" style={{ height: Math.max(0, spot.top), pointerEvents: panelPE }} />
+          <div className="absolute bg-black/60 left-0 right-0 bottom-0" style={{ top: spot.top + spot.height, pointerEvents: panelPE }} />
+          <div className="absolute bg-black/60" style={{ top: spot.top, height: spot.height, left: 0, width: Math.max(0, spot.left), pointerEvents: panelPE }} />
+          <div className="absolute bg-black/60" style={{ top: spot.top, height: spot.height, left: spot.left + spot.width, right: 0, pointerEvents: panelPE }} />
 
           <div
             className={`absolute rounded-large ${step === 'arrows' ? 'animate-pulse' : ''}`}
@@ -435,7 +458,7 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
           )}
         </>
       ) : (
-        <div className="absolute inset-0 bg-black/45" style={{ pointerEvents: panelPE }} />
+        <div className="absolute inset-0 bg-black/60" style={{ pointerEvents: panelPE }} />
       )}
 
       {/* Arrow connecting card to target */}
