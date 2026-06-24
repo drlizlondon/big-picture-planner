@@ -76,6 +76,9 @@ export interface PlannerBlock {
   startTime?: string; // HH:mm
   endTime?: string; // HH:mm (Calculated dynamically, but cached for queries)
   isScheduled: boolean;
+  /** All-day / multi-day events: shown in the all-day lane, not the time grid.
+      Multi-day events are expanded into one block per day, each flagged here. */
+  isAllDay?: boolean;
   
   // Type flags
   isBaseEvent: boolean;

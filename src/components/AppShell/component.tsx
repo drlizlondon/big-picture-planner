@@ -4,7 +4,7 @@ import { Sidebar } from '../Sidebar/component';
 import { WeekGrid } from '../WeekGrid/component';
 import { addDays } from '../../utils/dateUtils';
 import { DndContext, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useDroppable, useSensor, useSensors, type Collision, type CollisionDetection, type DragEndEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
-import { createBlock, deleteBlock, moveBlockByDays, moveBlockByMinutes, moveBlockToSchedule, moveBlockToWeek, resizeBlockDuration } from '../../services/plannerActions';
+import { createBlock, deleteBlock, moveBlockByDays, moveBlockByMinutes, moveBlockToDate, moveBlockToSchedule, moveBlockToWeek, resizeBlockDuration } from '../../services/plannerActions';
 import { AddToPlannerModal } from '../AddToPlannerModal/component';
 import { BlockEditor } from '../BlockEditor/component';
 import { PlannerSetupPanel } from '../PlannerSetupPanel/component';
@@ -18,6 +18,16 @@ import type { PlannerBlock } from '../../types/models';
 
 const MOBILE_INBOX_PREF_KEY = 'planner.mobileInboxExpanded';
 const PLANNER_TEXT_SCALE_KEY = 'planner.textScale';
+
+export type PlannerViewMode = 'day' | 'week' | 'month';
+
+/** Add (or subtract) whole months, clamping the day to the target month's length. */
+const addMonths = (date: Date, delta: number): Date => {
+  const target = new Date(date.getFullYear(), date.getMonth() + delta, 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(date.getDate(), lastDay));
+  return target;
+};
 const PLANNER_TEXT_SCALE_MIN = 0.9;
 const PLANNER_TEXT_SCALE_MAX = 1.3;
 const PLANNER_TEXT_SCALE_STEP = 0.1;
@@ -63,6 +73,20 @@ const getTopEdgeSlotCollisions: CollisionDetection = ({ collisionRect, droppable
 // The main application shell layout
 export const AppShell: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date()); // Boots into the user's actual week
+  // View mode lives here (not inside WeekGrid) so the header range + prev/next
+  // arrows can move by month / week / day to match what's on screen.
+  const [viewMode, setViewMode] = useState<PlannerViewMode>(() => {
+    try {
+      const stored = localStorage.getItem('planner.viewMode');
+      return stored === 'day' || stored === 'week' || stored === 'month' ? stored : 'week';
+    } catch {
+      return 'week';
+    }
+  });
+  const updateViewMode = (mode: PlannerViewMode) => {
+    setViewMode(mode);
+    try { localStorage.setItem('planner.viewMode', mode); } catch { /* ignore */ }
+  };
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addModalView, setAddModalView] = useState<'menu' | 'paste'>('menu');
 
@@ -97,9 +121,13 @@ export const AppShell: React.FC = () => {
   const [lastScheduledBlockId, setLastScheduledBlockId] = useState<string | null>(null);
   const [isMobileInboxExpanded, setIsMobileInboxExpanded] = useState(() => {
     try {
-      return localStorage.getItem(MOBILE_INBOX_PREF_KEY) === 'true';
+      // Default to the inbox rail being shown so it stays discoverable (and the
+      // onboarding drag step works); users can collapse it to a slim handle to
+      // maximise the calendar, and that choice is remembered.
+      const stored = localStorage.getItem(MOBILE_INBOX_PREF_KEY);
+      return stored === null ? true : stored === 'true';
     } catch {
-      return false;
+      return true;
     }
   });
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
@@ -150,9 +178,20 @@ export const AppShell: React.FC = () => {
     lastClickedSlotRef.current = position;
   };
 
-  const handlePrevWeek = () => setCurrentDate(prev => addDays(prev, -7));
-  const handleNextWeek = () => setCurrentDate(prev => addDays(prev, 7));
+  // Prev/next step by the active view: a month, a week, or a day at a time.
+  const stepDate = (date: Date, direction: number): Date => {
+    if (viewMode === 'month') return addMonths(date, direction);
+    if (viewMode === 'day') return addDays(date, direction);
+    return addDays(date, direction * 7);
+  };
+  const handlePrevWeek = () => setCurrentDate(prev => stepDate(prev, -1));
+  const handleNextWeek = () => setCurrentDate(prev => stepDate(prev, 1));
   const handleToday = () => setCurrentDate(new Date());
+  // Double-clicking a day in month view opens that day in day view.
+  const handleOpenDay = (date: string) => {
+    setCurrentDate(new Date(`${date}T12:00:00`));
+    updateViewMode('day');
+  };
   const handleFilterToggle = (filter: PlannerFilterId) => {
     setActiveFilters(prev => {
       if (filter === 'all') return ['all'];
@@ -388,9 +427,13 @@ export const AppShell: React.FC = () => {
     if (!over) return;
     
     const blockId = active.id as string;
-    const dropData = over.data.current as { date?: string, startTime?: string, edgeWeekOffset?: number, toLifeInbox?: boolean };
-    
-    if (dropData && dropData.date && dropData.startTime) {
+    const dropData = over.data.current as { date?: string, startTime?: string, edgeWeekOffset?: number, toLifeInbox?: boolean, monthDrop?: boolean };
+
+    if (dropData?.monthDrop && dropData.date) {
+      // Month view: change the day, keep the time of day.
+      await moveBlockToDate(blockId, dropData.date);
+      setSelectedBlockId(blockId);
+    } else if (dropData && dropData.date && dropData.startTime) {
       await moveBlockToWeek(blockId, dropData.date, dropData.startTime);
       setSelectedBlockId(blockId);
       setLastScheduledBlockId(blockId);
@@ -417,6 +460,7 @@ export const AppShell: React.FC = () => {
     >
       <PlannerHeader
         currentDate={currentDate}
+        viewMode={viewMode}
         onPrevWeek={handlePrevWeek}
         onNextWeek={handleNextWeek}
         onToday={handleToday}
@@ -454,6 +498,9 @@ export const AppShell: React.FC = () => {
         <main className="flex-1 bg-surface-primary rounded-large shadow-sm border border-border-default overflow-hidden flex flex-col min-w-0">
           <WeekGrid
             currentDate={currentDate}
+            viewMode={viewMode}
+            onViewModeChange={updateViewMode}
+            onOpenDay={handleOpenDay}
             onEditBlock={handleEditBlock}
             onSelectBlock={handleSelectBlock}
             selectedBlockId={selectedBlockId}

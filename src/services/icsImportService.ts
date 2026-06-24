@@ -94,14 +94,13 @@ const parseIcs = (text: string, calendarName: string, externalCalendarId: string
   const rawEvents = unfolded.split('BEGIN:VEVENT').slice(1);
 
   for (const rawEvent of rawEvents) {
-    const block = parseVEvent(rawEvent, calendarName, externalCalendarId);
-    if (block) events.push(block);
+    events.push(...parseVEvent(rawEvent, calendarName, externalCalendarId));
   }
 
   return events;
 };
 
-const parseVEvent = (raw: string, calendarName: string, externalCalendarId: string): PlannerBlock | null => {
+const parseVEvent = (raw: string, calendarName: string, externalCalendarId: string): PlannerBlock[] => {
   const get = (key: string): string | undefined => {
     // Match KEY;params:value or KEY:value, case-insensitive
     const re = new RegExp(`^${key}(?:;[^:]*)?:(.*)`, 'mi');
@@ -113,72 +112,30 @@ const parseVEvent = (raw: string, calendarName: string, externalCalendarId: stri
   const status = get('STATUS');
 
   // Skip cancelled
-  if (status === 'CANCELLED') return null;
+  if (status === 'CANCELLED') return [];
 
   const dtStartRaw = get('DTSTART');
-  const dtEndRaw = get('DTEND') ?? get('DURATION');
-
-  // Skip all-day events (DATE format, no time component)
-  if (!dtStartRaw || /^\d{8}$/.test(dtStartRaw)) return null;
-
-  const start = parseIcsDateTime(dtStartRaw);
-  if (!start) return null;
-
-  let end: Date | null = null;
-  if (dtEndRaw) {
-    if (dtEndRaw.startsWith('P')) {
-      // DURATION value
-      end = addDuration(start, dtEndRaw);
-    } else {
-      end = parseIcsDateTime(dtEndRaw);
-    }
-  }
-
-  // Default 60 min if no end
-  if (!end) {
-    end = new Date(start.getTime() + 60 * 60000);
-  }
-
-  const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
-  if (durationMinutes <= 0) return null;
-
-  const date = toDateString(start);
-  const startTime = toTimeString(start);
-  const endTime = toTimeString(end);
+  if (!dtStartRaw) return [];
 
   const description = get('DESCRIPTION')?.replace(/\\n/g, '\n').replace(/\\,/g, ',') ?? undefined;
   const location = get('LOCATION')?.replace(/\\,/g, ',') ?? undefined;
 
-  // Deterministic ID
-  const safeUid = uid ?? `${date}-${startTime}-${summary}`;
-  const id = `${ICS_BLOCK_ID_PREFIX}${safeUid.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80)}`;
-
-  return {
-    id,
+  const source = () => ({
+    provider: 'apple_calendar' as const,
+    name: calendarName,
+    externalCalendarId,
+    externalId: uid,
+    importedAt: Date.now(),
+    link: 'imported_copy' as const,
+    lastSyncedAt: Date.now(),
+  });
+  const common = () => ({
     title: decodeIcsText(summary),
     description: description ? decodeIcsText(description) : undefined,
-    durationMinutes,
-    date,
-    startTime,
-    endTime,
-    isScheduled: true,
     isBaseEvent: false,
     isHidden: false,
-    sourceType: 'calendar_import',
-    metadata: {
-      source: {
-        provider: 'apple_calendar',
-        name: calendarName,
-        externalCalendarId,
-        externalId: uid,
-        importedAt: Date.now(),
-        link: 'imported_copy',
-        lastSyncedAt: Date.now(),
-      },
-      labelIds: [],
-      systemTags: ['imported'],
-      viewIds: [],
-    },
+    sourceType: 'calendar_import' as const,
+    metadata: { source: source(), labelIds: [], systemTags: ['imported' as const], viewIds: [] },
     categoryId: undefined,
     templateId: undefined,
     travelEnabled: false,
@@ -188,11 +145,86 @@ const parseVEvent = (raw: string, calendarName: string, externalCalendarId: stri
     features: {},
     reviewColour: undefined,
     importSource: 'Apple Calendar',
-    importRawLine: location,          // store location in importRawLine (re-used field)
-    createdAt: start.getTime(),
+    importRawLine: location,
     updatedAt: Date.now(),
     deletedAt: undefined,
-  };
+  });
+
+  // ── All-day / multi-day events (DATE format, no time component) ──
+  if (/^\d{8}$/.test(dtStartRaw)) {
+    const startDate = parseIcsDate(dtStartRaw);
+    if (!startDate) return [];
+    const dtEndRaw = get('DTEND');
+    // DTEND for all-day is exclusive; default to a single day when absent.
+    const endExclusive = dtEndRaw && /^\d{8}$/.test(dtEndRaw) ? parseIcsDate(dtEndRaw) : null;
+    const days = enumerateDays(startDate, endExclusive);
+    const safeUid = uid ?? `${dtStartRaw}-${summary}`;
+    return days.map(date => ({
+      ...common(),
+      id: `${ICS_BLOCK_ID_PREFIX}${safeUid.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 70)}_${date}`,
+      durationMinutes: 0,
+      date,
+      startTime: undefined,
+      endTime: undefined,
+      isScheduled: true,
+      isAllDay: true,
+      createdAt: Date.now(),
+    }));
+  }
+
+  // ── Timed events ──
+  const start = parseIcsDateTime(dtStartRaw);
+  if (!start) return [];
+
+  const dtEndRaw = get('DTEND') ?? get('DURATION');
+  let end: Date | null = null;
+  if (dtEndRaw) {
+    end = dtEndRaw.startsWith('P') ? addDuration(start, dtEndRaw) : parseIcsDateTime(dtEndRaw);
+  }
+  if (!end) end = new Date(start.getTime() + 60 * 60000);
+
+  const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
+  if (durationMinutes <= 0) return [];
+
+  const date = toDateString(start);
+  const startTime = toTimeString(start);
+  const safeUid = uid ?? `${date}-${startTime}-${summary}`;
+
+  return [{
+    ...common(),
+    id: `${ICS_BLOCK_ID_PREFIX}${safeUid.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80)}`,
+    durationMinutes,
+    date,
+    startTime,
+    endTime: toTimeString(end),
+    isScheduled: true,
+    createdAt: start.getTime(),
+  }];
+};
+
+interface YMD { y: number; mo: number; d: number; }
+
+/** Parse an iCal DATE value (YYYYMMDD, optionally TZID-prefixed). */
+const parseIcsDate = (raw: string): YMD | null => {
+  const value = raw.includes(':') ? raw.split(':').slice(1).join(':') : raw;
+  const m = value.match(/^(\d{4})(\d{2})(\d{2})/);
+  return m ? { y: +m[1], mo: +m[2], d: +m[3] } : null;
+};
+
+/** Enumerate date strings from start to endExclusive (cap at 60 days for safety). */
+const enumerateDays = (start: YMD, endExclusive: YMD | null): string[] => {
+  const out: string[] = [];
+  const cur = new Date(start.y, start.mo - 1, start.d);
+  const end = endExclusive
+    ? new Date(endExclusive.y, endExclusive.mo - 1, endExclusive.d)
+    : new Date(start.y, start.mo - 1, start.d + 1);
+  let guard = 0;
+  while (cur.getTime() < end.getTime() && guard < 60) {
+    out.push(toDateString(cur));
+    cur.setDate(cur.getDate() + 1);
+    guard++;
+  }
+  return out.length ? out : [toDateString(new Date(start.y, start.mo - 1, start.d))];
 };
 
 // ─── Date/time helpers ────────────────────────────────────────────────────────

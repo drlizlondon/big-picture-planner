@@ -131,8 +131,9 @@ body {
     --mobile-tray-offset: 124px;
   }
 
+  /* Collapsed = slim handle: hand the reclaimed height back to the calendar. */
   .planner-workspace.mobile-inbox-collapsed {
-    --mobile-tray-offset: 124px;
+    --mobile-tray-offset: 48px;
   }
 
   .planner-workspace.is-dragging-block {
@@ -162,8 +163,15 @@ body {
     transition: height 180ms ease, transform 180ms ease;
   }
 
+  /* Collapsed = a slim tappable handle bar (header only); the rail is hidden so
+     the calendar gets the space back. Expanded = the full inbox rail. */
   .mobile-life-inbox-tray.collapsed {
-    height: 118px;
+    height: 40px;
+  }
+
+  .mobile-life-inbox-tray.collapsed .mobile-inbox-rail,
+  .mobile-life-inbox-tray.collapsed .inbox-sort-btn {
+    display: none;
   }
 
   .mobile-life-inbox-tray.expanded {
@@ -194,8 +202,22 @@ body {
     touch-action: pan-x;
   }
 
+  /* Visible collapse/expand affordance for the inbox tray. */
   .mobile-tray-handle {
-    display: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    color: var(--text-secondary, #667085);
+    font-size: 11px;
+  }
+
+  .mobile-tray-handle:hover {
+    background: rgba(124, 92, 252, 0.08);
+    color: var(--accent-primary, #7c5cfc);
   }
 
   .mobile-tray-handle span {

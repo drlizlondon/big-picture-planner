@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getAccessState, redeemCode, subscribeToAccessChanges, type AccessState } from '../../services/accessService';
-import { signInWithGoogle, sendMagicLink, getCurrentSession } from '../../services/supabaseClient';
+import { signInWithGoogle, sendMagicLink, getCurrentSession, getSupabaseClient } from '../../services/supabaseClient';
 import { signOut } from '../../services/syncService';
 import { getAppHref, getSiteHref } from '../../utils/deploymentPaths';
 
@@ -32,7 +32,17 @@ export const AccessGate: React.FC<Props> = ({ children }) => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async load of access state on mount
     void refresh();
     const unsub = subscribeToAccessChanges(refresh);
-    return unsub;
+    // Re-evaluate access the moment Supabase establishes/refreshes/clears the
+    // session (e.g. straight after the Google OAuth redirect). Without this the
+    // gate could keep showing the sign-in screen after a successful login,
+    // making users sign in a second time.
+    const { data: authSub } = getSupabaseClient()?.auth.onAuthStateChange(() => {
+      void refresh();
+    }) ?? { data: undefined };
+    return () => {
+      unsub();
+      authSub?.subscription.unsubscribe();
+    };
   }, []);
 
   // Demo mode — show the app immediately, ungated, with a convert banner.

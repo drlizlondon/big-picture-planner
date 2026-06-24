@@ -137,7 +137,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
     }
   }
 
-  const blockTone = getBlockTone(block, hasConflicts, category?.name);
+  const blockTone = getBlockTone(block, hasConflicts, category ? categoryColor : undefined);
   const style = {
     top: `${topOffset}px`,
     height: `${Math.max(block.durationMinutes * minuteHeight, isShortBlock ? 40 : 46)}px`,
@@ -639,23 +639,34 @@ const IcsActionMenu: React.FC<IcsActionMenuProps> = ({ isOpen, onToggle, onDelet
   );
 };
 
-const getBlockTone = (block: PlannerBlock, hasConflicts: boolean, categoryName?: string): { background: string; border: string; accent: string } => {
+/** Derive a calm block tone (bg / border / accent) from a single category colour. */
+const toneFromHex = (hex: string): { background: string; border: string; accent: string } => {
+  const valid = /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : '#8A93A3';
+  return { background: `${valid}14`, border: `${valid}66`, accent: valid };
+};
+
+const getBlockTone = (block: PlannerBlock, hasConflicts: boolean, categoryColor?: string): { background: string; border: string; accent: string } => {
+  // Status signals win so they're never hidden by a category colour.
   if (hasConflicts || block.reviewColour === 'RED') {
     return { background: '#FFF1F3', border: '#FDA4AF', accent: '#E85D75' };
   }
-  // Google Calendar events — distinct blue
+  if (block.reviewColour === 'ORANGE') {
+    return { background: '#FFF7E6', border: '#F4B04F', accent: '#F59E0B' };
+  }
+  // A category colour (including one assigned per source calendar on import)
+  // takes priority, so categories/calendars are visually distinct.
+  if (categoryColor) {
+    return toneFromHex(categoryColor);
+  }
+  // Source defaults when no category is set.
   if (isGCalBlock(block)) {
     return { background: '#E8F0FE', border: '#A8C4FB', accent: '#4285F4' };
   }
-  // Apple Calendar .ics imports — soft red/coral (matches Apple Calendar branding)
   if (isIcsBlock(block)) {
     return { background: '#FFF5F5', border: '#FECACA', accent: '#EF4444' };
   }
-  if (block.reviewColour === 'ORANGE' || block.isBaseEvent) {
+  if (block.isBaseEvent) {
     return { background: '#FFF7E6', border: '#F4B04F', accent: '#F59E0B' };
-  }
-  if (categoryName?.trim().toLowerCase() === 'personal') {
-    return { background: '#F3EFFF', border: '#CDBDFF', accent: '#7C5CFC' };
   }
   return { background: '#F4F7FB', border: '#CDD6E3', accent: '#8A93A3' };
 };

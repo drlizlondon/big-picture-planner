@@ -122,10 +122,9 @@ export const syncGoogleCalendarEvents = async (): Promise<GCalSyncResult> => {
 
   const syncNow = Date.now();
 
-  // Convert events to PlannerBlocks
-  const incoming = rawEvents
-    .map(event => googleEventToBlock(event, syncNow))
-    .filter((b): b is PlannerBlock => b !== null);
+  // Convert events to PlannerBlocks (one event may yield several blocks when an
+  // all-day event spans multiple days).
+  const incoming = rawEvents.flatMap(event => googleEventToBlock(event, syncNow));
 
   const incomingIds = new Set(incoming.map(b => b.id));
 
@@ -262,50 +261,29 @@ const reconcileIncomingGCalBlock = (existing: PlannerBlock | undefined, incoming
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const googleEventToBlock = (event: any, now: number = Date.now()): PlannerBlock | null => {
-  // Skip all-day events, cancelled events, or events without a dateTime
-  if (!event.start?.dateTime || !event.end?.dateTime) return null;
-  if (event.status === 'cancelled') return null;
+const googleEventToBlock = (event: any, now: number = Date.now()): PlannerBlock[] => {
+  if (event.status === 'cancelled') return [];
 
-  const start = new Date(event.start.dateTime);
-  const end = new Date(event.end.dateTime);
-  const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
-  if (durationMinutes <= 0) return null;
-
-  const date = toDateString(start);
-  const startTimeStr = `${pad(start.getHours())}:${pad(start.getMinutes())}`;
-  const endTimeStr = `${pad(end.getHours())}:${pad(end.getMinutes())}`;
   const externalUpdatedAt = event.updated ? new Date(event.updated).getTime() : now;
-
-  return {
-    id: `${GCAL_BLOCK_ID_PREFIX}${event.id}`,
+  const source = () => ({
+    provider: 'google_calendar' as const,
+    name: event.organizer?.displayName ? `${event.organizer.displayName} (Google)` : 'Google Calendar',
+    externalCalendarId: event.organizer?.email ?? 'primary',
+    externalId: event.id,
+    importedAt: now,
+    link: 'linked' as const,
+    lastSyncedAt: now,
+    externalUpdatedAt,
+    localEditedAt: undefined,
+    syncStatus: 'synced' as const,
+  });
+  const common = () => ({
     title: event.summary || '(No title)',
     description: event.description,
-    durationMinutes,
-    date,
-    startTime: startTimeStr,
-    endTime: endTimeStr,
-    isScheduled: true,
     isBaseEvent: false,
     isHidden: false,
-    sourceType: 'calendar_import',
-    metadata: {
-      source: {
-        provider: 'google_calendar',
-        name: event.organizer?.displayName ? `${event.organizer.displayName} (Google)` : 'Google Calendar',
-        externalCalendarId: event.organizer?.email ?? 'primary',
-        externalId: event.id,
-        importedAt: now,
-        link: 'linked',
-        lastSyncedAt: now,
-        externalUpdatedAt,
-        localEditedAt: undefined,
-        syncStatus: 'synced',
-      },
-      labelIds: [],
-      systemTags: ['imported'],
-      viewIds: [],
-    },
+    sourceType: 'calendar_import' as const,
+    metadata: { source: source(), labelIds: [], systemTags: ['imported' as const], viewIds: [] },
     categoryId: undefined,
     templateId: undefined,
     travelEnabled: false,
@@ -315,10 +293,57 @@ const googleEventToBlock = (event: any, now: number = Date.now()): PlannerBlock 
     features: {},
     reviewColour: undefined,
     importSource: 'Google Calendar',
-    // Store the Google Calendar event link so we can link out to it
     importRawLine: event.htmlLink,
-    createdAt: start.getTime(),
     updatedAt: now,
     deletedAt: undefined,
-  };
+  });
+
+  // ── All-day / multi-day events use start.date / end.date (end exclusive) ──
+  if (event.start?.date && !event.start?.dateTime) {
+    return enumerateGCalDays(event.start.date, event.end?.date).map(date => ({
+      ...common(),
+      id: `${GCAL_BLOCK_ID_PREFIX}${event.id}_${date}`,
+      durationMinutes: 0,
+      date,
+      startTime: undefined,
+      endTime: undefined,
+      isScheduled: true,
+      isAllDay: true,
+      createdAt: now,
+    }));
+  }
+
+  // ── Timed events ──
+  if (!event.start?.dateTime || !event.end?.dateTime) return [];
+
+  const start = new Date(event.start.dateTime);
+  const end = new Date(event.end.dateTime);
+  const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
+  if (durationMinutes <= 0) return [];
+
+  return [{
+    ...common(),
+    id: `${GCAL_BLOCK_ID_PREFIX}${event.id}`,
+    durationMinutes,
+    date: toDateString(start),
+    startTime: `${pad(start.getHours())}:${pad(start.getMinutes())}`,
+    endTime: `${pad(end.getHours())}:${pad(end.getMinutes())}`,
+    isScheduled: true,
+    createdAt: start.getTime(),
+  }];
+};
+
+/** Enumerate YYYY-MM-DD date strings from start to endExclusive (cap 60 days). */
+const enumerateGCalDays = (startDate: string, endDate?: string): string[] => {
+  const parse = (s: string) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  const cur = parse(startDate);
+  const end = endDate ? parse(endDate) : new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
+  const out: string[] = [];
+  let guard = 0;
+  while (cur.getTime() < end.getTime() && guard < 60) {
+    out.push(toDateString(cur));
+    cur.setDate(cur.getDate() + 1);
+    guard++;
+  }
+  return out.length ? out : [startDate];
 };

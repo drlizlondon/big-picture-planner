@@ -270,6 +270,21 @@ export const moveBlockByDays = async (id: string, days: number): Promise<string 
   return date;
 };
 
+/**
+ * Move a block to a specific date while keeping its time of day (used by month
+ * view, where you drag a block between days). Timed blocks keep their start time;
+ * all-day / untimed blocks just change date.
+ */
+export const moveBlockToDate = async (id: string, date: string): Promise<void> => {
+  const block = await db.blocks.get(id);
+  if (!block) return;
+  if (block.startTime) {
+    await moveBlockToWeek(id, date, block.startTime);
+  } else {
+    await updateBlock(id, { date, isScheduled: true });
+  }
+};
+
 /** Minute span (from midnight) a block occupies after a move/resize. */
 export interface BlockTimeSpan { startMin: number; endMin: number; }
 

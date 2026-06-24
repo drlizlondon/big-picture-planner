@@ -4,8 +4,11 @@ import { getStartOfWeek, addDays } from '../../utils/dateUtils';
 import { SyncStatusPanel } from '../SyncStatusPanel/component';
 import { getSiteHref } from '../../utils/deploymentPaths';
 
+type PlannerViewMode = 'day' | 'week' | 'month';
+
 interface Props {
   currentDate: Date;
+  viewMode?: PlannerViewMode;
   onPrevWeek: () => void;
   onNextWeek: () => void;
   onToday: () => void;
@@ -19,6 +22,7 @@ interface Props {
 
 export const PlannerHeader: React.FC<Props> = ({
   currentDate,
+  viewMode = 'week',
   onPrevWeek,
   onNextWeek,
   onToday,
@@ -31,14 +35,26 @@ export const PlannerHeader: React.FC<Props> = ({
 }) => {
   const startOfWeek = getStartOfWeek(currentDate);
   const endOfWeek = addDays(startOfWeek, 6);
-  
+
   const formatOptions: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
   const startStr = startOfWeek.toLocaleDateString('en-GB', formatOptions);
   const endStr = endOfWeek.toLocaleDateString('en-GB', formatOptions);
   const year = startOfWeek.getFullYear();
-  const mobileWeekRange = `${startOfWeek.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} - ${endOfWeek.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`;
-  
-  const weekRange = `${startStr} - ${endStr} ${year}`;
+
+  // The range label matches the active view: a month, a week span, or a day.
+  let rangeLabel: string;
+  let mobileRangeLabel: string;
+  if (viewMode === 'month') {
+    rangeLabel = currentDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    mobileRangeLabel = currentDate.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+  } else if (viewMode === 'day') {
+    rangeLabel = currentDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+    mobileRangeLabel = currentDate.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
+  } else {
+    rangeLabel = `${startStr} - ${endStr} ${year}`;
+    mobileRangeLabel = `${startStr} - ${endStr}`;
+  }
+  const navLabel = viewMode === 'month' ? 'month' : viewMode === 'day' ? 'day' : 'week';
 
   return (
     <header className="planner-header h-[76px] bg-white/95 backdrop-blur flex items-center px-5 justify-between gap-4 sticky top-0 z-header border-b border-border-default/50">
@@ -61,14 +77,14 @@ export const PlannerHeader: React.FC<Props> = ({
             Today
           </button>
           <div className="planner-week-nav flex items-center gap-3">
-            <button onClick={onPrevWeek} className="planner-week-button h-9 w-9 border border-border-default hover:bg-background rounded-medium shadow-sm transition-colors text-text-secondary hover:text-text-primary bg-surface-primary" aria-label="Previous Week">
+            <button onClick={onPrevWeek} className="planner-week-button h-9 w-9 border border-border-default hover:bg-background rounded-medium shadow-sm transition-colors text-text-secondary hover:text-text-primary bg-surface-primary" aria-label={`Previous ${navLabel}`}>
               ←
             </button>
             <span className="planner-week-range text-[16px] font-bold w-[230px] text-center text-text-primary">
-              <span className="planner-week-range-desktop">{weekRange}</span>
-              <span className="planner-week-range-mobile">{mobileWeekRange}</span>
+              <span className="planner-week-range-desktop">{rangeLabel}</span>
+              <span className="planner-week-range-mobile">{mobileRangeLabel}</span>
             </span>
-            <button onClick={onNextWeek} className="planner-week-button h-9 w-9 border border-border-default hover:bg-background rounded-medium shadow-sm transition-colors text-text-secondary hover:text-text-primary bg-surface-primary" aria-label="Next Week">
+            <button onClick={onNextWeek} className="planner-week-button h-9 w-9 border border-border-default hover:bg-background rounded-medium shadow-sm transition-colors text-text-secondary hover:text-text-primary bg-surface-primary" aria-label={`Next ${navLabel}`}>
               →
             </button>
           </div>

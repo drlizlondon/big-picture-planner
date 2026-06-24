@@ -36,8 +36,28 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
+import { getCurrentSession } from '../../services/supabaseClient';
 
 const TOUR_KEY = 'bpp_tour_v2';
+
+/**
+ * The walkthrough is "seen once per user, per device" — keyed to the signed-in
+ * user id so a genuinely new user sees it once and returning users never do.
+ * Demo / signed-out visitors fall back to a shared device key.
+ */
+const resolveTourKey = async (): Promise<string> => {
+  try {
+    const session = await getCurrentSession();
+    const uid = session?.user?.id;
+    return uid ? `${TOUR_KEY}_${uid}` : `${TOUR_KEY}_demo`;
+  } catch {
+    return TOUR_KEY;
+  }
+};
+
+// The walkthrough is a singleton, so the resolved per-user key is held at module
+// scope (rather than a React ref) and read by the dismiss/finish handlers.
+let activeTourKey = TOUR_KEY;
 
 type TourStep =
   | 'open_input'
@@ -260,30 +280,37 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
     }
   }, [step, unscheduled, scheduled]);
 
-  // Start the tour (first visit, or forced via ?tour=1)
+  // Start the tour (first visit for this user, or forced via ?tour=1)
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const forceTour = params.get('tour') === '1';
-    if (forceTour) {
-      params.delete('tour');
-      const newSearch = params.toString();
-      window.history.replaceState({}, '',
-        window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash);
-      localStorage.removeItem(TOUR_KEY);
-    }
-    if (forceTour || !localStorage.getItem(TOUR_KEY)) {
-      const t = setTimeout(() => {
-        const inputOpen = !!document.querySelector('[data-tour="quick-add-input"]');
-        setStep(inputOpen ? 'type' : 'open_input');
-      }, 800);
-      return () => clearTimeout(t);
-    }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    void (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const forceTour = params.get('tour') === '1';
+      const key = await resolveTourKey();
+      if (cancelled) return;
+      activeTourKey = key;
+      if (forceTour) {
+        params.delete('tour');
+        const newSearch = params.toString();
+        window.history.replaceState({}, '',
+          window.location.pathname + (newSearch ? '?' + newSearch : '') + window.location.hash);
+        localStorage.removeItem(key);
+      }
+      if (forceTour || !localStorage.getItem(key)) {
+        timer = setTimeout(() => {
+          const inputOpen = !!document.querySelector('[data-tour="quick-add-input"]');
+          setStep(inputOpen ? 'type' : 'open_input');
+        }, 800);
+      }
+    })();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
   }, []);
 
   // Replay on demand (Settings, empty-state prompts) without a reload
   useEffect(() => {
     const onStart = () => {
-      localStorage.removeItem(TOUR_KEY);
+      localStorage.removeItem(activeTourKey);
       const inputOpen = !!document.querySelector('[data-tour="quick-add-input"]');
       setStep(inputOpen ? 'type' : 'open_input');
     };
@@ -392,14 +419,14 @@ export const OnboardingTour: React.FC<OnboardingTourProps> = ({ onOpenAddModal, 
   }, [step]);
 
   const dismiss = () => {
-    localStorage.setItem(TOUR_KEY, '1');
+    localStorage.setItem(activeTourKey, '1');
     onCloseAddModal?.();
     setVisible(false);
     setTimeout(() => setStep(null), 300);
   };
   const finish = () => {
     onCloseAddModal?.();
-    localStorage.setItem(TOUR_KEY, '1');
+    localStorage.setItem(activeTourKey, '1');
     setVisible(false);
     setTimeout(() => setStep('complete'), 300);
   };

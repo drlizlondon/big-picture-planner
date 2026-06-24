@@ -82,7 +82,8 @@ export const ToSchedulePanel: React.FC<Props> = ({
           type="button"
           onClick={onTrayToggle}
           className={`${isTray ? 'mobile-tray-handle' : 'hidden'}`}
-          aria-label={isExpanded ? 'Collapse Ready to schedule' : 'Expand Ready to schedule'}
+          aria-label={isExpanded ? `Collapse ${inboxTitle}` : `Expand ${inboxTitle}`}
+          aria-expanded={isExpanded}
         >
           <span className={isExpanded ? 'rotate-180' : ''}>▲</span>
         </button>
@@ -96,7 +97,7 @@ export const ToSchedulePanel: React.FC<Props> = ({
           <button
             type="button"
             onClick={() => setSortMode(sortMode === 'last-added' ? 'prioritised' : 'last-added')}
-            className="ml-auto h-7 rounded-small border border-border-default bg-background px-2 text-[11px] font-bold text-text-secondary transition-colors hover:border-accent-primary/35 hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/20"
+            className="inbox-sort-btn ml-auto h-7 rounded-small border border-border-default bg-background px-2 text-[11px] font-bold text-text-secondary transition-colors hover:border-accent-primary/35 hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/20"
             aria-label={`Sort Life Inbox. Current sort: ${sortMode === 'last-added' ? 'Last added' : 'Prioritised'}`}
           >
             {sortMode === 'last-added' ? 'Last added' : 'Prioritised'}

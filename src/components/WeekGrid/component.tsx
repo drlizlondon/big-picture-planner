@@ -1,5 +1,7 @@
 // Week Canvas Component
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { addDays, formatDate, getStartOfWeek, getWeekDays } from '../../utils/dateUtils';
@@ -20,6 +22,8 @@ const ZOOM_SCALE: Record<ZoomMode, number> = {
 
 interface Props {
   currentDate: Date;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
   onEditBlock: (blockId: string) => void;
   onSelectBlock: (blockId: string) => void;
   selectedBlockId: string | null;
@@ -29,10 +33,12 @@ interface Props {
   onSlotClick?: (position: { date: string; startTime: string }) => void;
   /** Mobile: focus (widen) one day, collapsing the others to thin rails. Toggles. */
   onToggleExpandDay?: (date: string) => void;
+  /** Month view: open a specific day in day view (double-click a day cell). */
+  onOpenDay?: (date: string) => void;
 }
 
-export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBlock, selectedBlockId, expandedDate = null, isDraggingBlock = false, activeFilters, onSlotClick, onToggleExpandDay }) => {
-  const [viewMode, setViewMode] = usePersistedSetting<ViewMode>('planner.viewMode', 'week');
+export const WeekGrid: React.FC<Props> = ({ currentDate, viewMode, onViewModeChange, onEditBlock, onSelectBlock, selectedBlockId, expandedDate = null, isDraggingBlock = false, activeFilters, onSlotClick, onToggleExpandDay, onOpenDay }) => {
+  const setViewMode = onViewModeChange;
   const [zoomMode, setZoomMode] = usePersistedSetting<ZoomMode>('planner.zoomMode', 'comfortable');
   const [visibleHoursPreset, setVisibleHoursPreset] = usePersistedSetting<VisibleHoursPreset>('planner.visibleHoursPreset', '07-22');
   const [customStartHour, setCustomStartHour] = usePersistedNumberSetting('planner.visibleHoursCustomStart', 7);
@@ -159,7 +165,7 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, onEditBlock, onSelectBl
       </div>
 
       {viewMode === 'month' ? (
-        <MonthCanvas dates={monthDates} blocks={visibleBlocks} today={today} />
+        <MonthCanvas dates={monthDates} blocks={visibleBlocks} today={today} onEditBlock={onEditBlock} onSelectBlock={onSelectBlock} onOpenDay={onOpenDay} />
       ) : (
         <>
           <div className="week-days-header flex border-b border-border-default/70 h-10 sticky top-[53px] bg-surface-primary z-header shadow-sm">
@@ -389,9 +395,12 @@ interface MonthCanvasProps {
   dates: Array<{ label: string; value: string; inMonth: boolean }>;
   blocks: PlannerBlock[];
   today: string;
+  onEditBlock: (blockId: string) => void;
+  onSelectBlock: (blockId: string) => void;
+  onOpenDay?: (date: string) => void;
 }
 
-const MonthCanvas: React.FC<MonthCanvasProps> = ({ dates, blocks, today }) => {
+const MonthCanvas: React.FC<MonthCanvasProps> = ({ dates, blocks, today, onEditBlock, onSelectBlock, onOpenDay }) => {
   const blocksByDate = blocks.reduce<Record<string, PlannerBlock[]>>((acc, block) => {
     if (!block.date) return acc;
     acc[block.date] = [...(acc[block.date] || []), block];
@@ -406,26 +415,62 @@ const MonthCanvas: React.FC<MonthCanvasProps> = ({ dates, blocks, today }) => {
             {day}
           </div>
         ))}
-        {dates.map(day => {
-          const dayBlocks = blocksByDate[day.value] || [];
-          return (
-            <div key={day.value} className={`min-h-[108px] border-t border-r border-border-default/70 p-2 ${day.value === today ? 'bg-accent-primary/[0.055]' : 'bg-surface-primary'} ${day.inMonth ? '' : 'opacity-45'}`}>
-              <div className="planner-scaled-label font-semibold text-text-secondary">{day.label}</div>
-              <div className="mt-2 flex flex-col gap-1">
-                {dayBlocks.slice(0, 3).map(block => (
-                  <MonthBlock key={block.id} block={block} />
-                ))}
-                {dayBlocks.length > 3 && <div className="planner-scaled-small text-text-muted px-1">More placed here</div>}
-              </div>
-            </div>
-          );
-        })}
+        {dates.map(day => (
+          <MonthDayCell
+            key={day.value}
+            day={day}
+            dayBlocks={blocksByDate[day.value] || []}
+            isToday={day.value === today}
+            onEditBlock={onEditBlock}
+            onSelectBlock={onSelectBlock}
+            onOpenDay={onOpenDay}
+          />
+        ))}
       </div>
     </div>
   );
 };
 
-const MonthBlock: React.FC<{ block: PlannerBlock }> = ({ block }) => {
+interface MonthDayCellProps {
+  day: { label: string; value: string; inMonth: boolean };
+  dayBlocks: PlannerBlock[];
+  isToday: boolean;
+  onEditBlock: (blockId: string) => void;
+  onSelectBlock: (blockId: string) => void;
+  onOpenDay?: (date: string) => void;
+}
+
+const MonthDayCell: React.FC<MonthDayCellProps> = ({ day, dayBlocks, isToday, onEditBlock, onSelectBlock, onOpenDay }) => {
+  // Droppable so blocks can be dragged onto another day (keeping their time).
+  const { isOver, setNodeRef } = useDroppable({ id: `month-${day.value}`, data: { date: day.value, monthDrop: true } });
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-month-date={day.value}
+      onDoubleClick={() => onOpenDay?.(day.value)}
+      title="Double-click to open this day"
+      className={`min-h-[108px] border-t border-r border-border-default/70 p-2 ${isToday ? 'bg-accent-primary/[0.055]' : 'bg-surface-primary'} ${day.inMonth ? '' : 'opacity-45'} ${isOver ? 'ring-1 ring-inset ring-accent-primary/40 bg-accent-primary/[0.06]' : ''}`}
+    >
+      <div className="planner-scaled-label font-semibold text-text-secondary">{day.label}</div>
+      <div className="mt-2 flex flex-col gap-1">
+        {dayBlocks.slice(0, 3).map(block => (
+          <MonthBlock key={block.id} block={block} onEditBlock={onEditBlock} onSelectBlock={onSelectBlock} />
+        ))}
+        {dayBlocks.length > 3 && <div className="planner-scaled-small text-text-muted px-1">+{dayBlocks.length - 3} more</div>}
+      </div>
+    </div>
+  );
+};
+
+const MonthBlock: React.FC<{ block: PlannerBlock; onEditBlock: (id: string) => void; onSelectBlock: (id: string) => void }> = ({ block, onEditBlock, onSelectBlock }) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: block.id, data: block });
+  const wasDragging = useRef(false);
+  useEffect(() => {
+    if (isDragging) { wasDragging.current = true; }
+    else { const t = setTimeout(() => { wasDragging.current = false; }, 200); return () => clearTimeout(t); }
+  }, [isDragging]);
+
   const tone = block.reviewColour === 'RED'
     ? 'border-[#FDA4AF] bg-[#FFF1F3]'
     : block.reviewColour === 'ORANGE' || block.isBaseEvent
@@ -433,8 +478,24 @@ const MonthBlock: React.FC<{ block: PlannerBlock }> = ({ block }) => {
       : 'border-[#C9D3E1] bg-[#F3F6FB]';
 
   return (
-    <div className={`planner-scaled-label truncate text-text-primary rounded-small border px-2 py-1 ${tone}`}>
-      <span>{block.title}</span>
+    <div
+      ref={setNodeRef}
+      data-month-block={block.id}
+      {...listeners}
+      {...attributes}
+      style={{ transform: CSS.Translate.toString(transform), zIndex: isDragging ? 50 : undefined }}
+      onClick={(e) => {
+        // A click (not the end of a drag) opens the block so it can be edited.
+        if (wasDragging.current) { e.preventDefault(); e.stopPropagation(); return; }
+        e.stopPropagation();
+        onSelectBlock(block.id);
+        onEditBlock(block.id);
+      }}
+      onDoubleClick={(e) => e.stopPropagation()}
+      className={`planner-scaled-label truncate text-text-primary rounded-small border px-2 py-1 cursor-pointer hover:shadow-sm ${tone} ${isDragging ? 'opacity-80 shadow-hover' : ''}`}
+      title={`${block.title}${block.startTime ? ` · ${block.startTime}` : ''}`}
+    >
+      <span>{block.startTime ? `${block.startTime} ` : ''}{block.title}</span>
       {block.travelEnabled && (block.travelBeforeMinutes > 0 || block.travelAfterMinutes > 0) && (
         <span className="ml-1 text-[#2877BD]">Travel</span>
       )}
