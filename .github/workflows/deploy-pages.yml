@@ -37,10 +37,11 @@ jobs:
 
       - name: Assemble site (landing at root, app under /planner/)
         run: |
+          # `npm run build` now assembles the full site into dist/
+          # (landing at the root, the app under dist/planner/), so just
+          # publish dist as-is. The _redirects file is ignored by GitHub Pages.
           rm -rf _site
-          mkdir -p _site/planner
-          cp -r landing/. _site/
-          cp -r dist/. _site/planner/
+          cp -r dist/. _site/
           ls -R _site | head -40
 
       - name: Deploy to gh-pages
