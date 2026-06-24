@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/assemble-site.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "npm run test:import && npm run test:sync && npm run test:account && npm run test:calendar",
