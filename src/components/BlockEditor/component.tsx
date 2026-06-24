@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createBlock, createTemplate, deleteBlock, duplicateBlock, moveBlockToSchedule, pushBlockToExternalCalendar, updateBlock } from '../../services/plannerActions';
 import { useBlock, useCategories } from '../../hooks/usePlannerData';
-import { calculateEndTime } from '../../utils/planningEngine';
+import { calculateEndTime, minutesToTime, timeToMinutes } from '../../utils/planningEngine';
 import { deriveCalendarSyncStatus, getCalendarLinkType, getCalendarSyncStatusLabel, supportsWriteBack } from '../../services/calendarSyncCore';
 import type { FeatureData } from '../../types/models';
 import { DurationSelector } from '../DurationSelector/component';
@@ -33,6 +33,7 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
   const [categoryId, setCategoryId] = useState('');
   const [date, setDate] = useState('');
   const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
   const [isBaseEvent, setIsBaseEvent] = useState(false);
   const [showMoreDetails, setShowMoreDetails] = useState(false);
   const [travelEnabled, setTravelEnabled] = useState(false);
@@ -63,6 +64,7 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
     setCategoryId('');
     setDate('');
     setStartTime('');
+    setEndTime('');
     setIsBaseEvent(false);
     setShowMoreDetails(false);
     setTravelEnabled(false);
@@ -97,6 +99,7 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
       setCategoryId(block.categoryId || '');
       setDate(block.date || '');
       setStartTime(block.startTime || '');
+      setEndTime(block.endTime || (block.startTime ? minutesToTime(Math.min(24 * 60, timeToMinutes(block.startTime) + block.durationMinutes)) : ''));
       setIsBaseEvent(block.isBaseEvent || false);
       setTravelEnabled(block.travelEnabled || false);
       setTravelBeforeMinutes(block.travelBeforeMinutes ?? 60);
@@ -120,6 +123,27 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
       const next = { ...current, ...updates };
       return { ...prev, [BUILT_IN_CHILDCARE_FEATURE_ID]: next };
     });
+  };
+
+  // Start / End / Duration stay consistent so the user never does the maths.
+  const handleStartChange = (next: string) => {
+    setStartTime(next);
+    if (next && duration > 0) {
+      setEndTime(minutesToTime(Math.min(24 * 60, timeToMinutes(next) + duration)));
+    }
+  };
+  const handleEndChange = (next: string) => {
+    setEndTime(next);
+    if (startTime && next) {
+      const diff = timeToMinutes(next) - timeToMinutes(startTime);
+      if (diff > 0) setDuration(diff); // changing End updates Duration
+    }
+  };
+  const handleDurationChange = (next: number) => {
+    setDuration(next);
+    if (startTime) {
+      setEndTime(minutesToTime(Math.min(24 * 60, timeToMinutes(startTime) + next))); // changing Duration updates End
+    }
   };
 
   const handleSave = async () => {
@@ -422,28 +446,42 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
             />
           </div>
 
-          <DurationSelector value={duration} onChange={setDuration} />
+          <div className="flex flex-col gap-2">
+            <label className="text-[12px] font-bold uppercase text-text-primary tracking-[0.04em]">Date (Optional)</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="h-[44px] rounded-medium border border-border-default px-4 text-[14px] outline-none focus:border-accent-primary bg-white"
+            />
+          </div>
 
           <div className="flex gap-4">
             <div className="flex flex-col gap-2 flex-1">
-              <label className="text-[12px] font-bold uppercase text-text-primary tracking-[0.04em]">Date (Optional)</label>
+              <label className="text-[12px] font-bold uppercase text-text-primary tracking-[0.04em]">Start time</label>
               <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                type="time"
+                value={startTime}
+                onChange={(e) => handleStartChange(e.target.value)}
                 className="h-[44px] rounded-medium border border-border-default px-4 text-[14px] outline-none focus:border-accent-primary bg-white"
               />
             </div>
             <div className="flex flex-col gap-2 flex-1">
-              <label className="text-[12px] font-bold uppercase text-text-primary tracking-[0.04em]">Time (Optional)</label>
+              <label className="text-[12px] font-bold uppercase text-text-primary tracking-[0.04em]">End time</label>
               <input
                 type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="h-[44px] rounded-medium border border-border-default px-4 text-[14px] outline-none focus:border-accent-primary bg-white"
+                value={endTime}
+                onChange={(e) => handleEndChange(e.target.value)}
+                disabled={!startTime}
+                className="h-[44px] rounded-medium border border-border-default px-4 text-[14px] outline-none focus:border-accent-primary bg-white disabled:opacity-50"
               />
             </div>
           </div>
+
+          <DurationSelector value={duration} onChange={handleDurationChange} />
+          {startTime && (
+            <p className="-mt-2 text-[11px] text-text-muted">Start, end and duration stay in sync — change any one.</p>
+          )}
 
           {renderLocationFields('basic')}
 

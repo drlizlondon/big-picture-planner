@@ -210,6 +210,7 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, viewMode, onViewModeCha
               {visibleDates.map(day => (
                 <AllDayCell
                   key={day.value}
+                  date={day.value}
                   blocks={allDayByDate[day.value] || []}
                   isToday={day.value === today}
                   onEditBlock={onEditBlock}
@@ -662,35 +663,62 @@ const CurrentTimeMarker: React.FC<CurrentTimeMarkerProps> = ({ minute, minuteHei
 };
 
 interface AllDayCellProps {
+  date: string;
   blocks: PlannerBlock[];
   isToday: boolean;
   onEditBlock: (blockId: string) => void;
   onSelectBlock: (blockId: string) => void;
 }
 
-/** One day's cell in the all-day lane: a few chips, then a "+N more" overflow. */
-const AllDayCell: React.FC<AllDayCellProps> = ({ blocks, isToday, onEditBlock, onSelectBlock }) => (
-  <div className={`all-day-cell flex-1 min-w-0 border-r border-border-default/35 last:border-r-0 px-1 py-1 flex flex-col gap-0.5 ${isToday ? 'bg-accent-primary/[0.04]' : ''}`}>
-    {blocks.slice(0, 3).map(block => (
-      <AllDayChip key={block.id} block={block} onEditBlock={onEditBlock} onSelectBlock={onSelectBlock} />
-    ))}
-    {blocks.length > 3 && (
-      <div className="planner-scaled-small text-text-muted px-1">+{blocks.length - 3} more</div>
-    )}
-  </div>
-);
+/** One day's cell in the all-day lane: a droppable target with a few chips. */
+const AllDayCell: React.FC<AllDayCellProps> = ({ date, blocks, isToday, onEditBlock, onSelectBlock }) => {
+  // Droppable so an all-day chip can be dragged onto another day (keeps it all-day).
+  const { isOver, setNodeRef } = useDroppable({ id: `allday-${date}`, data: { date, allDayDrop: true } });
+  return (
+    <div
+      ref={setNodeRef}
+      data-allday-date={date}
+      className={`all-day-cell flex-1 min-w-0 border-r border-border-default/35 last:border-r-0 px-1 py-1 flex flex-col gap-0.5 ${isToday ? 'bg-accent-primary/[0.04]' : ''} ${isOver ? 'ring-1 ring-inset ring-accent-primary/40 bg-accent-primary/[0.06]' : ''}`}
+    >
+      {blocks.slice(0, 3).map(block => (
+        <AllDayChip key={block.id} block={block} onEditBlock={onEditBlock} onSelectBlock={onSelectBlock} />
+      ))}
+      {blocks.length > 3 && (
+        <div className="planner-scaled-small text-text-muted px-1">+{blocks.length - 3} more</div>
+      )}
+    </div>
+  );
+};
 
-const AllDayChip: React.FC<{ block: PlannerBlock; onEditBlock: (id: string) => void; onSelectBlock: (id: string) => void }> = ({ block, onEditBlock, onSelectBlock }) => (
-  <button
-    type="button"
-    data-block-id={block.id}
-    onClick={(e) => { e.stopPropagation(); onSelectBlock(block.id); onEditBlock(block.id); }}
-    className="planner-scaled-small truncate rounded-[6px] border border-[#C9D3E1] bg-[#F3F6FB] px-1.5 py-0.5 text-left font-semibold text-text-primary hover:shadow-sm"
-    title={block.title}
-  >
-    {block.title}
-  </button>
-);
+const AllDayChip: React.FC<{ block: PlannerBlock; onEditBlock: (id: string) => void; onSelectBlock: (id: string) => void }> = ({ block, onEditBlock, onSelectBlock }) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: block.id, data: block });
+  const wasDragging = useRef(false);
+  useEffect(() => {
+    if (isDragging) { wasDragging.current = true; }
+    else { const t = setTimeout(() => { wasDragging.current = false; }, 200); return () => clearTimeout(t); }
+  }, [isDragging]);
+
+  return (
+    <button
+      type="button"
+      ref={setNodeRef}
+      data-block-id={block.id}
+      {...listeners}
+      {...attributes}
+      style={{ transform: CSS.Translate.toString(transform), zIndex: isDragging ? 50 : undefined }}
+      onClick={(e) => {
+        if (wasDragging.current) { e.preventDefault(); e.stopPropagation(); return; }
+        e.stopPropagation();
+        onSelectBlock(block.id);
+        onEditBlock(block.id);
+      }}
+      className={`planner-scaled-small truncate rounded-[6px] border border-[#C9D3E1] bg-[#F3F6FB] px-1.5 py-0.5 text-left font-semibold text-text-primary cursor-grab active:cursor-grabbing hover:shadow-sm ${isDragging ? 'opacity-80 shadow-hover' : ''}`}
+      title={block.title}
+    >
+      {block.title}
+    </button>
+  );
+};
 
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);

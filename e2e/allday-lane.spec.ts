@@ -33,6 +33,38 @@ test.describe('all-day lane', () => {
     await expect(page.getByRole('dialog').locator('input').first()).toHaveValue('Annual leave');
   });
 
+  test('dragging an all-day chip to another day moves it (stays all-day)', async ({ page }) => {
+    await page.goto('?demo=1');
+    await seedBlocks(page, { allDay: true });
+    await page.reload();
+
+    const tomorrow = await page.evaluate(() => {
+      const x = new Date(); x.setDate(x.getDate() + 1);
+      return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+    });
+
+    const chip = page.locator('[data-all-day-lane="true"] [data-block-id="ad-1"]');
+    const targetCell = page.locator(`[data-allday-date="${tomorrow}"]`);
+    const c = await chip.boundingBox();
+    const t = await targetCell.boundingBox();
+    await page.mouse.move(c!.x + c!.width / 2, c!.y + c!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(c!.x + 30, c!.y + c!.height / 2, { steps: 6 });
+    await page.mouse.move(t!.x + t!.width / 2, t!.y + t!.height / 2, { steps: 20 });
+    await page.mouse.up();
+
+    await expect.poll(() => page.evaluate(async () => {
+      const req = indexedDB.open('PlannerDB');
+      const db = await new Promise<IDBDatabase>((res, rej) => { req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); });
+      const b = await new Promise<{ date?: string; isAllDay?: boolean }>((res, rej) => {
+        const r = db.transaction('blocks', 'readonly').objectStore('blocks').get('ad-1');
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      });
+      db.close();
+      return b?.date;
+    })).toBe(tomorrow);
+  });
+
   test('no lane when there are no all-day events', async ({ page }) => {
     await page.goto('?demo=1');
     await seedBlocks(page, { allDay: false });

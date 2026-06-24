@@ -6,6 +6,7 @@ import { enqueueSyncChange } from './syncService';
 import { isGCalBlock, getGCalEventId, patchGoogleCalendarEvent } from './googleCalendarService';
 import { decideWriteScope, getCalendarLinkType, markSourceChangedLocally, markSourcePushed, supportsWriteBack } from './calendarSyncCore';
 import { getCalendarWriteBackPreference } from './calendarPreferences';
+import { recordMovement, snapshotMovement } from './blockHistory';
 
 export const createBlock = async (
   blockData: Omit<PlannerBlock, 'id' | 'createdAt' | 'updatedAt'>
@@ -187,6 +188,8 @@ export const moveBlockToWeek = async (id: string, date: string, startTime: strin
 
   const endTime = calculateEndTime(startTime, block.durationMinutes);
   const now = Date.now();
+  const before = snapshotMovement(block);
+  const movedSnap = { ...before, date, startTime, endTime, isScheduled: true };
 
   if (isGCalBlock(block)) {
     // Linked external event. Decide whether this move should also touch Google
@@ -204,6 +207,7 @@ export const moveBlockToWeek = async (id: string, date: string, startTime: strin
             isScheduled: true, date, startTime, endTime, updatedAt: now,
             metadata: { ...block.metadata!, source: markSourcePushed(source, now) },
           });
+          recordMovement(id, before, movedSnap);
           return;
         } catch {
           // Push failed — fall through to a local-only update flagged as changed,
@@ -218,11 +222,13 @@ export const moveBlockToWeek = async (id: string, date: string, startTime: strin
       isScheduled: true, date, startTime, endTime, updatedAt: now,
       metadata: source ? { ...block.metadata!, source: markSourceChangedLocally(source, now) } : block.metadata,
     });
+    recordMovement(id, before, movedSnap);
     // GCal events are not stored in Supabase — skip the sync queue.
     return;
   }
 
   await db.blocks.update(id, { isScheduled: true, date, startTime, endTime, updatedAt: now });
+  recordMovement(id, before, movedSnap);
   const updatedBlock = await db.blocks.get(id);
   if (updatedBlock) await enqueueSyncChange('blocks', id, 'upsert', updatedBlock);
 };
@@ -279,9 +285,11 @@ export const moveBlockToDate = async (id: string, date: string): Promise<void> =
   const block = await db.blocks.get(id);
   if (!block) return;
   if (block.startTime) {
-    await moveBlockToWeek(id, date, block.startTime);
+    await moveBlockToWeek(id, date, block.startTime); // records history itself
   } else {
+    const before = snapshotMovement(block);
     await updateBlock(id, { date, isScheduled: true });
+    recordMovement(id, before, { ...before, date, isScheduled: true });
   }
 };
 
@@ -302,16 +310,18 @@ export const resizeBlockDuration = async (id: string, minutes: number): Promise<
   const block = await db.blocks.get(id);
   if (!block?.startTime) return undefined;
 
+  const before = snapshotMovement(block);
   const nextDuration = Math.max(15, block.durationMinutes + minutes);
-  await updateBlock(id, {
-    durationMinutes: nextDuration,
-    endTime: calculateEndTime(block.startTime, nextDuration),
-  });
+  const endTime = calculateEndTime(block.startTime, nextDuration);
+  await updateBlock(id, { durationMinutes: nextDuration, endTime });
+  recordMovement(id, before, { ...before, durationMinutes: nextDuration, endTime });
   const startMin = timeToMinutes(block.startTime);
   return { startMin, endMin: startMin + nextDuration };
 };
 
 export const moveBlockToSchedule = async (id: string): Promise<void> => {
+  const existing = await db.blocks.get(id);
+  const before = existing ? snapshotMovement(existing) : undefined;
   await db.blocks.update(id, {
     isScheduled: false,
     date: undefined,
@@ -321,4 +331,5 @@ export const moveBlockToSchedule = async (id: string): Promise<void> => {
   });
   const updatedBlock = await db.blocks.get(id);
   if (updatedBlock) await enqueueSyncChange('blocks', id, 'upsert', updatedBlock);
+  if (before) recordMovement(id, before, { ...before, isScheduled: false, date: undefined, startTime: undefined, endTime: undefined });
 };

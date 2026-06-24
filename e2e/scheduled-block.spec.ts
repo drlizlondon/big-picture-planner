@@ -47,7 +47,7 @@ test.describe('scheduled block interactions', () => {
     await getSeededScheduledBlock(page).dblclick();
     const dialog = page.getByRole('dialog');
 
-    await dialog.locator('input[type="time"]').fill('21:30');
+    await dialog.locator('input[type="time"]').first().fill('21:30');
     await dialog.getByRole('combobox').first().selectOption('120');
     await dialog.getByRole('button', { name: 'Save Changes' }).click();
 

@@ -5,6 +5,7 @@ import { WeekGrid } from '../WeekGrid/component';
 import { addDays } from '../../utils/dateUtils';
 import { DndContext, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useDroppable, useSensor, useSensors, type Collision, type CollisionDetection, type DragEndEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
 import { createBlock, deleteBlock, moveBlockByDays, moveBlockByMinutes, moveBlockToDate, moveBlockToSchedule, moveBlockToWeek, resizeBlockDuration } from '../../services/plannerActions';
+import { redoMovement, undoMovement } from '../../services/blockHistory';
 import { AddToPlannerModal } from '../AddToPlannerModal/component';
 import { BlockEditor } from '../BlockEditor/component';
 import { PlannerSetupPanel } from '../PlannerSetupPanel/component';
@@ -282,6 +283,8 @@ export const AppShell: React.FC = () => {
 
       const isCopyKey = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c';
       const isPasteKey = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v';
+      const isUndoKey = (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z';
+      const isRedoKey = (event.ctrlKey || event.metaKey) && (event.key.toLowerCase() === 'y' || (event.shiftKey && event.key.toLowerCase() === 'z'));
       const isMoveKey = event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight';
       const isDurationKey = event.key === '+' || event.key === '=' || event.key === '-' || event.key === '_';
       const isDeleteKey = event.key === 'Backspace' || event.key === 'Delete';
@@ -316,6 +319,15 @@ export const AppShell: React.FC = () => {
             setCurrentDate(new Date(`${placement.date}T12:00:00`));
           }
           revealSelectedBlock();
+        });
+        return;
+      }
+
+      if (isUndoKey || isRedoKey) {
+        event.preventDefault();
+        keyboardQueueRef.current = keyboardQueueRef.current.catch(() => undefined).then(async () => {
+          if (isRedoKey) await redoMovement();
+          else await undoMovement();
         });
         return;
       }
@@ -427,10 +439,16 @@ export const AppShell: React.FC = () => {
     if (!over) return;
     
     const blockId = active.id as string;
-    const dropData = over.data.current as { date?: string, startTime?: string, edgeWeekOffset?: number, toLifeInbox?: boolean, monthDrop?: boolean };
+    const activeBlock = active.data.current as { isAllDay?: boolean } | undefined;
+    const dropData = over.data.current as { date?: string, startTime?: string, edgeWeekOffset?: number, toLifeInbox?: boolean, monthDrop?: boolean, allDayDrop?: boolean };
 
-    if (dropData?.monthDrop && dropData.date) {
-      // Month view: change the day, keep the time of day.
+    if (activeBlock?.isAllDay && dropData?.date && !dropData.toLifeInbox) {
+      // An all-day event always stays all-day — only its day changes, even if
+      // dropped onto a time slot.
+      await moveBlockToDate(blockId, dropData.date);
+      setSelectedBlockId(blockId);
+    } else if ((dropData?.monthDrop || dropData?.allDayDrop) && dropData.date) {
+      // Month grid or the all-day lane: change the day, keep the time of day.
       await moveBlockToDate(blockId, dropData.date);
       setSelectedBlockId(blockId);
     } else if (dropData && dropData.date && dropData.startTime) {
