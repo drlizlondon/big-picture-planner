@@ -1,7 +1,0 @@
-# Cloudflare Pages routing rules.
-#
-# The planner is a single-page app served under /planner/ with client-side
-# routes (e.g. /planner/sign-in, /planner/account). For any /planner/ path that
-# isn't a real file (JS/CSS/assets are served directly), rewrite to the app's
-# index.html with a 200 so the SPA router handles the route on refresh/deep-link.
-/planner/*  /planner/index.html  200
