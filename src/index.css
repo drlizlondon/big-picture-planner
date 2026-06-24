@@ -485,6 +485,27 @@ body {
   .now-dot { width: 11px; height: 11px; margin-left: -5.5px; }
 }
 
+/* ─── All-day lane (sticky beneath the weekday header) ─── */
+.all-day-lane {
+  position: sticky;
+  top: 93px; /* sticky toolbar (53px) + weekday header (40px) */
+  z-index: 80;
+  /* It's a flex item in the flex-col grid shell; without this the growing
+     time-grid squeezes it to ~0 and its chips spill behind the grid. */
+  flex-shrink: 0;
+  max-height: 88px;
+  overflow-y: auto;
+}
+.all-day-cell {
+  min-height: 28px;
+}
+@media (max-width: 767px) {
+  .all-day-lane {
+    top: 103px; /* mobile weekday header sits at 75px + 28px tall */
+    max-height: 64px;
+  }
+}
+
 .scheduled-block-time {
   font-size: calc(8px * var(--planner-text-scale));
 }

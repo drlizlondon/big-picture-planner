@@ -117,6 +117,15 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, viewMode, onViewModeCha
   // stale expanded date from another week doesn't collapse every column to a rail.
   const expandedInView = !!expandedDate && visibleDates.some(day => day.value === expandedDate);
 
+  // All-day / multi-day events get their own sticky lane above the time grid
+  // (they have no start time, so they can't sit in an hour slot). Only shown
+  // when at least one all-day event falls in view, so it never wastes space.
+  const allDayByDate = visibleBlocks.reduce<Record<string, PlannerBlock[]>>((acc, block) => {
+    if (block.isAllDay && block.date) (acc[block.date] = acc[block.date] || []).push(block);
+    return acc;
+  }, {});
+  const hasAllDayLane = Object.keys(allDayByDate).length > 0;
+
   useEffect(() => {
     if (!scrollRef.current) return;
     const element = scrollRef.current;
@@ -192,6 +201,23 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, viewMode, onViewModeCha
               );
             })}
           </div>
+
+          {hasAllDayLane && (
+            <div className="all-day-lane flex border-b border-border-default/70 bg-surface-primary shadow-sm" data-all-day-lane="true">
+              <div className="week-time-gutter w-12 flex-shrink-0 border-r border-border-default/50 flex items-center justify-center">
+                <span className="planner-scaled-small font-semibold text-text-muted">all-day</span>
+              </div>
+              {visibleDates.map(day => (
+                <AllDayCell
+                  key={day.value}
+                  blocks={allDayByDate[day.value] || []}
+                  isToday={day.value === today}
+                  onEditBlock={onEditBlock}
+                  onSelectBlock={onSelectBlock}
+                />
+              ))}
+            </div>
+          )}
 
           <div className="flex flex-1 relative min-h-max" data-tour="time-grid" data-fullday-grid="true">
             <div className="week-time-gutter w-12 flex-shrink-0 border-r border-border-default/50 flex flex-col bg-surface-primary">
@@ -634,6 +660,37 @@ const CurrentTimeMarker: React.FC<CurrentTimeMarkerProps> = ({ minute, minuteHei
     </div>
   );
 };
+
+interface AllDayCellProps {
+  blocks: PlannerBlock[];
+  isToday: boolean;
+  onEditBlock: (blockId: string) => void;
+  onSelectBlock: (blockId: string) => void;
+}
+
+/** One day's cell in the all-day lane: a few chips, then a "+N more" overflow. */
+const AllDayCell: React.FC<AllDayCellProps> = ({ blocks, isToday, onEditBlock, onSelectBlock }) => (
+  <div className={`all-day-cell flex-1 min-w-0 border-r border-border-default/35 last:border-r-0 px-1 py-1 flex flex-col gap-0.5 ${isToday ? 'bg-accent-primary/[0.04]' : ''}`}>
+    {blocks.slice(0, 3).map(block => (
+      <AllDayChip key={block.id} block={block} onEditBlock={onEditBlock} onSelectBlock={onSelectBlock} />
+    ))}
+    {blocks.length > 3 && (
+      <div className="planner-scaled-small text-text-muted px-1">+{blocks.length - 3} more</div>
+    )}
+  </div>
+);
+
+const AllDayChip: React.FC<{ block: PlannerBlock; onEditBlock: (id: string) => void; onSelectBlock: (id: string) => void }> = ({ block, onEditBlock, onSelectBlock }) => (
+  <button
+    type="button"
+    data-block-id={block.id}
+    onClick={(e) => { e.stopPropagation(); onSelectBlock(block.id); onEditBlock(block.id); }}
+    className="planner-scaled-small truncate rounded-[6px] border border-[#C9D3E1] bg-[#F3F6FB] px-1.5 py-0.5 text-left font-semibold text-text-primary hover:shadow-sm"
+    title={block.title}
+  >
+    {block.title}
+  </button>
+);
 
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
