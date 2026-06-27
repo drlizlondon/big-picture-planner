@@ -1,4 +1,4 @@
-import type { ImportDecision, SyncAction, SyncEntityType, SyncStatusText } from '../types/models';
+import type { SyncAction, SyncEntityType, SyncStatusText } from '../types/models';
 
 export interface QueueLikeItem<TPayload> {
   id: string;
@@ -24,7 +24,10 @@ export const getSyncStatusLabel = (state: {
 }): SyncStatusText => {
   if (state.isSyncing) return 'Syncing';
   if (!state.isConfigured || !state.isLoggedIn) return 'Saved on this device';
-  if (!state.isOnline || state.pendingCount > 0) {
+  // Offline takes precedence over a pending queue: tell the user plainly that
+  // their changes are saved and will sync once they reconnect.
+  if (!state.isOnline) return 'Offline';
+  if (state.pendingCount > 0) {
     return state.hasRetriedItem ? 'Sync failed, retrying' : 'Sync pending';
   }
   return state.hasSynced ? 'Synced' : 'Sync pending';
@@ -57,24 +60,11 @@ export const getRetryDelayMs = (attempts: number): number => {
   return Math.min(30000, 2500 * Math.max(1, attempts));
 };
 
-export const getImportPromptState = (state: {
-  hasLocalData: boolean;
-  decision?: ImportDecision;
-}): 'prompt' | 'quiet-later' | 'none' => {
-  if (!state.hasLocalData) return 'none';
-  if (!state.decision) return 'prompt';
-  if (state.decision === 'later') return 'quiet-later';
-  return 'none';
-};
-
+// A logged-in account is always a synced account. We no longer ask the user
+// whether to import or stay device-only — being signed in means every change
+// queues for the cloud, and existing on-device data is imported automatically
+// once (see queueLocalImportForCurrentUser, run on sign-in).
 export const shouldQueueForSync = (state: {
   isConfigured: boolean;
   isLoggedIn: boolean;
-  hasLocalData: boolean;
-  decision?: ImportDecision;
-}): boolean => {
-  if (!state.isConfigured || !state.isLoggedIn) return false;
-  if (state.decision === 'later') return false;
-  if (state.decision === 'imported' || state.decision === 'device-only') return true;
-  return !state.hasLocalData;
-};
+}): boolean => state.isConfigured && state.isLoggedIn;

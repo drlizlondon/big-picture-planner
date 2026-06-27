@@ -123,8 +123,18 @@ body {
 
   .planner-workspace {
     padding: 6px;
-    padding-bottom: var(--mobile-tray-offset, 124px);
+    padding-bottom: calc(var(--mobile-tray-offset, 124px) + env(safe-area-inset-bottom));
     gap: 0;
+  }
+
+  /* iOS auto-zooms the whole page when a control with font-size < 16px gains
+     focus, and never zooms back — which is what makes the app feel "oversized"
+     after tapping a field. Keeping inputs at 16px on small screens prevents it
+     while leaving pinch-zoom on the calendar grid intact. */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
   }
 
   .planner-workspace.mobile-inbox-expanded {
@@ -161,12 +171,15 @@ body {
     border-top: 1px solid #e7eaf0;
     box-shadow: 0 -10px 28px rgba(26, 29, 41, 0.12);
     transition: height 180ms ease, transform 180ms ease;
+    /* Extend the white tray into the home-indicator area and keep its content
+       above it (heights below add the same inset so content isn't clipped). */
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   /* Collapsed = a slim tappable handle bar (header only); the rail is hidden so
      the calendar gets the space back. Expanded = the full inbox rail. */
   .mobile-life-inbox-tray.collapsed {
-    height: 40px;
+    height: calc(40px + env(safe-area-inset-bottom));
   }
 
   .mobile-life-inbox-tray.collapsed .mobile-inbox-rail,
@@ -175,11 +188,11 @@ body {
   }
 
   .mobile-life-inbox-tray.expanded {
-    height: 118px;
+    height: calc(118px + env(safe-area-inset-bottom));
   }
 
   .mobile-life-inbox-tray.dragging {
-    height: 104px;
+    height: calc(104px + env(safe-area-inset-bottom));
   }
 
   .mobile-tray-panel {
@@ -302,7 +315,7 @@ body {
     position: absolute;
     z-index: 1001;
     right: 10px;
-    bottom: 11px;
+    bottom: calc(11px + env(safe-area-inset-bottom));
     white-space: nowrap;
   }
 
@@ -310,7 +323,7 @@ body {
     position: absolute;
     left: 8px;
     right: 8px;
-    bottom: calc(var(--mobile-tray-offset, 124px) + 8px);
+    bottom: calc(var(--mobile-tray-offset, 124px) + 8px + env(safe-area-inset-bottom));
     z-index: 1001;
     display: flex;
     align-items: center;
@@ -449,6 +462,13 @@ body {
   height: 100svh;  /* always fits even when browser chrome is visible */
   height: 100dvh;  /* dynamic: adjusts as chrome shows/hides */
   --planner-text-scale: 1;
+  /* Respect iPhone safe areas: keep the header clear of the status bar /
+     Dynamic Island and indent for the landscape notch. These resolve to 0 on
+     the web/desktop (no inset), so this is a no-op outside the native wrapper. */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  box-sizing: border-box;
 }
 
 /* ─── Current-time marker (calm, week-wide) ─── */

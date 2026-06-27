@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  getImportPromptState,
   getRetryDelayMs,
   getSyncStatusLabel,
   mergeQueuedChange,
@@ -22,8 +21,14 @@ test('local-only mode uses device status and does not queue', () => {
   assert.equal(shouldQueueForSync({
     isConfigured: false,
     isLoggedIn: false,
-    hasLocalData: true,
   }), false);
+});
+
+test('a logged-in account always syncs (no import/device-only choice)', () => {
+  // Logged in + configured => always queue, regardless of local data.
+  assert.equal(shouldQueueForSync({ isConfigured: true, isLoggedIn: true }), true);
+  // Configured but signed out => stays local.
+  assert.equal(shouldQueueForSync({ isConfigured: true, isLoggedIn: false }), false);
 });
 
 test('logged-in synced mode reports synced after successful sync', () => {
@@ -92,11 +97,27 @@ test('queue retry uses calm retry state and capped backoff', () => {
   assert.equal(getRetryDelayMs(99), 30000);
 });
 
-test('import prompt decisions are optional and prevent repeated prompt after decision', () => {
-  assert.equal(getImportPromptState({ hasLocalData: true }), 'prompt');
-  assert.equal(getImportPromptState({ hasLocalData: true, decision: 'device-only' }), 'none');
-  assert.equal(getImportPromptState({ hasLocalData: true, decision: 'imported' }), 'none');
-  assert.equal(getImportPromptState({ hasLocalData: true, decision: 'later' }), 'quiet-later');
+test('offline shows an explicit Offline status, even with queued changes', () => {
+  assert.equal(getSyncStatusLabel({
+    isSyncing: false,
+    isConfigured: true,
+    isLoggedIn: true,
+    isOnline: false,
+    pendingCount: 3,
+    hasRetriedItem: false,
+    hasSynced: true,
+  }), 'Offline');
+
+  // Offline with an empty queue is still Offline (not "Synced").
+  assert.equal(getSyncStatusLabel({
+    isSyncing: false,
+    isConfigured: true,
+    isLoggedIn: true,
+    isOnline: false,
+    pendingCount: 0,
+    hasRetriedItem: false,
+    hasSynced: true,
+  }), 'Offline');
 });
 
 test('logout preserves local data by returning to device status', () => {

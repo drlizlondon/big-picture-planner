@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSyncStatus } from '../../hooks/useSyncStatus';
-import { markImportDeviceOnlyForCurrentUser, markImportLaterForCurrentUser, queueLocalImportForCurrentUser, signOut, syncPendingChanges } from '../../services/syncService';
+import { signOut, syncPendingChanges } from '../../services/syncService';
 import { connectGoogleCalendar, sendMagicLink, signInWithGoogle } from '../../services/supabaseClient';
 import { getLastSyncTime, hasGCalAccess, syncGoogleCalendarEvents } from '../../services/googleCalendarService';
 import { commitIcsImport, parseIcsFile, type IcsParseResult } from '../../services/icsImportService';
@@ -85,32 +85,13 @@ export const SyncStatusPanel: React.FC = () => {
     try {
       await sendMagicLink(email.trim());
       setMessage('Sign-in link sent.');
-    } catch {
-      setMessage('Saved on this device');
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'Could not send sign-in link.';
+      console.error('[auth] magic link failed:', reason);
+      setMessage(reason);
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleImport = async () => {
-    setIsSubmitting(true);
-    try {
-      await queueLocalImportForCurrentUser();
-      await syncPendingChanges();
-      setMessage('Sync pending');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSkipImport = async () => {
-    await markImportDeviceOnlyForCurrentUser();
-    setMessage('Saved on this device');
-  };
-
-  const handleDecideLater = async () => {
-    await markImportLaterForCurrentUser();
-    setMessage('Saved on this device');
   };
 
   const handleSignOut = async () => {
@@ -214,7 +195,7 @@ export const SyncStatusPanel: React.FC = () => {
         className="h-9 rounded-medium border border-transparent bg-transparent px-2 text-[12px] font-semibold text-text-secondary hover:border-border-default hover:bg-surface-primary transition-colors flex items-center gap-2"
         aria-expanded={isOpen}
       >
-        <span className={`h-2.5 w-2.5 rounded-full ${sync.label === 'Synced' ? 'bg-green-500' : sync.label === 'Syncing' ? 'bg-accent-primary' : sync.label === 'Sync failed, retrying' ? 'bg-amber-500' : 'bg-text-muted'}`} />
+        <span className={`h-2.5 w-2.5 rounded-full ${sync.label === 'Synced' ? 'bg-green-500' : sync.label === 'Syncing' ? 'bg-accent-primary' : sync.label === 'Sync failed, retrying' ? 'bg-amber-500' : sync.label === 'Offline' ? 'bg-amber-500' : 'bg-text-muted'}`} />
         {sync.isConfigured && !sync.isLoggedIn ? 'Sign in to sync' : sync.label}
       </button>
 
@@ -235,6 +216,12 @@ export const SyncStatusPanel: React.FC = () => {
               </span>
             )}
           </div>
+
+          {!sync.isOnline && (
+            <p className="mt-3 rounded-small bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-800">
+              Offline · changes are saved on this device and will sync when you’re back online.
+            </p>
+          )}
 
           {!sync.isConfigured && (
             <p className="mt-3 text-[13px] leading-snug text-text-secondary">
@@ -282,58 +269,7 @@ export const SyncStatusPanel: React.FC = () => {
             </div>
           )}
 
-          {sync.isLoggedIn && sync.needsImport && (
-            <div className="mt-3 rounded-small border border-accent-primary/25 bg-accent-primary/[0.04] p-3">
-              <div className="text-[13px] font-bold text-text-primary">Import local planner data?</div>
-              <p className="mt-1 text-[12px] leading-snug text-text-secondary">
-                Existing blocks on this device can be added to this cloud account once.
-              </p>
-              <div className="mt-3 flex flex-col gap-2">
-                <button
-                  onClick={handleImport}
-                  disabled={isSubmitting}
-                  className="min-h-9 rounded-small bg-accent-primary px-3 py-2 text-[12px] font-bold text-white disabled:opacity-60"
-                >
-                  Import local planner into account
-                </button>
-                <button
-                  onClick={handleSkipImport}
-                  className="min-h-9 rounded-small border border-border-default bg-surface-primary px-3 py-2 text-[12px] font-bold text-text-primary"
-                >
-                  Keep this device only
-                </button>
-                <button
-                  onClick={handleDecideLater}
-                  className="min-h-9 rounded-small border border-border-default bg-surface-primary px-3 py-2 text-[12px] font-bold text-text-primary"
-                >
-                  Decide later
-                </button>
-              </div>
-            </div>
-          )}
-
-          {sync.isLoggedIn && !sync.needsImport && sync.importDecision === 'later' && (
-            <div className="mt-3 rounded-small border border-border-default bg-background p-3">
-              <div className="text-[13px] font-bold text-text-primary">Local planner data is still on this device.</div>
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={handleImport}
-                  disabled={isSubmitting}
-                  className="h-9 flex-1 rounded-small bg-accent-primary px-3 text-[12px] font-bold text-white disabled:opacity-60"
-                >
-                  Import local planner
-                </button>
-                <button
-                  onClick={handleSkipImport}
-                  className="h-9 flex-1 rounded-small border border-border-default bg-surface-primary px-3 text-[12px] font-bold text-text-primary"
-                >
-                  Keep device only
-                </button>
-              </div>
-            </div>
-          )}
-
-          {sync.isLoggedIn && !sync.needsImport && sync.importDecision !== 'later' && (
+          {sync.isLoggedIn && (
             <>
               {/* Google Calendar section */}
               <div className="mt-3 rounded-small border border-border-default bg-background p-3">

@@ -1,7 +1,7 @@
 import { db, createId } from '../db/db';
 import type { ImportDecision, PlannerBlock, PlannerTemplate, SyncAction, SyncEntityType, SyncStatusText } from '../types/models';
 import { getCurrentSession, getSupabaseClient } from './supabaseClient';
-import { getImportPromptState, getRetryDelayMs, getSyncStatusLabel, mergeQueuedChange, shouldQueueForSync } from './syncCore';
+import { getRetryDelayMs, getSyncStatusLabel, mergeQueuedChange, shouldQueueForSync } from './syncCore';
 import { syncGoogleCalendarEvents } from './googleCalendarService';
 
 const CLOUD_TABLES: Record<SyncEntityType, string> = {
@@ -58,7 +58,11 @@ export const subscribeToSyncChanges = (callback: () => void): (() => void) => {
   const subscription = supabase?.auth.onAuthStateChange((event) => {
     callback();
     if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-      void pullFromCloud().then(() => syncPendingChanges());
+      // A logged-in account is always synced: pull the cloud, import any
+      // existing on-device data once (self-guarded), then flush the queue.
+      void pullFromCloud()
+        .then(() => queueLocalImportForCurrentUser())
+        .then(() => syncPendingChanges());
       void syncGoogleCalendarEvents();
     } else {
       void syncPendingChanges();
@@ -132,8 +136,9 @@ export const getSyncSnapshot = async (): Promise<SyncSnapshot> => {
   const retrying = pendingItems.some(item => item.attempts > 0);
   const importDecision = session ? await getImportDecision(session.user.id) : undefined;
   const canImportLocalData = session ? await hasLocalData() : false;
-  const importPromptState = getImportPromptState({ hasLocalData: canImportLocalData, decision: importDecision });
-  const needsImport = importPromptState === 'prompt';
+  // Logged-in is always synced: local data is imported automatically on sign-in,
+  // so we never prompt the user to choose import vs device-only.
+  const needsImport = false;
   const online = isOnline();
 
   const label = getSyncStatusLabel({
@@ -389,14 +394,10 @@ const hasLocalData = async (): Promise<boolean> => {
 const canQueueForCurrentUser = async (): Promise<boolean> => {
   const supabase = getSupabaseClient();
   const session = await getCurrentSession();
-  const decision = session ? await getImportDecision(session.user.id) : undefined;
-  const localData = session ? await hasLocalData() : false;
 
   return shouldQueueForSync({
     isConfigured: !!supabase,
     isLoggedIn: !!session,
-    hasLocalData: localData,
-    decision,
   });
 };
 

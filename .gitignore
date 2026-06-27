@@ -9,7 +9,16 @@ lerna-debug.log*
 
 node_modules/
 dist/
+dist-capacitor/
 build/
+
+# Capacitor / iOS native build artifacts
+.capacitor/
+ios/App/Pods/
+ios/App/App/public/
+ios/App/Podfile.lock
+DerivedData/
+
 _site/
 _site_test/
 dist-ssr

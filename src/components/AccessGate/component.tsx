@@ -104,7 +104,17 @@ const SignInScreen: React.FC<{ onSignedIn: () => void }> = () => {
 
   const handleGoogle = async () => {
     setIsSubmitting(true);
-    try { await signInWithGoogle(); } catch { setIsSubmitting(false); }
+    setError(null);
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      // Surface the real reason (e.g. redirect URL not allow-listed in Supabase)
+      // instead of silently doing nothing — critical for debugging native auth.
+      const message = err instanceof Error ? err.message : 'Could not start Google sign-in.';
+      console.error('[auth] Google sign-in failed:', message);
+      setError(message);
+      setIsSubmitting(false);
+    }
   };
 
   const handleMagicLink = async (e: React.FormEvent) => {
@@ -115,8 +125,10 @@ const SignInScreen: React.FC<{ onSignedIn: () => void }> = () => {
     try {
       await sendMagicLink(email.trim());
       setSent(true);
-    } catch {
-      setError('Could not send link. Please try again.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not send link. Please try again.';
+      console.error('[auth] magic link failed:', message);
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }

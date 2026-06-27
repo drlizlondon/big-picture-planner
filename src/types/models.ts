@@ -197,7 +197,7 @@ export interface CalendarImportPreference {
 
 export type SyncEntityType = 'blocks' | 'templates';
 export type SyncAction = 'upsert' | 'delete';
-export type SyncStatusText = 'Saved on this device' | 'Sync pending' | 'Syncing' | 'Synced' | 'Sync failed, retrying';
+export type SyncStatusText = 'Saved on this device' | 'Offline' | 'Sync pending' | 'Syncing' | 'Synced' | 'Sync failed, retrying';
 export type ImportDecision = 'imported' | 'device-only' | 'later';
 
 export interface SyncQueueItem {
