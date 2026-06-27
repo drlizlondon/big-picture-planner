@@ -63,7 +63,7 @@ export const PlannerHeader: React.FC<Props> = ({
           <div className="flex items-center gap-2">
             <div className="text-[20px] font-bold tracking-tight text-text-primary">Big Picture Planner</div>
             <span
-              className="rounded-full bg-accent-primary/10 text-accent-primary text-[10px] font-bold uppercase tracking-wide px-2 py-0.5"
+              className="founder-badge rounded-full bg-accent-primary/10 text-accent-primary text-[10px] font-bold uppercase tracking-wide px-2 py-0.5"
               title="You're an early founder member — expect rough edges, and your feedback shapes what we build."
             >
               Founder Beta

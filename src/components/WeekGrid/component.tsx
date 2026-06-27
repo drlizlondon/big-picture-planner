@@ -6,9 +6,10 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db/db';
 import { addDays, formatDate, getStartOfWeek, getWeekDays } from '../../utils/dateUtils';
 import { DayColumn } from '../DayColumn/component';
-import { useWeekBlocks } from '../../hooks/usePlannerData';
+import { useWeekBlocks, useCategories } from '../../hooks/usePlannerData';
 import type { PlannerBlock } from '../../types/models';
 import { matchesPlannerFilters, type PlannerFilterId } from '../../utils/plannerFilters';
+import { getCategoryColor } from '../../utils/categoryColors';
 
 type ViewMode = 'day' | 'week' | 'month';
 type ZoomMode = 'compact' | 'comfortable' | 'focus';
@@ -138,7 +139,7 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, viewMode, onViewModeCha
   }, []);
 
   return (
-    <div ref={scrollRef} data-tour="week-grid" className={`week-grid-shell flex flex-col h-full overflow-auto bg-white ${expandedInView ? 'has-expanded-day' : ''} ${isDraggingBlock ? 'is-dragging-block' : ''}`}>
+    <div ref={scrollRef} data-tour="week-grid" className={`week-grid-shell flex flex-col h-full overflow-auto bg-white ${viewMode === 'month' ? 'is-month-view' : ''} ${expandedInView ? 'has-expanded-day' : ''} ${isDraggingBlock ? 'is-dragging-block' : ''}`}>
       <div className="sticky top-0 z-header bg-surface-primary/95 backdrop-blur border-b border-border-default/70 px-4 py-2">
         <div className="week-grid-toolbar flex items-center justify-between gap-3 min-w-0">
           <div className="min-w-[230px] flex items-baseline gap-2">
@@ -174,7 +175,7 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, viewMode, onViewModeCha
       </div>
 
       {viewMode === 'month' ? (
-        <MonthCanvas dates={monthDates} blocks={visibleBlocks} today={today} onEditBlock={onEditBlock} onSelectBlock={onSelectBlock} onOpenDay={onOpenDay} />
+        <MonthCanvas dates={monthDates} blocks={visibleBlocks} today={today} selectedDate={formatDate(currentDate)} onEditBlock={onEditBlock} onSelectBlock={onSelectBlock} onOpenDay={onOpenDay} />
       ) : (
         <>
           <div className="week-days-header flex border-b border-border-default/70 h-10 sticky top-[53px] bg-surface-primary z-header shadow-sm">
@@ -422,23 +423,43 @@ interface MonthCanvasProps {
   dates: Array<{ label: string; value: string; inMonth: boolean }>;
   blocks: PlannerBlock[];
   today: string;
+  /** The day the planner is focused on; highlighted as the selected day. */
+  selectedDate: string;
   onEditBlock: (blockId: string) => void;
   onSelectBlock: (blockId: string) => void;
   onOpenDay?: (date: string) => void;
 }
 
-const MonthCanvas: React.FC<MonthCanvasProps> = ({ dates, blocks, today, onEditBlock, onSelectBlock, onOpenDay }) => {
-  const blocksByDate = blocks.reduce<Record<string, PlannerBlock[]>>((acc, block) => {
+const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+/** Apple-Calendar-style density: a couple of readable chips, then a "+N more". */
+const MAX_VISIBLE_CHIPS = 2;
+
+const MonthCanvas: React.FC<MonthCanvasProps> = ({ dates, blocks, today, selectedDate, onEditBlock, onSelectBlock, onOpenDay }) => {
+  const categories = useCategories();
+  const categoryColorById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const cat of categories || []) map[cat.id] = getCategoryColor(cat);
+    return map;
+  }, [categories]);
+
+  const blocksByDate = useMemo(() => blocks.reduce<Record<string, PlannerBlock[]>>((acc, block) => {
     if (!block.date) return acc;
-    acc[block.date] = [...(acc[block.date] || []), block];
+    (acc[block.date] = acc[block.date] || []).push(block);
     return acc;
-  }, {});
+  }, {}), [blocks]);
+
+  // Whole month fits the available height: the weekday row is auto, the week
+  // rows split the rest evenly so no row is ever clipped (5- or 6-week months).
+  const weekRows = Math.max(1, Math.round(dates.length / 7));
 
   return (
-    <div className="p-4">
-      <div className="grid grid-cols-7 border border-border-default rounded-medium overflow-hidden bg-surface-primary">
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-          <div key={day} className="planner-scaled-label h-9 flex items-center justify-center font-semibold text-text-secondary border-b border-border-default bg-background">
+    <div className="month-canvas flex flex-1 flex-col min-h-0">
+      <div
+        className="month-grid grid flex-1 min-h-0 grid-cols-7 overflow-hidden rounded-medium bg-surface-primary"
+        style={{ gridTemplateRows: `auto repeat(${weekRows}, minmax(0, 1fr))` }}
+      >
+        {WEEKDAY_LABELS.map(day => (
+          <div key={day} className="month-weekday flex items-center justify-center font-semibold">
             {day}
           </div>
         ))}
@@ -448,6 +469,8 @@ const MonthCanvas: React.FC<MonthCanvasProps> = ({ dates, blocks, today, onEditB
             day={day}
             dayBlocks={blocksByDate[day.value] || []}
             isToday={day.value === today}
+            isSelected={day.value === selectedDate}
+            categoryColorById={categoryColorById}
             onEditBlock={onEditBlock}
             onSelectBlock={onSelectBlock}
             onOpenDay={onOpenDay}
@@ -462,35 +485,78 @@ interface MonthDayCellProps {
   day: { label: string; value: string; inMonth: boolean };
   dayBlocks: PlannerBlock[];
   isToday: boolean;
+  isSelected: boolean;
+  categoryColorById: Record<string, string>;
   onEditBlock: (blockId: string) => void;
   onSelectBlock: (blockId: string) => void;
   onOpenDay?: (date: string) => void;
 }
 
-const MonthDayCell: React.FC<MonthDayCellProps> = ({ day, dayBlocks, isToday, onEditBlock, onSelectBlock, onOpenDay }) => {
+const MonthDayCell: React.FC<MonthDayCellProps> = ({ day, dayBlocks, isToday, isSelected, categoryColorById, onEditBlock, onSelectBlock, onOpenDay }) => {
   // Droppable so blocks can be dragged onto another day (keeping their time).
   const { isOver, setNodeRef } = useDroppable({ id: `month-${day.value}`, data: { date: day.value, monthDrop: true } });
+  const visible = dayBlocks.slice(0, MAX_VISIBLE_CHIPS);
+  const overflow = dayBlocks.length - visible.length;
+  // Tapping the day number / "+N more" opens the day so its full list is shown.
+  // (Kept off the cell body so dropping a block here doesn't also navigate.)
+  const openDay = () => onOpenDay?.(day.value);
 
   return (
     <div
       ref={setNodeRef}
       data-month-date={day.value}
-      onDoubleClick={() => onOpenDay?.(day.value)}
-      title="Double-click to open this day"
-      className={`min-h-[108px] border-t border-r border-border-default/70 p-2 ${isToday ? 'bg-accent-primary/[0.055]' : 'bg-surface-primary'} ${day.inMonth ? '' : 'opacity-45'} ${isOver ? 'ring-1 ring-inset ring-accent-primary/40 bg-accent-primary/[0.06]' : ''}`}
+      onDoubleClick={openDay}
+      className={`month-cell flex min-h-0 flex-col ${isSelected ? 'is-selected' : ''} ${day.inMonth ? '' : 'is-outside'} ${isOver ? 'is-drop-target' : ''}`}
     >
-      <div className="planner-scaled-label font-semibold text-text-secondary">{day.label}</div>
-      <div className="mt-2 flex flex-col gap-1">
-        {dayBlocks.slice(0, 3).map(block => (
-          <MonthBlock key={block.id} block={block} onEditBlock={onEditBlock} onSelectBlock={onSelectBlock} />
+      <button
+        type="button"
+        className="month-cell-head"
+        onClick={(e) => { e.stopPropagation(); openDay(); }}
+        aria-label={`Open ${day.label}`}
+        title="Open this day"
+      >
+        <span className={`month-daynum ${isToday ? 'is-today' : ''}`}>{day.label}</span>
+      </button>
+      <div className="month-cell-events flex min-h-0 flex-col gap-0.5 overflow-hidden">
+        {visible.map(block => (
+          <MonthBlock
+            key={block.id}
+            block={block}
+            categoryColor={block.categoryId ? categoryColorById[block.categoryId] : undefined}
+            onEditBlock={onEditBlock}
+            onSelectBlock={onSelectBlock}
+          />
         ))}
-        {dayBlocks.length > 3 && <div className="planner-scaled-small text-text-muted px-1">+{dayBlocks.length - 3} more</div>}
+        {overflow > 0 && (
+          <button type="button" className="month-more" onClick={(e) => { e.stopPropagation(); openDay(); }}>
+            +{overflow} more
+          </button>
+        )}
       </div>
     </div>
   );
 };
 
-const MonthBlock: React.FC<{ block: PlannerBlock; onEditBlock: (id: string) => void; onSelectBlock: (id: string) => void }> = ({ block, onEditBlock, onSelectBlock }) => {
+/** Soft category-coloured chip tone: tinted background + accent for the bar/time. */
+const getMonthChipTone = (block: PlannerBlock, categoryColor?: string): { bg: string; accent: string } => {
+  if (block.reviewColour === 'RED') return { bg: '#FFF1F3', accent: '#E11D48' };
+  if (block.reviewColour === 'ORANGE') return { bg: '#FFF7E6', accent: '#D97706' };
+  if (categoryColor && /^#[0-9a-fA-F]{6}$/.test(categoryColor)) {
+    return { bg: `${categoryColor}1F`, accent: categoryColor };
+  }
+  if (block.isBaseEvent) return { bg: '#FFF7E6', accent: '#D97706' };
+  return { bg: '#EEF2F8', accent: '#64748B' };
+};
+
+const monthChipSecondary = (block: PlannerBlock): string => {
+  if (block.isAllDay) return 'All-day';
+  if (block.startTime) return block.startTime.slice(0, 5);
+  if (block.reviewColour === 'RED') return 'Conflict';
+  if (block.reviewColour === 'ORANGE') return 'Needs review';
+  return '';
+};
+
+const MonthBlock: React.FC<{ block: PlannerBlock; categoryColor?: string; onEditBlock: (id: string) => void; onSelectBlock: (id: string) => void }> = ({ block, categoryColor, onEditBlock, onSelectBlock }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: block.id, data: block });
   const wasDragging = useRef(false);
   useEffect(() => {
@@ -498,11 +564,8 @@ const MonthBlock: React.FC<{ block: PlannerBlock; onEditBlock: (id: string) => v
     else { const t = setTimeout(() => { wasDragging.current = false; }, 200); return () => clearTimeout(t); }
   }, [isDragging]);
 
-  const tone = block.reviewColour === 'RED'
-    ? 'border-[#FDA4AF] bg-[#FFF1F3]'
-    : block.reviewColour === 'ORANGE' || block.isBaseEvent
-      ? 'border-[#F4B04F] bg-[#FFF7E6]'
-      : 'border-[#C9D3E1] bg-[#F3F6FB]';
+  const tone = getMonthChipTone(block, categoryColor);
+  const secondary = monthChipSecondary(block);
 
   return (
     <div
@@ -510,7 +573,12 @@ const MonthBlock: React.FC<{ block: PlannerBlock; onEditBlock: (id: string) => v
       data-month-block={block.id}
       {...listeners}
       {...attributes}
-      style={{ transform: CSS.Translate.toString(transform), zIndex: isDragging ? 50 : undefined }}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        zIndex: isDragging ? 50 : undefined,
+        '--chip-bg': tone.bg,
+        '--chip-accent': tone.accent,
+      } as React.CSSProperties}
       onClick={(e) => {
         // A click (not the end of a drag) opens the block so it can be edited.
         if (wasDragging.current) { e.preventDefault(); e.stopPropagation(); return; }
@@ -519,13 +587,11 @@ const MonthBlock: React.FC<{ block: PlannerBlock; onEditBlock: (id: string) => v
         onEditBlock(block.id);
       }}
       onDoubleClick={(e) => e.stopPropagation()}
-      className={`planner-scaled-label truncate text-text-primary rounded-small border px-2 py-1 cursor-pointer hover:shadow-sm ${tone} ${isDragging ? 'opacity-80 shadow-hover' : ''}`}
+      className={`month-chip ${isDragging ? 'is-dragging' : ''}`}
       title={`${block.title}${block.startTime ? ` · ${block.startTime}` : ''}`}
     >
-      <span>{block.startTime ? `${block.startTime} ` : ''}{block.title}</span>
-      {block.travelEnabled && (block.travelBeforeMinutes > 0 || block.travelAfterMinutes > 0) && (
-        <span className="ml-1 text-[#2877BD]">Travel</span>
-      )}
+      <span className="month-chip-title">{block.title}</span>
+      {secondary && <span className="month-chip-time">{secondary}</span>}
     </div>
   );
 };

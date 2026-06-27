@@ -563,3 +563,243 @@ body {
 .ready-item-description {
   -webkit-line-clamp: 1;
 }
+
+/* ───────────────────────── Month view ─────────────────────────
+   A calm, information-dense month grid benchmarked on Apple Calendar:
+   the whole month fits the available height (no clipped rows), day cells
+   carry up to two readable category-coloured chips, then a "+N more". */
+:root {
+  --month-grid-line: #dde3ec;
+}
+
+.month-canvas {
+  padding: 12px;
+}
+
+.month-grid {
+  border: 1px solid var(--month-grid-line);
+}
+
+.month-weekday {
+  height: 30px;
+  border-bottom: 1px solid var(--month-grid-line);
+  border-right: 1px solid var(--month-grid-line);
+  background: #f6f7fb;
+  font-size: calc(14px * var(--planner-text-scale));
+  letter-spacing: 0.01em;
+  color: #475467;
+}
+.month-weekday:nth-child(7) {
+  border-right: 0;
+}
+
+.month-cell {
+  border-top: 1px solid var(--month-grid-line);
+  border-right: 1px solid var(--month-grid-line);
+  background: #fff;
+  padding: 4px 4px 5px;
+  gap: 3px;
+}
+.month-cell:nth-child(7n + 1) {
+  /* leftmost data cell in each week (header occupies the first 7 children) */
+}
+.month-cell.is-outside {
+  background: #f8f9fc;
+}
+.month-cell.is-outside .month-daynum {
+  color: #aab2c0;
+}
+.month-cell.is-selected {
+  background: rgba(124, 92, 252, 0.07);
+  box-shadow: inset 0 0 0 2px rgba(124, 92, 252, 0.55);
+}
+.month-cell.is-drop-target {
+  background: rgba(124, 92, 252, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(124, 92, 252, 0.45);
+}
+
+.month-cell-head {
+  display: flex;
+  justify-content: flex-start;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.month-daynum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 4px;
+  font-size: calc(15px * var(--planner-text-scale));
+  font-weight: 600;
+  color: #1f2933;
+  line-height: 1;
+}
+.month-daynum.is-today {
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--accent-primary, #7c5cfc);
+  color: #fff;
+}
+
+.month-cell-events {
+  flex: 1;
+}
+
+.month-chip {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  padding: 3px 6px 3px 11px;
+  border-radius: 6px;
+  background: var(--chip-bg, #eef2f8);
+  cursor: pointer;
+  overflow: hidden;
+}
+.month-chip::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--chip-accent, #64748b);
+}
+.month-chip.is-dragging {
+  opacity: 0.85;
+  box-shadow: 0 6px 16px rgba(26, 29, 41, 0.18);
+}
+.month-chip-title {
+  font-size: calc(12px * var(--planner-text-scale));
+  font-weight: 600;
+  line-height: 1.15;
+  color: #1f2933;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.month-chip-time {
+  font-size: calc(11px * var(--planner-text-scale));
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--chip-accent, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.month-more {
+  align-self: flex-start;
+  padding: 0 4px;
+  background: none;
+  border: 0;
+  font-size: calc(11px * var(--planner-text-scale));
+  font-weight: 600;
+  color: #5b6472;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* ─── Month view + mobile chrome: hand the screen to the calendar ─── */
+@media (max-width: 767px) {
+  /* Slimmer header (~30% shorter): drop the beta badge + text-zoom into the
+     background and keep only name, nav, sync and settings. */
+  .planner-header {
+    height: 48px;
+    padding: 5px 10px;
+    align-items: center;
+  }
+  .planner-header-main {
+    gap: 1px;
+  }
+  .planner-brand .text-\[20px\] {
+    font-size: 15px;
+  }
+  .founder-badge,
+  .planner-text-zoom {
+    display: none;
+  }
+
+  /* Compact, less intrusive Add Task: a round "+" docked above the inbox
+     handle so it never overlaps calendar cells. */
+  .mobile-add-fab {
+    height: 48px;
+    width: 48px;
+    padding: 0;
+    right: 12px;
+    bottom: calc(var(--mobile-tray-offset, 48px) + 12px + env(safe-area-inset-bottom));
+    font-size: 26px;
+    line-height: 1;
+  }
+  .mobile-add-fab-plus {
+    display: inline-block;
+    margin-top: -2px;
+  }
+  .mobile-add-fab-label {
+    display: none;
+  }
+
+  /* Month view: strip the week toolbar down to just the Day/Week/Month
+     selector — the zoom + visible-hours controls don't apply here. */
+  .week-grid-shell.is-month-view .week-grid-toolbar > div:first-child {
+    display: none;
+  }
+  .week-grid-shell.is-month-view .week-grid-controls .zoom-select,
+  .week-grid-shell.is-month-view .week-grid-controls > div:nth-of-type(4) {
+    display: none;
+  }
+  .week-grid-shell.is-month-view > .sticky {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  /* Edge-to-edge calendar with thin side margins; bigger day numbers. */
+  .month-canvas {
+    padding: 6px 8px 8px;
+  }
+  .month-weekday {
+    height: 26px;
+    font-size: 13px;
+  }
+  .month-cell {
+    padding: 2px 2px 3px;
+    gap: 2px;
+  }
+  .month-daynum {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 2px;
+    font-size: 16px;
+  }
+  .month-daynum.is-today {
+    height: 22px;
+    min-width: 22px;
+    padding: 0;
+  }
+  /* Tighter chip padding so the (short) time line always fits — never "09…". */
+  .month-chip {
+    padding: 1px 3px 1px 8px;
+    border-radius: 5px;
+  }
+  .month-chip::before {
+    left: 3px;
+    top: 3px;
+    bottom: 3px;
+  }
+  .month-chip-time {
+    font-size: 10.5px;
+  }
+  .month-more {
+    font-size: 10px;
+    padding: 0 2px;
+  }
+}

@@ -122,13 +122,12 @@ export const AppShell: React.FC = () => {
   const [lastScheduledBlockId, setLastScheduledBlockId] = useState<string | null>(null);
   const [isMobileInboxExpanded, setIsMobileInboxExpanded] = useState(() => {
     try {
-      // Default to the inbox rail being shown so it stays discoverable (and the
-      // onboarding drag step works); users can collapse it to a slim handle to
-      // maximise the calendar, and that choice is remembered.
+      // Default to a slim collapsed handle so the calendar stays the priority;
+      // the inbox is one tap away and that choice is remembered once changed.
       const stored = localStorage.getItem(MOBILE_INBOX_PREF_KEY);
-      return stored === null ? true : stored === 'true';
+      return stored === null ? false : stored === 'true';
     } catch {
-      return true;
+      return false;
     }
   });
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
@@ -571,10 +570,12 @@ export const AppShell: React.FC = () => {
           <button
             onClick={() => setIsAddModalOpen(true)}
             data-tour="add-button"
-            className="mobile-add-fab fixed right-4 z-sidebar h-11 rounded-full bg-accent-primary px-4 text-white text-[13px] font-bold shadow-modal border border-white/30"
-            title="Add item"
+            className="mobile-add-fab fixed right-4 z-sidebar rounded-full bg-accent-primary text-white font-bold shadow-modal border border-white/30"
+            title="Add task"
+            aria-label="Add task"
           >
-            + Add Task
+            <span className="mobile-add-fab-plus" aria-hidden="true">+</span>
+            <span className="mobile-add-fab-label">Add Task</span>
           </button>
         </>
       )}
