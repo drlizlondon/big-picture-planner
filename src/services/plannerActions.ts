@@ -133,7 +133,7 @@ export const duplicateBlock = async (id: string, inPlace: boolean = false): Prom
     metadata: normalizeBlockMetadata({ ...block, sourceType: 'template_instance' }),
     createdAt: now,
     updatedAt: now,
-    // Default behavior is to un-schedule duplicates so they appear in Ready to schedule.
+    // Default behavior is to un-schedule duplicates so they appear in Life Inbox.
     ...(inPlace ? {} : {
       isScheduled: false,
       date: undefined,

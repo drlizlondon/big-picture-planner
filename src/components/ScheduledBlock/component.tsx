@@ -420,7 +420,7 @@ interface FloatingActionToolbarProps extends ActionControlsProps {
 const FloatingActionToolbar: React.FC<FloatingActionToolbarProps> = ({ placement, isSelected, onEdit, onMoveToSchedule, onDuplicate, onDelete, onPointerStop }) => (
   <div className={`absolute right-0 z-30 items-center gap-1 rounded-small border border-border-default bg-surface-primary/95 px-1 py-1 shadow-sm backdrop-blur ${isSelected ? 'flex pointer-events-auto' : 'hidden pointer-events-none group-hover:flex group-hover:pointer-events-auto group-focus-within:flex group-focus-within:pointer-events-auto'} ${placement === 'above' ? '-top-8' : 'top-full mt-1'}`}>
     <ActionButton label="Edit" onClick={onEdit} onPointerStop={onPointerStop}>✎</ActionButton>
-    <ActionButton label="Move to Ready to schedule" onClick={onMoveToSchedule} onPointerStop={onPointerStop}>↰</ActionButton>
+    <ActionButton label="Move to Life Inbox" onClick={onMoveToSchedule} onPointerStop={onPointerStop}>↰</ActionButton>
     <ActionButton label="Duplicate" onClick={onDuplicate} onPointerStop={onPointerStop}>⧉</ActionButton>
     <ActionButton label="Delete" onClick={onDelete} onPointerStop={onPointerStop} danger>×</ActionButton>
   </div>
@@ -450,7 +450,7 @@ const CompactActionMenu: React.FC<CompactActionMenuProps> = ({ isOpen, isSelecte
     {isOpen && (
       <div className="pointer-events-auto absolute right-0 top-7 flex items-center gap-1 rounded-small border border-border-default bg-surface-primary/95 px-1 py-1 shadow-sm backdrop-blur">
         <ActionButton label="Edit" onClick={onEdit} onPointerStop={onPointerStop}>✎</ActionButton>
-        <ActionButton label="Move to Ready to schedule" onClick={onMoveToSchedule} onPointerStop={onPointerStop}>↰</ActionButton>
+        <ActionButton label="Move to Life Inbox" onClick={onMoveToSchedule} onPointerStop={onPointerStop}>↰</ActionButton>
         <ActionButton label="Duplicate" onClick={onDuplicate} onPointerStop={onPointerStop}>⧉</ActionButton>
         <ActionButton label="Delete" onClick={onDelete} onPointerStop={onPointerStop} danger>×</ActionButton>
       </div>

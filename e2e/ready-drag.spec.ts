@@ -16,16 +16,16 @@ test.describe('ready item scheduling', () => {
       });
     });
     await page.reload();
-    await expect(page.getByRole('heading', { name: 'Ready to schedule (0)' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Life Inbox (0)' })).toBeVisible();
   });
 
-  test('drags a Ready to schedule item onto a week slot', async ({ page }) => {
+  test('drags a Life Inbox item onto a week slot', async ({ page }) => {
     const title = `Drag ready item ${Date.now()}`;
     const today = await getTodayDate(page);
 
     await page.getByRole('button', { name: '+ Add to Planner' }).click();
     await page.getByPlaceholder('Example: Book dentist appointment next Tuesday').fill(title);
-    await page.getByRole('button', { name: 'Add to Ready to schedule' }).click();
+    await page.getByRole('button', { name: 'Add to Life Inbox' }).click();
 
     const readyItem = page.locator('[data-tour="ready-item"]').filter({ hasText: title });
     await expect(readyItem).toBeVisible();

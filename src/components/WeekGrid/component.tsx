@@ -145,7 +145,7 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, viewMode, onViewModeCha
           <div className="min-w-[230px] flex items-baseline gap-2">
             <div className="text-[15px] font-bold text-text-primary">Fit your life into the week</div>
             <div className="planner-scaled-label text-text-secondary">
-              {isMobile ? 'Drag from Life Inbox' : visibleBlocks.length === 0 ? 'Drag from Ready to schedule' : `${visibleBlocks.length} visible this week`}
+              {isMobile ? 'Drag from Life Inbox' : visibleBlocks.length === 0 ? 'Drag from Life Inbox' : `${visibleBlocks.length} visible this week`}
             </div>
           </div>
           <div className="week-grid-controls flex flex-nowrap justify-end items-center gap-2 overflow-x-auto min-w-0 pb-1">

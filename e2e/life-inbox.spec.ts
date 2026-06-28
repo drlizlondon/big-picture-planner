@@ -70,7 +70,7 @@ const resetPlanner = async (page: Page) => {
     });
   });
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Ready to schedule (0)' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Life Inbox (0)' })).toBeVisible();
 };
 
 const addReadyItem = async (page: Page, title: string) => {
@@ -80,7 +80,7 @@ const addReadyItem = async (page: Page, title: string) => {
 
   const input = page.getByPlaceholder('Example: Book dentist appointment next Tuesday');
   await input.fill(title);
-  await page.getByRole('button', { name: 'Add to Ready to schedule' }).click();
+  await page.getByRole('button', { name: 'Add to Life Inbox' }).click();
   await expect(page.locator('[data-tour="ready-item"]').filter({ hasText: title })).toBeVisible();
 };
 

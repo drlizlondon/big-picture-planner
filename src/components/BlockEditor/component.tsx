@@ -510,7 +510,7 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
             <div className="flex flex-col gap-2">
               {block?.isScheduled && (
                 <button onClick={handleMoveToSchedule} className="h-[36px] bg-surface-secondary border border-border-default hover:bg-background text-text-primary rounded-small font-semibold text-[13px] transition-colors">
-                  Move back to Ready to schedule
+                  Move back to Life Inbox
                 </button>
               )}
               <button onClick={handleDuplicate} className="h-[36px] bg-surface-secondary border border-border-default hover:bg-background text-text-primary rounded-small font-semibold text-[13px] transition-colors">
@@ -529,7 +529,7 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
             disabled={!title.trim()}
             className="w-full h-[44px] bg-accent-primary hover:bg-accent-hover disabled:opacity-50 text-white rounded-medium font-bold text-[14px] transition-colors shadow-sm"
           >
-            {blockId ? 'Save Changes' : 'Save to Ready to schedule'}
+            {blockId ? 'Save Changes' : 'Save to Life Inbox'}
           </button>
         </div>
       </div>

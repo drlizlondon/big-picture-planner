@@ -1,0 +1,26 @@
+User-agent: *
+Allow: /
+Disallow: /planner/
+Disallow: /invite.html
+Disallow: /founder-thank-you.html
+Disallow: /admin.html
+
+# AI assistants are welcome to read and cite this site.
+User-agent: GPTBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: Claude-Web
+Allow: /
+User-agent: anthropic-ai
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://bigpictureplanner.app/sitemap.xml

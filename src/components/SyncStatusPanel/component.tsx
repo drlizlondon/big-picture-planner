@@ -408,7 +408,7 @@ export const SyncStatusPanel: React.FC = () => {
                       className="h-8 rounded-small border border-border-default bg-surface-primary px-2 text-[12px] font-semibold text-text-primary outline-none"
                     >
                       <option value="calendar">The week (keep their times)</option>
-                      <option value="inbox">Ready to schedule</option>
+                      <option value="inbox">Life Inbox</option>
                     </select>
                     <div className="mt-1 flex gap-2">
                       <button

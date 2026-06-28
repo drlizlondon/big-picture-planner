@@ -4,7 +4,7 @@
  *
  *   1. open_input   Click "+ Add to Planner"            (auto-advances on open)
  *   2. type         Type into Quick Add                 (Next once text entered)
- *   3. add_ready    Click "Add to Ready to schedule"    (auto-advances on add)
+ *   3. add_ready    Click "Add to Life Inbox"    (auto-advances on add)
  *   4. show_ready   See the item waiting in Ready       (auto-advances on place)
  *   5. place_block  The placed block — two ways to move (Next)
  *   6. arrows       Precise: arrow keys                 (Next)

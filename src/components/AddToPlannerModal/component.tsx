@@ -234,7 +234,7 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
                 disabled={!quickTitle.trim() || isQuickSaving}
                 className="w-full h-[44px] bg-accent-primary hover:bg-accent-hover disabled:opacity-50 text-white rounded-medium font-bold text-[14px] transition-colors shadow-sm"
               >
-                {isQuickSaving ? 'Adding...' : 'Add to Ready to schedule'}
+                {isQuickSaving ? 'Adding...' : 'Add to Life Inbox'}
               </button>
             </form>
             <button 
@@ -344,7 +344,7 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
               disabled={!drafts.some(draft => draft.selected && draft.title.trim())}
               className="w-full h-[44px] bg-accent-primary hover:bg-accent-hover disabled:opacity-50 text-white rounded-medium font-bold text-[14px] transition-colors shadow-sm"
             >
-              Add to Ready to schedule
+              Add to Life Inbox
             </button>
           </div>
         )}
@@ -359,7 +359,7 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
                 onDelete={(id) => setImportDrafts(prev => prev.filter(draft => draft.id !== id))}
               />
               <ImportGroup
-                title="Ready to schedule"
+                title="Life Inbox"
                 drafts={importDrafts.filter(draft => draft.destination === 'LIFE_INBOX')}
                 onChange={(updated) => setImportDrafts(prev => prev.map(draft => draft.id === updated.id ? updated : draft))}
                 onDelete={(id) => setImportDrafts(prev => prev.filter(draft => draft.id !== id))}

@@ -55,7 +55,7 @@ export const TemplatePanel: React.FC = () => {
               <div className="text-[11px] font-medium text-text-secondary mt-1">{template.durationMinutes} min</div>
             </div>
             <div className="absolute right-2 top-2 hidden group-hover:flex gap-1 z-20">
-              <button className="text-text-muted hover:text-text-primary bg-surface-primary rounded shadow-sm border border-border-default text-[10px] font-bold px-2 py-1" title="Add to Ready to schedule">
+              <button className="text-text-muted hover:text-text-primary bg-surface-primary rounded shadow-sm border border-border-default text-[10px] font-bold px-2 py-1" title="Add to Life Inbox">
                 Use
               </button>
             </div>

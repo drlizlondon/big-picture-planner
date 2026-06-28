@@ -428,7 +428,7 @@ export const AppShell: React.FC = () => {
     setIsDraggingBlock(true);
   };
 
-  // Handle drop from Ready to schedule -> Week Canvas OR moving between days/times.
+  // Handle drop from Life Inbox -> Week Canvas OR moving between days/times.
   const handleDragEnd = async (event: DragEndEvent) => {
     clearWeekSwitchTimer();
     clearDayExpandTimer();
@@ -494,7 +494,7 @@ export const AppShell: React.FC = () => {
           <button
             onClick={() => updateSidebarCollapsed(false)}
             className="hidden md:block w-11 flex-shrink-0 rounded-medium border border-border-default bg-surface-primary shadow-sm text-accent-primary font-bold hover:bg-background transition-colors"
-            title="Show Ready to schedule"
+            title="Show Life Inbox"
           >
             »
           </button>
