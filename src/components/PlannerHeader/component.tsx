@@ -2,7 +2,6 @@
 import React from 'react';
 import { getStartOfWeek, addDays } from '../../utils/dateUtils';
 import { SyncStatusPanel } from '../SyncStatusPanel/component';
-import { getSiteHref } from '../../utils/deploymentPaths';
 
 type PlannerViewMode = 'day' | 'week' | 'month';
 
@@ -100,15 +99,6 @@ export const PlannerHeader: React.FC<Props> = ({
           onIncreaseText={onIncreaseText}
         />
         <PlanningLegend />
-        <a
-          href={getSiteHref('feedback.html?src=app')}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="planner-feedback-button h-9 hidden sm:flex items-center gap-1.5 rounded-medium border border-border-default bg-surface-primary px-3 text-[12px] font-semibold text-text-secondary hover:text-accent-primary hover:border-accent-primary/40 shadow-sm transition-colors"
-          title="Found a bug or have an idea? Tell us — we read every message."
-        >
-          <span aria-hidden="true">💬</span> Feedback
-        </a>
         <SyncStatusPanel />
         <button onClick={onOpenSetup} className="planner-setup-button h-9 w-9 hover:bg-background rounded-medium border border-border-default shadow-sm transition-colors flex items-center justify-center text-text-secondary hover:text-text-primary" aria-label="Planner Setup" title="Planner Setup">
           <span aria-hidden="true">⚙</span>

@@ -352,12 +352,13 @@ interface SegmentedControlProps<T extends string> {
 }
 
 const SegmentedControl = <T extends string>({ value, options, labels, onChange }: SegmentedControlProps<T>) => (
-  <div className="inline-flex rounded-small border border-border-default bg-background p-0.5">
+  <div className="segmented-control inline-flex rounded-small border border-border-default/60 bg-background/70 p-0.5">
     {options.map(option => (
       <button
         key={option}
         onClick={() => onChange(option)}
-        className={`px-2.5 py-1 text-[12px] font-semibold rounded-[8px] transition-colors whitespace-nowrap ${value === option ? 'bg-surface-primary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+        className={`px-2.5 py-1 text-[12px] font-semibold rounded-[8px] transition-colors whitespace-nowrap ${value === option ? 'bg-accent-primary/10 text-accent-primary' : 'text-text-secondary hover:text-text-primary'}`}
+        aria-pressed={value === option}
       >
         {labels[option]}
       </button>

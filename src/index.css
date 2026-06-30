@@ -138,16 +138,16 @@ body {
   }
 
   .planner-workspace.mobile-inbox-expanded {
-    --mobile-tray-offset: 124px;
+    --mobile-tray-offset: 136px;
   }
 
   /* Collapsed = slim handle: hand the reclaimed height back to the calendar. */
   .planner-workspace.mobile-inbox-collapsed {
-    --mobile-tray-offset: 48px;
+    --mobile-tray-offset: 60px;
   }
 
   .planner-workspace.is-dragging-block {
-    --mobile-tray-offset: 112px;
+    --mobile-tray-offset: 124px;
   }
 
   .planner-sidebar,
@@ -179,7 +179,7 @@ body {
   /* Collapsed = a slim tappable handle bar (header only); the rail is hidden so
      the calendar gets the space back. Expanded = the full inbox rail. */
   .mobile-life-inbox-tray.collapsed {
-    height: calc(40px + env(safe-area-inset-bottom));
+    height: calc(52px + env(safe-area-inset-bottom));
   }
 
   .mobile-life-inbox-tray.collapsed .mobile-inbox-rail,
@@ -188,54 +188,104 @@ body {
   }
 
   .mobile-life-inbox-tray.expanded {
-    height: calc(118px + env(safe-area-inset-bottom));
+    height: calc(130px + env(safe-area-inset-bottom));
   }
 
   .mobile-life-inbox-tray.dragging {
-    height: calc(104px + env(safe-area-inset-bottom));
+    height: calc(116px + env(safe-area-inset-bottom));
   }
 
   .mobile-tray-panel {
+    position: relative;
     height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 6px 10px 8px;
+    padding: 14px 10px 8px;
     border: 0;
-    border-radius: 0;
+    border-radius: 16px 16px 0 0;
     background: #fff;
     overflow: hidden;
   }
 
+  /* Bottom-drawer grab bar, centred at the top of the tray. */
+  .mobile-tray-grip {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border-strong, #d8dee8);
+    pointer-events: none;
+  }
+
+  /* The whole collapsed bar is the tap target — it behaves like a drawer handle. */
   .mobile-tray-header {
-    min-height: 30px;
+    min-height: 34px;
     display: flex;
     align-items: center;
     gap: 8px;
+    margin: 0 -6px;
+    padding: 4px 6px;
+    border-radius: 12px;
+    cursor: pointer;
     user-select: none;
-    touch-action: pan-x;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: background-color 120ms ease;
   }
 
-  /* Visible collapse/expand affordance for the inbox tray. */
-  .mobile-tray-handle {
+  /* Subtle pressed feedback when the bar is tapped. */
+  .mobile-tray-header:active {
+    background: rgba(124, 92, 252, 0.10);
+  }
+
+  .mobile-tray-chevron {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     flex-shrink: 0;
-    border-radius: 8px;
-    color: var(--text-secondary, #667085);
+    color: var(--accent-primary, #7c5cfc);
     font-size: 11px;
   }
 
-  .mobile-tray-handle:hover {
-    background: rgba(124, 92, 252, 0.08);
-    color: var(--accent-primary, #7c5cfc);
+  .mobile-tray-chevron span {
+    display: inline-block;
+    transition: rotate 180ms ease;
   }
 
-  .mobile-tray-handle span {
-    display: inline-block;
-    transition: transform 160ms ease;
+  .inbox-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(124, 92, 252, 0.12);
+    color: var(--accent-primary, #7c5cfc);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .inbox-helper {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted, #98a2b3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* When expanded, the sort control takes the right side; hide the helper text
+     so the row stays uncluttered. */
+  .mobile-life-inbox-tray.expanded .inbox-helper {
+    display: none;
   }
 
   .mobile-inbox-rail {
@@ -569,53 +619,54 @@ body {
    the whole month fits the available height (no clipped rows), day cells
    carry up to two readable category-coloured chips, then a "+N more". */
 :root {
-  --month-grid-line: #dde3ec;
+  /* Soft, low-contrast grid line — calm rather than spreadsheet-like. */
+  --month-grid-line: #eef1f6;
 }
 
 .month-canvas {
   padding: 12px;
 }
 
+/* A light calendar card: soft rounded surface, no heavy outer border, only
+   gentle horizontal week separators inside (no vertical lines). */
 .month-grid {
   border: 1px solid var(--month-grid-line);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.03);
+  overflow: hidden;
 }
 
 .month-weekday {
   height: 30px;
-  border-bottom: 1px solid var(--month-grid-line);
-  border-right: 1px solid var(--month-grid-line);
-  background: #f6f7fb;
-  font-size: calc(14px * var(--planner-text-scale));
-  letter-spacing: 0.01em;
-  color: #475467;
-}
-.month-weekday:nth-child(7) {
-  border-right: 0;
+  background: transparent;
+  font-size: calc(11px * var(--planner-text-scale));
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted, #98a2b3);
 }
 
 .month-cell {
   border-top: 1px solid var(--month-grid-line);
-  border-right: 1px solid var(--month-grid-line);
   background: #fff;
-  padding: 4px 4px 5px;
+  padding: 4px 5px 6px;
   gap: 3px;
 }
-.month-cell:nth-child(7n + 1) {
-  /* leftmost data cell in each week (header occupies the first 7 children) */
-}
 .month-cell.is-outside {
-  background: #f8f9fc;
+  background: transparent;
 }
 .month-cell.is-outside .month-daynum {
-  color: #aab2c0;
+  color: #c2c8d2;
 }
+/* Selected day: soft purple wash + hairline, not a harsh outline. */
 .month-cell.is-selected {
-  background: rgba(124, 92, 252, 0.07);
-  box-shadow: inset 0 0 0 2px rgba(124, 92, 252, 0.55);
+  background: rgba(124, 92, 252, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(124, 92, 252, 0.28);
 }
 .month-cell.is-drop-target {
-  background: rgba(124, 92, 252, 0.09);
-  box-shadow: inset 0 0 0 1px rgba(124, 92, 252, 0.45);
+  background: rgba(124, 92, 252, 0.10);
+  box-shadow: inset 0 0 0 1px rgba(124, 92, 252, 0.4);
 }
 
 .month-cell-head {
@@ -658,20 +709,21 @@ body {
   justify-content: center;
   gap: 1px;
   min-width: 0;
-  padding: 3px 6px 3px 11px;
-  border-radius: 6px;
+  padding: 4px 7px 4px 11px;
+  border-radius: 7px;
   background: var(--chip-bg, #eef2f8);
   cursor: pointer;
   overflow: hidden;
 }
+/* Thin, elegant category bar. */
 .month-chip::before {
   content: "";
   position: absolute;
-  left: 4px;
-  top: 4px;
-  bottom: 4px;
-  width: 3px;
-  border-radius: 2px;
+  left: 5px;
+  top: 5px;
+  bottom: 5px;
+  width: 2.5px;
+  border-radius: 999px;
   background: var(--chip-accent, #64748b);
 }
 .month-chip.is-dragging {
@@ -729,16 +781,41 @@ body {
     display: none;
   }
 
+  /* Keep sync quiet so it never competes with the month title. */
+  .sync-status-trigger {
+    height: 28px;
+    padding-inline: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted, #98a2b3);
+  }
+  .sync-status-trigger span:first-child {
+    width: 7px;
+    height: 7px;
+  }
+
+  /* Lighter, more refined segmented control on mobile. */
+  .segmented-control {
+    padding: 2px;
+  }
+  .segmented-control button {
+    padding-top: 3px;
+    padding-bottom: 3px;
+    font-size: 12px;
+  }
+
   /* Compact, less intrusive Add Task: a round "+" docked above the inbox
      handle so it never overlaps calendar cells. */
   .mobile-add-fab {
-    height: 48px;
-    width: 48px;
+    height: 44px;
+    width: 44px;
     padding: 0;
-    right: 12px;
-    bottom: calc(var(--mobile-tray-offset, 48px) + 12px + env(safe-area-inset-bottom));
-    font-size: 26px;
+    right: 14px;
+    bottom: calc(var(--mobile-tray-offset, 48px) + 14px + env(safe-area-inset-bottom));
+    font-size: 24px;
     line-height: 1;
+    /* Softer, more integrated shadow than the default modal shadow. */
+    box-shadow: 0 4px 14px rgba(124, 92, 252, 0.32);
   }
   .mobile-add-fab-plus {
     display: inline-block;
@@ -819,4 +896,25 @@ body {
     font-size: 10px;
     padding: 0 2px;
   }
+}
+
+/* Persistent feedback button — always visible, soft accent. Bottom-right on
+   desktop (the Add FAB is mobile-only there); bottom-left on mobile so it never
+   collides with the Add FAB or the Life Inbox tray. */
+.feedback-fab {
+  position: fixed;
+  z-index: 300;
+  right: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+}
+@media (max-width: 767px) {
+  .feedback-fab {
+    right: auto;
+    left: 12px;
+    bottom: calc(var(--mobile-tray-offset, 48px) + 12px + env(safe-area-inset-bottom));
+  }
+}
+/* Keep the feedback button out of the way during the onboarding walkthrough. */
+body[data-tour-step] .feedback-fab {
+  display: none;
 }

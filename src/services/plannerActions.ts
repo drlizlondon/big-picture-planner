@@ -7,26 +7,34 @@ import { isGCalBlock, getGCalEventId, patchGoogleCalendarEvent } from './googleC
 import { decideWriteScope, getCalendarLinkType, markSourceChangedLocally, markSourcePushed, supportsWriteBack } from './calendarSyncCore';
 import { getCalendarWriteBackPreference } from './calendarPreferences';
 import { recordMovement, snapshotMovement } from './blockHistory';
+import { track, trackOnce } from './analytics';
 
 export const createBlock = async (
   blockData: Omit<PlannerBlock, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<string> => {
   const id = createId();
   const now = Date.now();
-  
+
   const newBlock: PlannerBlock = {
     ...blockData,
     id,
     metadata: normalizeBlockMetadata(blockData),
     createdAt: now,
     updatedAt: now,
-    endTime: blockData.startTime && blockData.durationMinutes 
+    endTime: blockData.startTime && blockData.durationMinutes
       ? calculateEndTime(blockData.startTime, blockData.durationMinutes)
       : undefined
   };
 
   await db.blocks.add(newBlock);
   await enqueueSyncChange('blocks', id, 'upsert', newBlock);
+
+  // Activation/engagement: count user-authored tasks, but not synced calendar
+  // cache entries (those are not "tasks the user created").
+  if (blockData.sourceType !== 'calendar_import') {
+    trackOnce('task_created', { type: 'first_task_created' });
+    track({ type: 'task_created', scheduled: !!blockData.isScheduled });
+  }
   return id;
 };
 

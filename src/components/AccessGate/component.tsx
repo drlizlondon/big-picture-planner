@@ -1,27 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { getAccessState, redeemCode, subscribeToAccessChanges, type AccessState } from '../../services/accessService';
-import { signInWithGoogle, sendMagicLink, getCurrentSession, getSupabaseClient } from '../../services/supabaseClient';
+import { signInWithApple, signInWithGoogle, sendMagicLink, getCurrentSession, getSupabaseClient } from '../../services/supabaseClient';
 import { signOut } from '../../services/syncService';
 import { getAppHref, getSiteHref } from '../../utils/deploymentPaths';
+import { track } from '../../services/analytics';
+import { AppleMark, GoogleMark, AuthLegal } from './authBits';
 
 interface Props {
   children: React.ReactNode;
 }
 
+/**
+ * Free for everyone: the planner is always usable, and signing in only
+ * saves/syncs. The invite-code + paid-trial gating is preserved below but
+ * disabled — flip PREMIUM_GATING to re-enable invite-only access later.
+ */
+const PREMIUM_GATING = false;
+
 export const AccessGate: React.FC<Props> = ({ children }) => {
   const [access, setAccess] = useState<AccessState>({ status: 'loading' });
-
-  // Demo mode: ?tour=1 or ?demo=1 lets anyone try the planner locally,
-  // with no sign-in and no code. Captured once on mount so it survives
-  // the OnboardingTour stripping the param from the URL afterwards.
-  const [isDemo] = useState(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      return params.get('tour') === '1' || params.get('demo') === '1';
-    } catch {
-      return false;
-    }
-  });
 
   const refresh = async () => {
     const state = await getAccessState();
@@ -33,9 +30,8 @@ export const AccessGate: React.FC<Props> = ({ children }) => {
     void refresh();
     const unsub = subscribeToAccessChanges(refresh);
     // Re-evaluate access the moment Supabase establishes/refreshes/clears the
-    // session (e.g. straight after the Google OAuth redirect). Without this the
-    // gate could keep showing the sign-in screen after a successful login,
-    // making users sign in a second time.
+    // session (e.g. straight after the OAuth redirect), so a fresh sign-in
+    // immediately starts syncing without a second prompt.
     const { data: authSub } = getSupabaseClient()?.auth.onAuthStateChange(() => {
       void refresh();
     }) ?? { data: undefined };
@@ -45,53 +41,32 @@ export const AccessGate: React.FC<Props> = ({ children }) => {
     };
   }, []);
 
-  // Demo mode — show the app immediately, ungated, with a convert banner.
-  if (isDemo) {
-    return (
-      <>
-        <DemoBanner />
-        {children}
-      </>
-    );
+  // ── Preserved premium gating (disabled) ──────────────────────────────────
+  // When PREMIUM_GATING is on, the planner is invite-only behind sign-in +
+  // access code + paid trial. Kept intact for a future premium tier.
+  if (PREMIUM_GATING) {
+    if (access.status === 'unconfigured' || access.status === 'loading') return <>{children}</>;
+    if (access.status === 'unauthenticated') return <SignInScreen onSignedIn={refresh} />;
+    if (access.status === 'no_access') return <CodeEntryScreen onRedeemed={refresh} />;
+    if (access.status === 'expired') return <TrialExpiredScreen />;
   }
 
-  // Unconfigured (no Supabase) or loading — just show the app
-  if (access.status === 'unconfigured' || access.status === 'loading') {
-    return <>{children}</>;
-  }
-
-  // Not logged in — show sign-in screen
-  if (access.status === 'unauthenticated') {
-    return <SignInScreen onSignedIn={refresh} />;
-  }
-
-  // Logged in but no code entered yet
-  if (access.status === 'no_access') {
-    return <CodeEntryScreen onRedeemed={refresh} />;
-  }
-
-  // Trial active, comped, or paid — show the app
-  if (access.status === 'trial' || access.status === 'comped' || access.status === 'paid') {
-    return (
-      <>
-        {(access.status === 'trial' || access.status === 'comped') &&
-          access.daysRemaining !== undefined && access.daysRemaining <= 7 && (
-          <TrialBanner daysRemaining={access.daysRemaining} />
-        )}
-        {access.status === 'paid' && access.inRefundWindow && (
-          <RefundWindowBanner endsAt={access.refundWindowEndsAt ?? ''} />
-        )}
-        {children}
-      </>
-    );
-  }
-
-  // Trial expired
-  if (access.status === 'expired') {
-    return <TrialExpiredScreen />;
-  }
-
-  return <>{children}</>;
+  // ── Free for everyone ────────────────────────────────────────────────────
+  // The planner is always shown. We only overlay save/sync prompts and the
+  // entitlement banners on top of it.
+  return (
+    <>
+      {access.status === 'unauthenticated' && <SavePlannerBanner />}
+      {(access.status === 'trial' || access.status === 'comped') &&
+        access.daysRemaining !== undefined && access.daysRemaining <= 7 && (
+        <TrialBanner daysRemaining={access.daysRemaining} />
+      )}
+      {access.status === 'paid' && access.inRefundWindow && (
+        <RefundWindowBanner endsAt={access.refundWindowEndsAt ?? ''} />
+      )}
+      {children}
+    </>
+  );
 };
 
 // ─── Sign In Screen ────────────────────────────────────────────────────────────
@@ -105,6 +80,7 @@ const SignInScreen: React.FC<{ onSignedIn: () => void }> = () => {
   const handleGoogle = async () => {
     setIsSubmitting(true);
     setError(null);
+    track({ type: 'sign_in_started', method: 'google' });
     try {
       await signInWithGoogle();
     } catch (err) {
@@ -117,11 +93,26 @@ const SignInScreen: React.FC<{ onSignedIn: () => void }> = () => {
     }
   };
 
+  const handleApple = async () => {
+    setIsSubmitting(true);
+    setError(null);
+    track({ type: 'sign_in_started', method: 'apple' });
+    try {
+      await signInWithApple();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not start Apple sign-in.';
+      console.error('[auth] Apple sign-in failed:', message);
+      setError(message);
+      setIsSubmitting(false);
+    }
+  };
+
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
     setIsSubmitting(true);
     setError(null);
+    track({ type: 'sign_in_started', method: 'email' });
     try {
       await sendMagicLink(email.trim());
       setSent(true);
@@ -139,24 +130,27 @@ const SignInScreen: React.FC<{ onSignedIn: () => void }> = () => {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="text-[13px] font-bold uppercase tracking-widest text-text-secondary mb-2">Big Picture Planner</div>
-          <h1 className="text-[28px] font-bold text-text-primary leading-tight">Sign in to continue</h1>
+          <h1 className="text-[28px] font-bold text-text-primary leading-tight">Save your planner</h1>
           <p className="mt-3 text-[14px] leading-5 text-text-secondary">
-            If you have an access code, sign in first, then enter it on the next screen. You can also try the demo without signing in.
+            Continue to save your progress and pick up your planner from any device.
           </p>
         </div>
 
         <div className="rounded-large border border-border-default bg-surface-primary p-5 shadow-card space-y-3">
           <button
+            onClick={handleApple}
+            disabled={isSubmitting}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-small border border-border-default bg-surface-primary text-[14px] font-bold text-text-primary hover:bg-surface-secondary disabled:opacity-60 transition-colors"
+          >
+            <AppleMark />
+            Continue with Apple
+          </button>
+          <button
             onClick={handleGoogle}
             disabled={isSubmitting}
             className="flex h-11 w-full items-center justify-center gap-2 rounded-small border border-border-default bg-surface-primary text-[14px] font-bold text-text-primary hover:bg-surface-secondary disabled:opacity-60 transition-colors"
           >
-            <svg width="17" height="17" viewBox="0 0 18 18" aria-hidden="true">
-              <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"/>
-              <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"/>
-              <path fill="#FBBC05" d="M3.964 10.706A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.038l3.007-2.332Z"/>
-              <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58Z"/>
-            </svg>
+            <GoogleMark />
             Continue with Google
           </button>
 
@@ -185,16 +179,16 @@ const SignInScreen: React.FC<{ onSignedIn: () => void }> = () => {
                 disabled={isSubmitting || !email.trim()}
                 className="h-11 w-full rounded-small bg-accent-primary text-[14px] font-bold text-white disabled:opacity-60"
               >
-                {isSubmitting ? 'Sending...' : 'Email me a sign-in link'}
+                {isSubmitting ? 'Sending…' : 'Continue with Email'}
               </button>
             </form>
           )}
           {error && <p className="text-[12px] text-semantic-error font-semibold">{error}</p>}
+          <AuthLegal className="pt-1" />
         </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-center text-[12px] font-bold">
-          <a href={getAppHref('?demo=1&src=signin')} className="text-accent-primary hover:underline">Try demo</a>
-          <a href={getSiteHref('#request')} className="text-accent-primary hover:underline">Back to landing / request access</a>
+          <a href={getAppHref('')} className="text-accent-primary hover:underline">Keep planning without saving</a>
         </div>
         <BetaNote />
       </div>
@@ -294,31 +288,41 @@ const BetaNote: React.FC = () => (
   </p>
 );
 
-// ─── Demo Banner ─────────────────────────────────────────────────────────────
+// ─── Save Planner Banner ───────────────────────────────────────────────────
+// Shown to signed-out users: the planner already works on this device; signing
+// in just saves progress so it follows them across devices. Dismissible.
 
-const DemoBanner: React.FC = () => {
-  // Leaving demo = reload at the base URL (no ?tour/?demo), which drops the
-  // user onto the normal sign-in / code flow.
-  const exitToSignIn = () => {
-    window.location.href = window.location.pathname;
+const SAVE_BANNER_DISMISS_KEY = 'bpp_save_banner_dismissed';
+
+const SavePlannerBanner: React.FC = () => {
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(SAVE_BANNER_DISMISS_KEY) === '1'; } catch { return false; }
+  });
+  if (dismissed) return null;
+
+  const dismiss = () => {
+    setDismissed(true);
+    try { localStorage.setItem(SAVE_BANNER_DISMISS_KEY, '1'); } catch { /* ignore */ }
   };
+
   return (
-    <div className="bg-accent-primary px-4 py-2 flex items-center justify-center gap-3 flex-wrap text-center">
-      <p className="text-[12px] font-bold text-white">
-        👀 You&apos;re in demo mode. Try anything you like. Changes save only on this device.
+    <div className="bg-accent-primary/10 border-b border-accent-primary/20 px-4 py-2 flex items-center justify-center gap-3 flex-wrap text-center">
+      <p className="text-[12px] font-semibold text-text-primary">
+        Your planner is saved on this device. Sign in to keep it across your phone, laptop and tablet.
       </p>
-      <button
-        onClick={exitToSignIn}
-        className="text-[12px] font-bold text-accent-primary bg-white rounded-small px-3 py-1 hover:bg-white/90 transition-colors"
-      >
-        Have a code? Sign in
-      </button>
       <a
-        href={getSiteHref('#request')}
-        className="text-[12px] font-bold text-white underline underline-offset-2 hover:text-white/90"
+        href={getAppHref('sign-in?src=save_banner')}
+        className="text-[12px] font-bold text-white bg-accent-primary rounded-small px-3 py-1 hover:bg-accent-hover transition-colors"
       >
-        Request access
+        Save your planner
       </a>
+      <button
+        onClick={dismiss}
+        className="text-[12px] font-bold text-text-secondary hover:text-text-primary"
+        aria-label="Dismiss"
+      >
+        Not now
+      </button>
     </div>
   );
 };

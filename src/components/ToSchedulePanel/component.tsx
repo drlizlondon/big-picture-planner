@@ -30,6 +30,9 @@ export const ToSchedulePanel: React.FC<Props> = ({
   const [query, setQuery] = useState('');
   const [sortMode, setSortMode] = useState<InboxSortMode>('last-added');
   const trayPointerStart = useRef<{ x: number; y: number } | null>(null);
+  // When a vertical swipe handles the expand/collapse, suppress the click that
+  // the browser synthesises afterwards so the panel doesn't immediately toggle back.
+  const swipeHandledRef = useRef(false);
   const { isOver, setNodeRef } = useDroppable({
     id: 'ready-to-schedule-drop',
     data: { toLifeInbox: true },
@@ -60,11 +63,28 @@ export const ToSchedulePanel: React.FC<Props> = ({
   };
 
   const handleTrayPointerUp = (event: React.PointerEvent) => {
-    if (!trayPointerStart.current || !onTrayExpandedChange) return;
+    if (!trayPointerStart.current) return;
     const deltaY = event.clientY - trayPointerStart.current.y;
     trayPointerStart.current = null;
-    if (Math.abs(deltaY) < 18) return;
-    onTrayExpandedChange(deltaY < 0);
+    // A deliberate vertical swipe sets the state by direction; flag it so the
+    // synthetic click that follows doesn't toggle a second time.
+    if (Math.abs(deltaY) >= 18 && onTrayExpandedChange) {
+      swipeHandledRef.current = true;
+      onTrayExpandedChange(deltaY < 0);
+    }
+  };
+
+  // Tap anywhere on the bar toggles the tray (the whole header is the handle).
+  const handleHeaderClick = () => {
+    if (swipeHandledRef.current) { swipeHandledRef.current = false; return; }
+    onTrayToggle?.();
+  };
+
+  const handleHeaderKey = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onTrayToggle?.();
+    }
   };
 
   const isTray = variant === 'tray';
@@ -77,26 +97,39 @@ export const ToSchedulePanel: React.FC<Props> = ({
         className={`${isTray ? 'mobile-tray-header' : 'mb-3'}`}
         onPointerDown={isTray ? handleTrayPointerDown : undefined}
         onPointerUp={isTray ? handleTrayPointerUp : undefined}
+        onClick={isTray ? handleHeaderClick : undefined}
+        onKeyDown={isTray ? handleHeaderKey : undefined}
+        role={isTray ? 'button' : undefined}
+        tabIndex={isTray ? 0 : undefined}
+        aria-expanded={isTray ? isExpanded : undefined}
+        aria-label={isTray ? (isExpanded ? `Collapse ${inboxTitle}` : `Expand ${inboxTitle}`) : undefined}
       >
-        <button
-          type="button"
-          onClick={onTrayToggle}
-          className={`${isTray ? 'mobile-tray-handle' : 'hidden'}`}
-          aria-label={isExpanded ? `Collapse ${inboxTitle}` : `Expand ${inboxTitle}`}
-          aria-expanded={isExpanded}
-        >
-          <span className={isExpanded ? 'rotate-180' : ''}>▲</span>
-        </button>
-        <div className="min-w-0">
-          <h2 className="text-[13px] font-bold">{inboxTitle} <span className="text-[11px] text-text-muted font-semibold">({unscheduledBlocks?.length || 0})</span></h2>
-          {!isTray && <p className="text-[11px] text-text-secondary mt-0.5">Things waiting for a place.</p>}
-        </div>
+        {isTray && (
+          <>
+            <span className="mobile-tray-grip" aria-hidden="true" />
+            <span className="mobile-tray-chevron" aria-hidden="true">
+              <span className={isExpanded ? 'rotate-180' : ''}>▲</span>
+            </span>
+          </>
+        )}
+        {isTray ? (
+          <div className="mobile-tray-title min-w-0 flex items-baseline gap-2">
+            <h2 className="text-[13px] font-bold text-text-primary">{inboxTitle}</h2>
+            <span className="inbox-count-badge">{unscheduledBlocks?.length || 0}</span>
+            <span className="inbox-helper">Unscheduled items</span>
+          </div>
+        ) : (
+          <div className="min-w-0">
+            <h2 className="text-[13px] font-bold">{inboxTitle} <span className="text-[11px] text-text-muted font-semibold">({unscheduledBlocks?.length || 0})</span></h2>
+            <p className="text-[11px] text-text-secondary mt-0.5">Things waiting for a place.</p>
+          </div>
+        )}
         {isTray && (isDraggingBlock ? (
           <div className="ml-auto text-[11px] font-semibold text-text-secondary">Place it in the week</div>
         ) : (
           <button
             type="button"
-            onClick={() => setSortMode(sortMode === 'last-added' ? 'prioritised' : 'last-added')}
+            onClick={(e) => { e.stopPropagation(); setSortMode(sortMode === 'last-added' ? 'prioritised' : 'last-added'); }}
             className="inbox-sort-btn ml-auto h-7 rounded-small border border-border-default bg-background px-2 text-[11px] font-bold text-text-secondary transition-colors hover:border-accent-primary/35 hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary/20"
             aria-label={`Sort Life Inbox. Current sort: ${sortMode === 'last-added' ? 'Last added' : 'Prioritised'}`}
           >
@@ -139,16 +172,27 @@ export const ToSchedulePanel: React.FC<Props> = ({
         {unscheduledBlocks === undefined ? (
           <p className="text-[14px] text-text-muted text-center mt-4">Loading...</p>
         ) : visibleBlocks.length === 0 ? (
-          <div className={`${isTray ? 'mobile-inbox-empty' : 'text-center mt-4'} text-[13px] text-text-secondary`}>
-            <p>{query.trim() ? 'Nothing matching that search.' : isTray ? 'Nothing to schedule.' : 'Nothing waiting for a place right now.'}</p>
-            {!isTray && !query.trim() && (
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent('planner:start-tour'))}
-                className="mt-2 text-[12px] font-semibold text-accent-primary hover:underline"
-              >
-                ▶ Replay the 60-second demo
-              </button>
+          <div className={`${isTray ? 'mobile-inbox-empty' : 'mt-4'} text-[13px] text-text-secondary`}>
+            {query.trim() ? (
+              <p className="text-center">Nothing matching that search.</p>
+            ) : isTray ? (
+              <p>Nothing to schedule.</p>
+            ) : (
+              <div className="rounded-medium border border-accent-primary/20 bg-accent-primary/[0.04] p-3 text-left">
+                <p className="text-[12px] font-bold uppercase tracking-[0.04em] text-accent-primary">Try this</p>
+                <ol className="mt-2 space-y-1.5 text-[12.5px] leading-snug text-text-secondary">
+                  <li><span className="font-bold text-text-primary">1.</span> Add a few things you need to do.</li>
+                  <li><span className="font-bold text-text-primary">2.</span> Drag them into your week.</li>
+                  <li><span className="font-bold text-text-primary">3.</span> Rearrange until your week feels realistic.</li>
+                </ol>
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('planner:start-tour'))}
+                  className="mt-3 text-[12px] font-semibold text-accent-primary hover:underline"
+                >
+                  ▶ Walk me through it
+                </button>
+              </div>
             )}
           </div>
         ) : (

@@ -36,6 +36,7 @@ const resolveRedirectTo = (): string =>
  * session when the deep link returns.
  */
 const startOAuth = async (
+  provider: Parameters<SupabaseClient['auth']['signInWithOAuth']>[0]['provider'],
   options: Parameters<SupabaseClient['auth']['signInWithOAuth']>[0]['options']
 ): Promise<void> => {
   const supabase = getSupabaseClient();
@@ -43,7 +44,7 @@ const startOAuth = async (
 
   const isNative = Capacitor.isNativePlatform();
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
+    provider,
     options: { ...options, skipBrowserRedirect: isNative },
   });
   if (error) throw error;
@@ -93,7 +94,17 @@ export const getCurrentSession = async (): Promise<Session | null> => {
 };
 
 export const signInWithGoogle = async (): Promise<void> => {
-  await startOAuth({
+  await startOAuth('google', {
+    redirectTo: resolveRedirectTo(),
+  });
+};
+
+/**
+ * Start an Apple sign-in. Requires the Apple provider to be enabled in Supabase
+ * (Service ID + key). Uses the same redirect/native flow as Google.
+ */
+export const signInWithApple = async (): Promise<void> => {
+  await startOAuth('apple', {
     redirectTo: resolveRedirectTo(),
   });
 };
@@ -104,7 +115,7 @@ export const signInWithGoogle = async (): Promise<void> => {
  * if the user previously signed in without the calendar scope.
  */
 export const connectGoogleCalendar = async (): Promise<void> => {
-  await startOAuth({
+  await startOAuth('google', {
     scopes: 'https://www.googleapis.com/auth/calendar.events',
     redirectTo: resolveRedirectTo(),
     queryParams: {

@@ -15,6 +15,8 @@ import { calculateEndTime, detectMinuteOverlap, minutesToTime, timeToMinutes } f
 import { DEFAULT_FILTERS, FILTER_LABELS, matchesPlannerFilters, type PlannerFilterId } from '../../utils/plannerFilters';
 import { formatDate, getStartOfWeek } from '../../utils/dateUtils';
 import { OnboardingTour } from '../OnboardingTour/component';
+import { FeedbackWidget } from '../FeedbackWidget/component';
+import { track, trackOnce } from '../../services/analytics';
 import type { PlannerBlock } from '../../types/models';
 
 const MOBILE_INBOX_PREF_KEY = 'planner.mobileInboxExpanded';
@@ -87,7 +89,14 @@ export const AppShell: React.FC = () => {
   const updateViewMode = (mode: PlannerViewMode) => {
     setViewMode(mode);
     try { localStorage.setItem('planner.viewMode', mode); } catch { /* ignore */ }
+    trackOnce('calendar_view_changed', { type: 'calendar_view_changed', view: mode });
+    track({ type: 'view_changed', view: mode });
   };
+
+  // Activation: the planner is open and in use.
+  useEffect(() => {
+    trackOnce('planner_opened', { type: 'planner_opened' });
+  }, []);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addModalView, setAddModalView] = useState<'menu' | 'paste'>('menu');
 
@@ -428,6 +437,12 @@ export const AppShell: React.FC = () => {
     setIsDraggingBlock(true);
   };
 
+  // Fire the engagement drag event + the one-time activation milestone.
+  const trackDrop = (target: 'week' | 'day' | 'month') => {
+    track({ type: 'drag_completed', target });
+    trackOnce('first_drag_completed', { type: 'first_drag_completed' });
+  };
+
   // Handle drop from Life Inbox -> Week Canvas OR moving between days/times.
   const handleDragEnd = async (event: DragEndEvent) => {
     clearWeekSwitchTimer();
@@ -446,19 +461,25 @@ export const AppShell: React.FC = () => {
       // dropped onto a time slot.
       await moveBlockToDate(blockId, dropData.date);
       setSelectedBlockId(blockId);
+      trackDrop('day');
     } else if ((dropData?.monthDrop || dropData?.allDayDrop) && dropData.date) {
       // Month grid or the all-day lane: change the day, keep the time of day.
       await moveBlockToDate(blockId, dropData.date);
       setSelectedBlockId(blockId);
+      trackDrop(dropData.monthDrop ? 'month' : 'day');
     } else if (dropData && dropData.date && dropData.startTime) {
       await moveBlockToWeek(blockId, dropData.date, dropData.startTime);
       setSelectedBlockId(blockId);
       setLastScheduledBlockId(blockId);
+      trackDrop('week');
+      trackOnce('first_week_planned', { type: 'first_week_planned' });
     } else if (dropData?.edgeWeekOffset) {
       setCurrentDate(prev => addDays(prev, dropData.edgeWeekOffset! * 7));
     } else if (dropData && dropData.toLifeInbox) {
       await moveBlockToSchedule(blockId);
       setSelectedBlockId(null);
+      track({ type: 'drag_completed', target: 'inbox' });
+      trackOnce('life_inbox_used', { type: 'life_inbox_used' });
     }
   };
 
@@ -577,6 +598,8 @@ export const AppShell: React.FC = () => {
             <span className="mobile-add-fab-plus" aria-hidden="true">+</span>
             <span className="mobile-add-fab-label">Add Task</span>
           </button>
+
+          <FeedbackWidget />
         </>
       )}
 
