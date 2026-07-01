@@ -4,12 +4,14 @@ import { createBlock } from '../../services/plannerActions';
 import { DurationSelector } from '../DurationSelector/component';
 import { looksLikePlannerImport, parsePlannerImportText, type PlannerImportItem } from '../../utils/plannerImport';
 import type { ReviewColour } from '../../types/models';
+import type { NewBlockDraft } from '../BlockEditor/component';
 import { PLANNER_IMPORT_PROMPT } from '../../utils/plannerImportPrompt';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onCreateBlock: () => void;
+  /** Open the full editor for a new Block, carrying any in-progress draft. */
+  onCreateBlock: (draft?: NewBlockDraft) => void;
   /** Open straight onto a specific view, e.g. 'paste' for the import flow. */
   initialView?: 'menu' | 'paste';
 }
@@ -184,9 +186,9 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
   };
 
   return (
-    <div className="fixed inset-0 bg-text-primary/20 z-modal flex items-center justify-center" onClick={handleClose}>
-      <div 
-        className="bg-surface-primary w-[460px] max-w-[calc(100vw-32px)] rounded-large shadow-modal p-6"
+    <div className="fixed inset-0 bg-text-primary/20 z-modal flex items-center justify-center p-4" onClick={handleClose}>
+      <div
+        className="bg-surface-primary w-[460px] max-w-full max-h-[calc(100dvh-32px)] overflow-y-auto rounded-large shadow-modal p-6"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -210,8 +212,9 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
                 void handleQuickSave();
               }}
             >
-              <div data-tour="quick-add-field" className="flex flex-col gap-3">
-                <label className="text-[12px] font-bold uppercase text-text-primary tracking-[0.04em]" htmlFor="quick-add-title">Quick add</label>
+              <div data-tour="quick-add-field" className="flex flex-col gap-2">
+                <label className="text-[12px] font-bold uppercase text-text-primary tracking-[0.04em]" htmlFor="quick-add-title">Add to Planner</label>
+                <p className="text-[12px] leading-snug text-text-secondary -mt-1">Quick capture — just a title. It waits in your Life Inbox until you schedule it.</p>
                 <input
                   ref={quickTitleRef}
                   data-tour="quick-add-input"
@@ -224,25 +227,25 @@ export const AddToPlannerModal: React.FC<Props> = ({ isOpen, onClose, onCreateBl
                     void handleQuickSave();
                   }}
                   className="h-[44px] rounded-small border border-border-default bg-white px-3 text-[16px] outline-none focus:border-accent-primary"
-                  placeholder="Example: Book dentist appointment next Tuesday"
+                  placeholder="Example: Book dentist appointment"
                 />
               </div>
-              <DurationSelector value={quickDuration} onChange={setQuickDuration} label="Duration" compact />
               <button
                 type="submit"
                 data-tour="add-ready-button"
                 disabled={!quickTitle.trim() || isQuickSaving}
                 className="w-full h-[44px] bg-accent-primary hover:bg-accent-hover disabled:opacity-50 text-white rounded-medium font-bold text-[14px] transition-colors shadow-sm"
               >
-                {isQuickSaving ? 'Adding...' : 'Add to Life Inbox'}
+                {isQuickSaving ? 'Adding...' : 'Add to Planner'}
               </button>
             </form>
-            <button 
+            <button
               ref={createBtnRef}
-              onClick={onCreateBlock}
-              className="w-full h-[44px] bg-background hover:bg-border-default text-text-primary rounded-medium font-semibold text-[14px] transition-colors flex items-center justify-center border border-border-default"
+              onClick={() => onCreateBlock({ title: quickTitle.trim() || undefined, durationMinutes: quickDuration })}
+              className="w-full h-[44px] bg-background hover:bg-border-default text-text-primary rounded-medium font-semibold text-[14px] transition-colors flex flex-col items-center justify-center border border-border-default leading-tight"
             >
-              New Block
+              <span>New Block</span>
+              <span className="text-[11px] font-medium text-text-secondary">Set date, time, duration & category</span>
             </button>
             <button
               onClick={() => setView('paste')}

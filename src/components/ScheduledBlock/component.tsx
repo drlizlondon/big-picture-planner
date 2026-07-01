@@ -102,7 +102,12 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
   const usesCompactActions = block.durationMinutes <= 45;
   const isLongBlock = block.durationMinutes >= 60;
   const actionPlacement: ActionPlacement = topOffset < 34 ? 'below' : 'above';
-  const titleLineClamp = block.durationMinutes < 45 ? 1 : block.durationMinutes < 90 ? 2 : 3;
+  // Give the title as many lines as the block height reasonably allows, so
+  // medium/long blocks read their full label instead of "Hospital…".
+  const titleLineClamp = block.durationMinutes <= 30 ? 1
+    : block.durationMinutes <= 60 ? 2
+    : block.durationMinutes <= 120 ? 3
+    : 4;
   let endTime = block.endTime;
   if (!endTime) {
     try {

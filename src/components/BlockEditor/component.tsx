@@ -7,11 +7,24 @@ import type { FeatureData } from '../../types/models';
 import { DurationSelector } from '../DurationSelector/component';
 import { BUILT_IN_CHILDCARE_FEATURE_ID, EDITOR_FIELDS, usePlannerSetup, type EditorFieldId } from '../../utils/plannerSetup';
 
+/** Seed values carried into the editor when creating a new Block (e.g. a title
+ *  typed in Quick "Add to Planner", or a day/time from tapping an empty slot). */
+export interface NewBlockDraft {
+  title?: string;
+  durationMinutes?: number;
+  date?: string;
+  startTime?: string;
+}
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   blockId?: string | null;
+  initialDraft?: NewBlockDraft | null;
 }
+
+/** Default duration for a brand-new Block (minutes). */
+const NEW_BLOCK_DEFAULT_DURATION = 30;
 
 const TIMEZONE_OPTIONS = [
   ['America/New_York', 'New York (EST/EDT)'],
@@ -26,7 +39,7 @@ const TIMEZONE_OPTIONS = [
   ['UTC', 'UTC'],
 ];
 
-export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
+export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId, initialDraft }) => {
   const [title, setTitle] = useState('');
   const [duration, setDuration] = useState(15);
   const [description, setDescription] = useState('');
@@ -110,9 +123,19 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
       setSaveAsTemplate(false);
       setAlsoUpdateExternal(false);
     } else if (!blockId && isOpen) {
+      // New Block: start clean, then seed from any draft (preserved Quick-add
+      // title, or a day/time from tapping an empty slot). Default 30 minutes.
       resetForm();
+      const draftDuration = initialDraft?.durationMinutes ?? NEW_BLOCK_DEFAULT_DURATION;
+      setDuration(draftDuration);
+      if (initialDraft?.title) setTitle(initialDraft.title);
+      if (initialDraft?.date) setDate(initialDraft.date);
+      if (initialDraft?.startTime) {
+        setStartTime(initialDraft.startTime);
+        setEndTime(minutesToTime(Math.min(24 * 60, timeToMinutes(initialDraft.startTime) + draftDuration)));
+      }
     }
-  }, [block, isOpen, blockId, resetForm]);
+  }, [block, isOpen, blockId, resetForm, initialDraft]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!isOpen) return null;
@@ -393,9 +416,12 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
         aria-modal="true"
         aria-labelledby="block-editor-title"
       >
-        <div className="h-[72px] flex items-center px-6 border-b border-border-default justify-between flex-shrink-0">
+        <div
+          className="min-h-[64px] flex items-center px-6 border-b border-border-default justify-between flex-shrink-0"
+          style={{ paddingTop: 'max(0px, env(safe-area-inset-top))' }}
+        >
           <h2 id="block-editor-title" className="text-[16px] font-semibold text-text-primary">{blockId ? 'Edit Block' : 'Create Block'}</h2>
-          <button aria-label="Close block editor" onClick={onClose} className="text-text-secondary hover:text-text-primary font-semibold text-[14px] transition-colors">
+          <button aria-label="Close block editor" onClick={onClose} className="-mr-2 min-h-[40px] px-2 text-text-secondary hover:text-text-primary font-semibold text-[14px] transition-colors">
             Close
           </button>
         </div>
@@ -523,13 +549,18 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId }) => {
           </div>
         )}
 
-        <div className="p-6 border-t border-border-default bg-surface-secondary flex-shrink-0">
+        <div
+          className="px-6 pt-4 pb-6 border-t border-border-default bg-surface-secondary flex-shrink-0"
+          style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+        >
           <button
             onClick={handleSave}
             disabled={!title.trim()}
-            className="w-full h-[44px] bg-accent-primary hover:bg-accent-hover disabled:opacity-50 text-white rounded-medium font-bold text-[14px] transition-colors shadow-sm"
+            className="w-full h-[46px] bg-accent-primary hover:bg-accent-hover disabled:opacity-50 text-white rounded-medium font-bold text-[14px] transition-colors shadow-sm"
           >
-            {blockId ? 'Save Changes' : 'Save to Life Inbox'}
+            {blockId
+              ? 'Save Changes'
+              : (date && startTime) ? 'Add to calendar' : 'Save to Life Inbox'}
           </button>
         </div>
       </div>

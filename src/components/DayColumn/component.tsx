@@ -23,9 +23,10 @@ interface Props {
   isExpanded?: boolean;
   activeFilters: PlannerFilterId[];
   onSlotClick?: (position: { date: string; startTime: string }) => void;
+  isDraggingBlock?: boolean;
 }
 
-export const DayColumn: React.FC<Props> = ({ date, onEditBlock, onSelectBlock, selectedBlockId, hourHeight, visibleHours, visibleStartHour, visibleEndHour, isExpanded = false, activeFilters, onSlotClick }) => {
+export const DayColumn: React.FC<Props> = ({ date, onEditBlock, onSelectBlock, selectedBlockId, hourHeight, visibleHours, visibleStartHour, visibleEndHour, isExpanded = false, activeFilters, onSlotClick, isDraggingBlock = false }) => {
   const blocks = useWeekBlocks(date, date) || [];
   const isToday = date === formatDate(new Date());
   const minuteHeight = hourHeight / 60;
@@ -48,7 +49,7 @@ export const DayColumn: React.FC<Props> = ({ date, onEditBlock, onSelectBlock, s
         <div key={hour} className="relative border-b border-border-default/45 box-border" style={{ height: `${hourHeight}px` }}>
           {QUARTERS.map(minute => {
             const startTime = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-            return <DropSlot key={startTime} date={date} startTime={startTime} topOffset={minute * minuteHeight} height={15 * minuteHeight} onSlotClick={onSlotClick} />;
+            return <DropSlot key={startTime} date={date} startTime={startTime} topOffset={minute * minuteHeight} height={15 * minuteHeight} onSlotClick={onSlotClick} isDraggingBlock={isDraggingBlock} />;
           })}
         </div>
       ))}
@@ -86,20 +87,23 @@ interface DropSlotProps {
   topOffset: number;
   height: number;
   onSlotClick?: (position: { date: string; startTime: string }) => void;
+  isDraggingBlock?: boolean;
 }
 
-const DropSlot: React.FC<DropSlotProps> = ({ date, startTime, topOffset, height, onSlotClick }) => {
+const DropSlot: React.FC<DropSlotProps> = ({ date, startTime, topOffset, height, onSlotClick, isDraggingBlock = false }) => {
   const { isOver, setNodeRef } = useDroppable({
     id: `slot-${date}-${startTime}`,
     data: { date, startTime }
   });
 
+  // The slot is a transparent tap-to-add + drop target. Its highlight only
+  // appears while a block is being dragged — never a permanent box on the grid.
   return (
     <div
       ref={setNodeRef}
       data-slot-date={date}
       data-slot-time={startTime}
-      className={`absolute w-full transition-colors hover:bg-accent-primary/[0.045] ${isOver ? 'bg-accent-primary/10 ring-1 ring-inset ring-accent-primary/25' : ''}`}
+      className={`absolute w-full transition-colors cursor-pointer ${isDraggingBlock ? 'hover:bg-accent-primary/[0.045]' : ''} ${isOver ? 'bg-accent-primary/10 ring-1 ring-inset ring-accent-primary/25' : ''}`}
       style={{ top: `${topOffset}px`, height: `${height}px` }}
       onClick={(event) => {
         event.stopPropagation();

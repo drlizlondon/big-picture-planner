@@ -7,7 +7,7 @@ import { DndContext, MouseSensor, TouchSensor, pointerWithin, rectIntersection, 
 import { createBlock, deleteBlock, moveBlockByDays, moveBlockByMinutes, moveBlockToDate, moveBlockToSchedule, moveBlockToWeek, resizeBlockDuration } from '../../services/plannerActions';
 import { redoMovement, undoMovement } from '../../services/blockHistory';
 import { AddToPlannerModal } from '../AddToPlannerModal/component';
-import { BlockEditor } from '../BlockEditor/component';
+import { BlockEditor, type NewBlockDraft } from '../BlockEditor/component';
 import { PlannerSetupPanel } from '../PlannerSetupPanel/component';
 import { ToSchedulePanel } from '../ToSchedulePanel/component';
 import { useBlock, useWeekBlocks } from '../../hooks/usePlannerData';
@@ -140,6 +140,9 @@ export const AppShell: React.FC = () => {
     }
   });
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  // Draft carried into the editor when creating a NEW block (preserved Quick-add
+  // title, or a day/time from tapping an empty calendar slot).
+  const [newBlockDraft, setNewBlockDraft] = useState<NewBlockDraft | null>(null);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<PlannerFilterId[]>(DEFAULT_FILTERS);
   const [plannerTextScale, setPlannerTextScale] = useState(() => {
@@ -175,6 +178,7 @@ export const AppShell: React.FC = () => {
 
   const handleEditBlock = (blockId: string) => {
     setSelectedBlockId(null);
+    setNewBlockDraft(null);
     setEditingBlockId(blockId);
     setIsBlockEditorOpen(true);
   };
@@ -185,6 +189,18 @@ export const AppShell: React.FC = () => {
 
   const handleSlotClick = (position: PlannerSlotPosition) => {
     lastClickedSlotRef.current = position;
+    // Tapping empty calendar space starts a New Block prefilled with that day/time
+    // (deliberate scheduling — Quick Add never schedules).
+    openNewBlockEditor({ date: position.date, startTime: position.startTime, durationMinutes: 30 });
+  };
+
+  // Open the full editor for a brand-new block, carrying an optional draft.
+  const openNewBlockEditor = (draft?: NewBlockDraft) => {
+    setIsAddModalOpen(false);
+    setAddModalView('menu');
+    setEditingBlockId(null);
+    setNewBlockDraft(draft ?? null);
+    setIsBlockEditorOpen(true);
   };
 
   // Prev/next step by the active view: a month, a week, or a day at a time.
@@ -612,17 +628,13 @@ export const AppShell: React.FC = () => {
           setIsAddModalOpen(false);
           setAddModalView('menu');
         }}
-        onCreateBlock={() => {
-          setIsAddModalOpen(false);
-          setAddModalView('menu');
-          setEditingBlockId(null);
-          setIsBlockEditorOpen(true);
-        }}
+        onCreateBlock={(draft) => openNewBlockEditor(draft)}
       />
-      <BlockEditor 
-        isOpen={isBlockEditorOpen} 
-        onClose={() => setIsBlockEditorOpen(false)} 
+      <BlockEditor
+        isOpen={isBlockEditorOpen}
+        onClose={() => { setIsBlockEditorOpen(false); setNewBlockDraft(null); }}
         blockId={editingBlockId}
+        initialDraft={newBlockDraft}
       />
       <PlannerSetupPanel isOpen={isPlannerSetupOpen} onClose={() => setIsPlannerSetupOpen(false)} />
       <OnboardingTour

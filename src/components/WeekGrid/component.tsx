@@ -12,14 +12,18 @@ import { matchesPlannerFilters, type PlannerFilterId } from '../../utils/planner
 import { getCategoryColor } from '../../utils/categoryColors';
 
 type ViewMode = 'day' | 'week' | 'month';
-type ZoomMode = 'compact' | 'comfortable' | 'focus';
+type ZoomMode = 'compact' | 'comfortable' | 'spacious';
 type VisibleHoursPreset = '06-22' | '07-22' | '08-22' | 'custom';
 
 const ZOOM_SCALE: Record<ZoomMode, number> = {
   compact: 0.92,
   comfortable: 1,
-  focus: 1.12,
+  spacious: 1.12,
 };
+
+/** Normalise a stored density value (older builds persisted 'focus'). */
+const normalizeZoom = (value: string): ZoomMode =>
+  value === 'compact' || value === 'spacious' ? value : value === 'focus' ? 'spacious' : 'comfortable';
 
 interface Props {
   currentDate: Date;
@@ -40,7 +44,8 @@ interface Props {
 
 export const WeekGrid: React.FC<Props> = ({ currentDate, viewMode, onViewModeChange, onEditBlock, onSelectBlock, selectedBlockId, expandedDate = null, isDraggingBlock = false, activeFilters, onSlotClick, onToggleExpandDay, onOpenDay }) => {
   const setViewMode = onViewModeChange;
-  const [zoomMode, setZoomMode] = usePersistedSetting<ZoomMode>('planner.zoomMode', 'comfortable');
+  const [storedZoomMode, setZoomMode] = usePersistedSetting<ZoomMode>('planner.zoomMode', 'comfortable');
+  const zoomMode = normalizeZoom(storedZoomMode);
   const [visibleHoursPreset, setVisibleHoursPreset] = usePersistedSetting<VisibleHoursPreset>('planner.visibleHoursPreset', '07-22');
   const [customStartHour, setCustomStartHour] = usePersistedNumberSetting('planner.visibleHoursCustomStart', 7);
   const [customEndHour, setCustomEndHour] = usePersistedNumberSetting('planner.visibleHoursCustomEnd', 22);
@@ -157,8 +162,8 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, viewMode, onViewModeCha
             />
             <SegmentedControl
               value={zoomMode}
-              options={['compact', 'comfortable', 'focus']}
-              labels={{ compact: 'Compact', comfortable: 'Comfortable', focus: 'Focus' }}
+              options={['compact', 'comfortable', 'spacious']}
+              labels={{ compact: 'Compact', comfortable: 'Comfortable', spacious: 'Spacious' }}
               onChange={setZoomMode}
             />
             <ZoomSelect value={zoomMode} onChange={setZoomMode} />
@@ -247,6 +252,7 @@ export const WeekGrid: React.FC<Props> = ({ currentDate, viewMode, onViewModeCha
                 isExpanded={expandedInView && expandedDate === day.value}
                 activeFilters={activeFilters}
                 onSlotClick={onSlotClick}
+                isDraggingBlock={isDraggingBlock}
               />
             ))}
 
@@ -340,7 +346,7 @@ const ZoomSelect: React.FC<{ value: ZoomMode; onChange: (value: ZoomMode) => voi
   >
     <option value="compact">Compact</option>
     <option value="comfortable">Comfortable</option>
-    <option value="focus">Focus</option>
+    <option value="spacious">Spacious</option>
   </select>
 );
 
@@ -506,8 +512,9 @@ const MonthDayCell: React.FC<MonthDayCellProps> = ({ day, dayBlocks, isToday, is
     <div
       ref={setNodeRef}
       data-month-date={day.value}
+      onClick={openDay}
       onDoubleClick={openDay}
-      className={`month-cell flex min-h-0 flex-col ${isSelected ? 'is-selected' : ''} ${day.inMonth ? '' : 'is-outside'} ${isOver ? 'is-drop-target' : ''}`}
+      className={`month-cell flex min-h-0 flex-col cursor-pointer ${isSelected ? 'is-selected' : ''} ${day.inMonth ? '' : 'is-outside'} ${isOver ? 'is-drop-target' : ''}`}
     >
       <button
         type="button"
@@ -701,16 +708,17 @@ interface CurrentTimeMarkerProps {
 }
 
 /**
- * A calm, week-wide "now" line. A soft accent hairline runs across the whole
- * week so you can read the time-of-day at a glance, a time chip sits in the
- * gutter, and a small dot marks today's column — together they place "now"
- * within the week without the alarm-red look of a typical calendar cursor.
- * Rendered behind events (low z-index) so it never slices through event text.
+ * A calm "now" marker scoped to today. The time chip sits in the left gutter so
+ * you can read the time-of-day at a glance, while the accent line + dot appear
+ * ONLY inside today's column — "now" belongs to today, not to every day. Uses a
+ * soft accent (not alarm-red) and sits behind events so it never slices text.
  */
 const CurrentTimeMarker: React.FC<CurrentTimeMarkerProps> = ({ minute, minuteHeight, todayIndex, columnCount, showDot }) => {
   const top = minute * minuteHeight;
   const label = `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
-  const dotLeft = columnCount > 0 ? ((todayIndex + 0.5) / columnCount) * 100 : 50;
+  // The line spans only today's column within the 7-day area.
+  const colWidthPct = columnCount > 0 ? 100 / columnCount : 100;
+  const colLeftPct = columnCount > 0 ? (todayIndex / columnCount) * 100 : 0;
 
   return (
     <div className="now-marker pointer-events-none absolute inset-x-0 z-[6]" style={{ top: `${top}px` }} aria-hidden="true">
@@ -719,9 +727,14 @@ const CurrentTimeMarker: React.FC<CurrentTimeMarkerProps> = ({ minute, minuteHei
           <span className="now-chip -translate-y-1/2">{label}</span>
         </div>
         <div className="relative flex-1">
-          <div className="now-line -translate-y-1/2" />
+          {todayIndex >= 0 && (
+            <div
+              className="now-line absolute top-0 -translate-y-1/2"
+              style={{ left: `${colLeftPct}%`, width: `${colWidthPct}%` }}
+            />
+          )}
           {showDot && todayIndex >= 0 && (
-            <div className="now-dot -translate-y-1/2" style={{ left: `${dotLeft}%` }} />
+            <div className="now-dot -translate-y-1/2" style={{ left: `${colLeftPct}%` }} />
           )}
         </div>
       </div>
