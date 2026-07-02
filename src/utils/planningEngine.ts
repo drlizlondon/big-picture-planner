@@ -107,6 +107,26 @@ export const getBlockConflicts = (
   });
 };
 
+export type OverlapSeverity = 'none' | 'soft' | 'hard';
+
+/**
+ * Severity of a block's overlaps with the day's other blocks.
+ * - 'none': no overlap.
+ * - 'soft': overlaps, but the block (or every overlapping counterpart) has
+ *   allowOverlap — an accepted overlay (e.g. a meeting inside a shift) → orange.
+ * - 'hard': an unacknowledged clash → red.
+ * Reuses getBlockConflicts so there is exactly one overlap detector.
+ */
+export const getOverlapSeverity = (
+  block: PlannerBlock,
+  dailyBlocks: PlannerBlock[]
+): OverlapSeverity => {
+  const conflicts = getBlockConflicts(block, dailyBlocks);
+  if (conflicts.length === 0) return 'none';
+  if (block.allowOverlap || conflicts.every(other => other.allowOverlap)) return 'soft';
+  return 'hard';
+};
+
 export interface ImportValidationResult {
   isValid: boolean;
   requiresReview: boolean;

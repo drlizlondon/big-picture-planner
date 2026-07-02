@@ -100,6 +100,9 @@ export interface PlannerBlock {
   additionalTimezone?: string;
   features: Record<string, FeatureData>; // Key: Feature ID
   reviewColour?: ReviewColour;
+  /** User accepted that this block overlaps others (e.g. a meeting inside a
+      shift) — downgrades a red clash to an orange "overlap allowed". */
+  allowOverlap?: boolean;
   importSource?: string;
   importRawLine?: string;
   

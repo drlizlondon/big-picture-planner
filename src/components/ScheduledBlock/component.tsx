@@ -2,9 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { PlannerBlock } from '../../types/models';
-import { calculateEndTime, getBlockConflicts, getEffectiveMinuteRange, minutesToTime, timeToMinutes } from '../../utils/planningEngine';
+import { calculateEndTime, getEffectiveMinuteRange, getOverlapSeverity, minutesToTime, timeToMinutes } from '../../utils/planningEngine';
 import { useCategories, useFeatures } from '../../hooks/usePlannerData';
-import { deleteBlock, duplicateBlock, moveBlockToSchedule, moveBlockToWeek, pushBlockToExternalCalendar } from '../../services/plannerActions';
+import { deleteBlock, duplicateBlock, moveBlockToSchedule, moveBlockToWeek, pushBlockToExternalCalendar, updateBlock } from '../../services/plannerActions';
 import { BUILT_IN_CHILDCARE_FEATURE_ID } from '../../utils/plannerSetup';
 import { formatDurationLabel } from '../../utils/durationLabels';
 import { isGCalBlock } from '../../services/googleCalendarService';
@@ -119,9 +119,8 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
   const timeRange = `${block.startTime} - ${endTime}`;
   const visibleTimeLabel = isShortBlock ? block.startTime : timeRange;
 
-  const conflicts = getBlockConflicts(block, dailyBlocks);
-  const hasConflicts = conflicts.length > 0;
-  
+  const overlapSeverity = getOverlapSeverity(block, dailyBlocks);
+
   const effectiveRange = getEffectiveMinuteRange(block);
   const isOutOfBounds = effectiveRange?.startOutOfBounds || effectiveRange?.endOutOfBounds;
 
@@ -142,7 +141,7 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
     }
   }
 
-  const blockTone = getBlockTone(block, hasConflicts, category ? categoryColor : undefined);
+  const blockTone = getBlockTone(block, overlapSeverity, category ? categoryColor : undefined);
   const style = {
     top: `${topOffset}px`,
     height: `${Math.max(block.durationMinutes * minuteHeight, isShortBlock ? 40 : 46)}px`,
@@ -360,7 +359,27 @@ export const ScheduledBlock: React.FC<Props> = ({ block, dailyBlocks, onEditBloc
         {(gcal || ics) && <CalendarSyncBadge status={syncStatus} />}
         {childcare?.enabled && !childcare.isComplete && <div className="scheduled-block-badge font-semibold bg-white/70 border border-border-default px-1 rounded flex items-center whitespace-nowrap" title="Childcare needed">Childcare?</div>}
         {childcare?.enabled && childcare.isComplete && <div className="scheduled-block-badge font-semibold bg-white/60 border border-border-default px-1 rounded flex items-center whitespace-nowrap opacity-80" title="Childcare sorted">✓ childcare</div>}
-        {hasConflicts && <div className="scheduled-block-badge font-bold text-semantic-danger bg-white/75 border border-semantic-danger/30 px-1 rounded flex items-center whitespace-nowrap" title="Overlaps with another block">⚠ overlap</div>}
+        {overlapSeverity !== 'none' && (
+          <button
+            type="button"
+            onPointerDown={stopActionPointer}
+            onPointerUp={stopActionPointer}
+            onClick={async (e) => {
+              e.stopPropagation();
+              await updateBlock(block.id, { allowOverlap: !block.allowOverlap });
+            }}
+            className={`scheduled-block-badge pointer-events-auto font-bold px-1 rounded flex items-center whitespace-nowrap cursor-pointer transition-colors ${
+              overlapSeverity === 'hard'
+                ? 'text-semantic-danger bg-white/75 border border-semantic-danger/30 hover:bg-semantic-danger/10'
+                : 'text-[#B45309] bg-white/75 border border-[#F4B04F]/50 hover:bg-[#F4B04F]/15'
+            }`}
+            title={overlapSeverity === 'hard'
+              ? 'Overlaps with another block — tap to mark this overlap as OK'
+              : 'Overlap allowed — tap to treat it as a clash again'}
+          >
+            {overlapSeverity === 'hard' ? '⚠ overlap · allow?' : '✓ Overlap allowed'}
+          </button>
+        )}
         {isOutOfBounds && <div className="scheduled-block-badge font-bold text-semantic-danger bg-white/75 border border-semantic-danger/30 px-1 rounded flex items-center whitespace-nowrap" title="Travel extends outside day bounds">⚠ bounds</div>}
         {isLongBlock && <div className="scheduled-block-badge font-semibold text-text-secondary bg-white/55 border border-border-default px-1 rounded whitespace-nowrap">{formatDurationLabel(block.durationMinutes)}</div>}
       </div>
@@ -650,12 +669,13 @@ const toneFromHex = (hex: string): { background: string; border: string; accent:
   return { background: `${valid}14`, border: `${valid}66`, accent: valid };
 };
 
-const getBlockTone = (block: PlannerBlock, hasConflicts: boolean, categoryColor?: string): { background: string; border: string; accent: string } => {
+const getBlockTone = (block: PlannerBlock, overlapSeverity: 'none' | 'soft' | 'hard', categoryColor?: string): { background: string; border: string; accent: string } => {
   // Status signals win so they're never hidden by a category colour.
-  if (hasConflicts || block.reviewColour === 'RED') {
+  if (overlapSeverity === 'hard' || block.reviewColour === 'RED') {
     return { background: '#FFF1F3', border: '#FDA4AF', accent: '#E85D75' };
   }
-  if (block.reviewColour === 'ORANGE') {
+  // An accepted overlap (allowOverlap) reads as a calm orange, not an alarm.
+  if (overlapSeverity === 'soft' || block.reviewColour === 'ORANGE') {
     return { background: '#FFF7E6', border: '#F4B04F', accent: '#F59E0B' };
   }
   // A category colour (including one assigned per source calendar on import)

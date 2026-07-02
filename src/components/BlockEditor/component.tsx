@@ -57,6 +57,7 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId, initial
   const [features, setFeatures] = useState<Record<string, FeatureData>>({});
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [alsoUpdateExternal, setAlsoUpdateExternal] = useState(false);
+  const [allowOverlap, setAllowOverlap] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const titleRef = useRef<HTMLInputElement>(null);
@@ -88,6 +89,7 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId, initial
     setFeatures({});
     setSaveAsTemplate(false);
     setAlsoUpdateExternal(false);
+    setAllowOverlap(false);
     setError(null);
   }, []);
 
@@ -122,6 +124,7 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId, initial
       setFeatures(block.features || {});
       setSaveAsTemplate(false);
       setAlsoUpdateExternal(false);
+      setAllowOverlap(block.allowOverlap || false);
     } else if (!blockId && isOpen) {
       // New Block: start clean, then seed from any draft (preserved Quick-add
       // title, or a day/time from tapping an empty slot). Default 30 minutes.
@@ -205,6 +208,7 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId, initial
       travelAfterMinutes,
       additionalTimezone: additionalTzToSave,
       features,
+      allowOverlap,
     };
 
     if (blockId) {
@@ -507,6 +511,21 @@ export const BlockEditor: React.FC<Props> = ({ isOpen, onClose, blockId, initial
           <DurationSelector value={duration} onChange={handleDurationChange} />
           {startTime && (
             <p className="-mt-2 text-[11px] text-text-muted">Start, end and duration stay in sync — change any one.</p>
+          )}
+
+          {startTime && (
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={allowOverlap}
+                onChange={(e) => setAllowOverlap(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded text-accent-primary focus:ring-accent-primary border-border-default"
+              />
+              <span className="flex flex-col">
+                <span className="text-[13px] font-semibold text-text-primary">Allow this block to overlap other blocks</span>
+                <span className="text-[11px] text-text-secondary">e.g. a meeting inside a shift — shows as an orange overlay instead of a red clash.</span>
+              </span>
+            </label>
           )}
 
           {renderLocationFields('basic')}
