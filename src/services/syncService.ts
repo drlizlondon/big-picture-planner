@@ -1,5 +1,5 @@
 import { db, createId } from '../db/db';
-import type { ImportDecision, PlannerBlock, PlannerTemplate, SyncAction, SyncEntityType, SyncStatusText } from '../types/models';
+import type { Category, ImportDecision, PlannerBlock, PlannerTemplate, SyncAction, SyncEntityType, SyncStatusText } from '../types/models';
 import { getCurrentSession, getSupabaseClient } from './supabaseClient';
 import { getRetryDelayMs, getSyncStatusLabel, mergeQueuedChange, shouldQueueForSync } from './syncCore';
 import { syncGoogleCalendarEvents } from './googleCalendarService';
@@ -7,6 +7,7 @@ import { syncGoogleCalendarEvents } from './googleCalendarService';
 const CLOUD_TABLES: Record<SyncEntityType, string> = {
   blocks: 'planner_blocks',
   templates: 'planner_templates',
+  categories: 'planner_categories',
 };
 
 const IMPORT_META_PREFIX = 'cloudImportDecision:';
@@ -14,7 +15,7 @@ const LAST_PULLED_PREFIX = 'cloudLastPulledAt:';
 const SYNC_EVENT = 'planner-sync-change';
 const PERIODIC_SYNC_MS = 5 * 60 * 1000;
 
-type SyncPayload = PlannerBlock | PlannerTemplate;
+type SyncPayload = PlannerBlock | PlannerTemplate | Category;
 
 export interface SyncSnapshot {
   label: SyncStatusText;
@@ -55,18 +56,32 @@ export const subscribeToSyncChanges = (callback: () => void): (() => void) => {
   window.addEventListener('offline', callback);
 
   const supabase = getSupabaseClient();
+
+  // A logged-in account is always synced: pull the cloud, import any existing
+  // on-device data once (self-guarded), then flush the queue.
+  const pullImportFlush = () => {
+    void pullFromCloud()
+      .then(() => queueLocalImportForCurrentUser())
+      .then(() => syncPendingChanges());
+    void syncGoogleCalendarEvents();
+  };
+
   const subscription = supabase?.auth.onAuthStateChange((event) => {
     callback();
-    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-      // A logged-in account is always synced: pull the cloud, import any
-      // existing on-device data once (self-guarded), then flush the queue.
-      void pullFromCloud()
-        .then(() => queueLocalImportForCurrentUser())
-        .then(() => syncPendingChanges());
-      void syncGoogleCalendarEvents();
+    // INITIAL_SESSION fires when a returning user's session is silently restored
+    // on load — treat it like a fresh sign-in so their data hydrates immediately
+    // instead of waiting for the periodic pull.
+    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+      pullImportFlush();
     } else {
       void syncPendingChanges();
     }
+  });
+
+  // Belt-and-braces: if a session already exists at subscribe time (e.g. the
+  // auth event fired before this listener attached), hydrate right away.
+  void getCurrentSession().then((session) => {
+    if (session) pullImportFlush();
   });
 
   const periodicInterval = setInterval(() => {
@@ -278,9 +293,10 @@ export const pullFromCloud = async (): Promise<void> => {
   };
 
   try {
-    const [blockRows, templateRows] = await Promise.all([
+    const [blockRows, templateRows, categoryRows] = await Promise.all([
       fetchRows('planner_blocks'),
       fetchRows('planner_templates'),
+      fetchRows('planner_categories'),
     ]);
 
     for (const row of blockRows) {
@@ -309,6 +325,23 @@ export const pullFromCloud = async (): Promise<void> => {
           await db.templates.put({ ...cloud, id: row.id, isArchived: true, updatedAt: cloudUpdatedAt });
         } else {
           await db.templates.put({ ...cloud, id: row.id });
+        }
+      }
+    }
+
+    for (const row of categoryRows) {
+      if (!row.payload || typeof row.payload !== 'object') continue;
+      const cloud = row.payload as Category;
+      const cloudUpdatedAt = new Date(row.updated_at).getTime();
+      const local = await db.categories.get(row.id);
+
+      // Missing local.updatedAt (older local rows) is treated as 0 so the cloud
+      // copy wins on a device that has never synced this category.
+      if (!local || cloudUpdatedAt > (local.updatedAt ?? 0)) {
+        if (row.deleted_at) {
+          await db.categories.put({ ...cloud, id: row.id, isArchived: true, updatedAt: cloudUpdatedAt });
+        } else {
+          await db.categories.put({ ...cloud, id: row.id, updatedAt: cloudUpdatedAt });
         }
       }
     }

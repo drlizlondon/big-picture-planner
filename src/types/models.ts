@@ -114,6 +114,8 @@ export interface Category {
   name: string;
   colorHex: string;
   isArchived: boolean;
+  /** Last-modified time (ms) — used for cloud sync conflict resolution. */
+  updatedAt?: number;
 }
 
 export interface FeatureDefinition {
@@ -195,7 +197,7 @@ export interface CalendarImportPreference {
   updatedAt: number;
 }
 
-export type SyncEntityType = 'blocks' | 'templates';
+export type SyncEntityType = 'blocks' | 'templates' | 'categories';
 export type SyncAction = 'upsert' | 'delete';
 export type SyncStatusText = 'Saved on this device' | 'Offline' | 'Sync pending' | 'Syncing' | 'Synced' | 'Sync failed, retrying';
 export type ImportDecision = 'imported' | 'device-only' | 'later';
@@ -205,7 +207,7 @@ export interface SyncQueueItem {
   entityType: SyncEntityType;
   entityId: string;
   action: SyncAction;
-  payload?: PlannerBlock | PlannerTemplate;
+  payload?: PlannerBlock | PlannerTemplate | Category;
   createdAt: number;
   updatedAt: number;
   attempts: number;

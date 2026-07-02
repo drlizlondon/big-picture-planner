@@ -107,25 +107,32 @@ export const archiveTemplate = async (id: string): Promise<void> => {
 
 export const createCategory = async (categoryData: Pick<Category, 'name' | 'colorHex'>): Promise<string> => {
   const id = createId();
-  await db.categories.add({
+  const category: Category = {
     id,
     name: categoryData.name.trim(),
     colorHex: categoryData.colorHex,
     isArchived: false,
-  });
+    updatedAt: Date.now(),
+  };
+  await db.categories.add(category);
+  await enqueueSyncChange('categories', id, 'upsert', category);
   return id;
 };
 
 export const updateCategory = async (id: string, updates: Partial<Pick<Category, 'name' | 'colorHex' | 'isArchived'>>): Promise<void> => {
-  const normalizedUpdates = { ...updates };
+  const normalizedUpdates = { ...updates, updatedAt: Date.now() };
   if (typeof updates.name === 'string') {
     normalizedUpdates.name = updates.name.trim();
   }
   await db.categories.update(id, normalizedUpdates);
+  const category = await db.categories.get(id);
+  if (category) await enqueueSyncChange('categories', id, category.isArchived ? 'delete' : 'upsert', category);
 };
 
 export const archiveCategory = async (id: string): Promise<void> => {
-  await db.categories.update(id, { isArchived: true });
+  await db.categories.update(id, { isArchived: true, updatedAt: Date.now() });
+  const category = await db.categories.get(id);
+  if (category) await enqueueSyncChange('categories', id, 'delete', category);
 };
 
 export const duplicateBlock = async (id: string, inPlace: boolean = false): Promise<string | null> => {
